@@ -61,8 +61,8 @@ export async function pollPendingCryptoPayments() {
           await storage.cancelPendingOrder(payment.orderId);
           log(`Auto-cancelled order for failed crypto payment ${payment.forebitPaymentId}`);
         }
-      } catch {
-        // Skip individual errors silently
+      } catch (err: any) {
+        console.error(`[crypto-poller] Failed to process payment ${payment.forebitPaymentId}:`, err?.message ?? err);
       }
     }
   } catch (err: any) {

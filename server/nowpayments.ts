@@ -1,3 +1,5 @@
+import { createHmac } from "crypto";
+
 const NOWPAYMENTS_API_BASE = "https://api.nowpayments.io/v1";
 
 function getApiKey(): string {
@@ -86,7 +88,6 @@ export function verifyNowPaymentsWebhook(body: Record<string, any>, signature: s
   if (!secret) return false; // Fail closed — require secret to be configured
 
   try {
-    const { createHmac } = require("crypto");
     const sorted = JSON.stringify(
       Object.keys(body).sort().reduce((acc: Record<string, any>, k) => { acc[k] = body[k]; return acc; }, {})
     );

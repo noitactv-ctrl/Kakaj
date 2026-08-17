@@ -8,7 +8,7 @@ import { z } from "zod";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { createNowPaymentsInvoice, getNowPaymentsInvoice, mapNowPaymentsStatus, verifyNowPaymentsWebhook } from "./nowpayments";
 import { hashPassword, comparePassword } from "./auth";
-import { cryptoPayments, orders, orderItems, verifications, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, products } from "@shared/schema";
+import { cryptoPayments, orders, orderItems, verifications, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, products, redeemCodes } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, desc, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
@@ -98,14 +98,22 @@ export async function registerRoutes(
 
   // Public announcements
   app.get("/api/announcements", async (req, res) => {
-    const all = await storage.getAnnouncements();
-    res.json(all);
+    try {
+      const all = await storage.getAnnouncements();
+      res.json(all);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
   });
 
   // Products
   app.get(api.products.list.path, async (req, res) => {
-    const products = await storage.getProducts();
-    res.json(products);
+    try {
+      const products = await storage.getProducts();
+      res.json(products);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
   });
 
   // Top selling products in the past hour
@@ -201,33 +209,56 @@ export async function registerRoutes(
 
   app.get(api.orders.list.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const orders = await storage.getOrders((req.user as any).id);
-    res.json(orders);
+    try {
+      const orders = await storage.getOrders((req.user as any).id);
+      res.json(orders);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
   });
 
   app.get(api.orders.get.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const order = await storage.getOrder(Number(req.params.id));
-    if (!order || order.userId !== (req.user as any).id) {
-      return res.status(404).json({ message: "Order not found" });
+    try {
+      const order = await storage.getOrder(Number(req.params.id));
+      if (!order || order.userId !== (req.user as any).id) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      res.json(order);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
     }
-    res.json(order);
   });
 
   // Wallet & Redeem
   app.post(api.wallet.redeem.path, walletLimiter, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const code = await storage.getRedeemCode(req.body.code);
-    
-    if (!code || code.isUsed) {
-      return res.status(400).json({ message: "Invalid or used code" });
+    try {
+      const codeStr = req.body.code;
+      if (!codeStr || typeof codeStr !== "string") {
+        return res.status(400).json({ message: "Code required" });
+      }
+
+      // Atomic claim — only succeeds if the code exists and is not yet used
+      // Using a single UPDATE … WHERE is_used = false prevents double-redeem races
+      const claimed = await db
+        .update(redeemCodes)
+        .set({ isUsed: true, usedBy: (req.user as any).id })
+        .where(and(eq(redeemCodes.code, codeStr.trim().toUpperCase()), eq(redeemCodes.isUsed, false)))
+        .returning();
+
+      if (claimed.length === 0) {
+        return res.status(400).json({ message: "Invalid or already used code" });
+      }
+
+      const code = claimed[0];
+      const updatedUser = await storage.updateUserBalance((req.user as any).id, code.amount);
+      await storage.createTransaction((req.user as any).id, code.amount, "deposit", `Redeemed code: ${code.code}`);
+
+      res.json({ newBalance: updatedUser.balance, amountAdded: code.amount });
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
     }
-
-    await storage.markRedeemCodeUsed(code.id, (req.user as any).id);
-    const updatedUser = await storage.updateUserBalance((req.user as any).id, code.amount);
-    await storage.createTransaction((req.user as any).id, code.amount, "deposit", `Redeemed code: ${code.code}`);
-
-    res.json({ newBalance: updatedUser.balance, amountAdded: code.amount });
   });
 
   app.get(api.wallet.transactions.path, async (req, res) => {
@@ -359,6 +390,7 @@ export async function registerRoutes(
   // Games
   app.post(api.games.dice.path, gameLimiter, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
     const user = req.user as any;
     const bet = Number(req.body.betAmount);
 
@@ -368,7 +400,12 @@ export async function registerRoutes(
     if (bet > 100000) {
       return res.status(400).json({ message: "Bet amount exceeds maximum allowed." });
     }
-    if (user.balance < bet) return res.status(400).json({ message: "Insufficient balance" });
+
+    // Always fetch a fresh balance from the DB to prevent stale session data enabling overbetting
+    const freshUser = await storage.getUser(user.id);
+    if (!freshUser || freshUser.balance < bet) {
+      return res.status(400).json({ message: "Insufficient balance" });
+    }
 
     // Deduct bet
     await storage.updateUserBalance(user.id, -bet);
@@ -402,6 +439,9 @@ export async function registerRoutes(
       payout,
       newBalance: updatedUser?.balance || 0,
     });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
   });
 
   app.post(api.games.spin.path, gameLimiter, async (req, res) => {
@@ -468,15 +508,19 @@ export async function registerRoutes(
   // Telegram — generate a one-time link token (valid 1 hour)
   app.post("/api/telegram/link-token", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
-    const userId = (req.user as any).id;
-    const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-    await db.execute(sql`
-      DELETE FROM telegram_link_tokens WHERE user_id = ${userId}
-    `);
-    await db.execute(sql`
-      INSERT INTO telegram_link_tokens (token, user_id) VALUES (${token}, ${userId})
-    `);
-    res.json({ token });
+    try {
+      const userId = (req.user as any).id;
+      const token = randomBytes(24).toString("hex");
+      await db.execute(sql`
+        DELETE FROM telegram_link_tokens WHERE user_id = ${userId}
+      `);
+      await db.execute(sql`
+        INSERT INTO telegram_link_tokens (token, user_id) VALUES (${token}, ${userId})
+      `);
+      res.json({ token });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
   });
 
   // User Rank
@@ -729,7 +773,11 @@ export async function registerRoutes(
     }
     try {
       const { status } = req.body;
-      const [order] = await db.update(orders).set({ status } as any).where(eq(orders.id, Number(req.params.id))).returning();
+      const allowed = ["pending", "paid", "delivering", "fulfilled", "cancelled", "refunded"] as const;
+      if (!allowed.includes(status)) {
+        return res.status(400).json({ message: `Invalid status. Must be one of: ${allowed.join(", ")}` });
+      }
+      const [order] = await db.update(orders).set({ status }).where(eq(orders.id, Number(req.params.id))).returning();
       res.json(order);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
