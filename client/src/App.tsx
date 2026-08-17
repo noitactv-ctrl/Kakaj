@@ -7,6 +7,7 @@ import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useForebitPolling } from "@/hooks/use-forebit-polling";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 // Pages
 import AuthPage from "@/pages/AuthPage";
@@ -27,6 +28,19 @@ import BecomeResellerPage from "@/pages/BecomeSellerPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SupportPage from "@/pages/SupportPage";
 
+function HomeRedirect() {
+  const { data: features } = useQuery<any>({ queryKey: ["/api/settings/features"], staleTime: 60000 });
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    if (features && features.logs === false) {
+      setLocation("/deposit");
+    }
+  }, [features, setLocation]);
+  if (!features) return null;
+  if (features.logs === false) return null;
+  return <ShopPage />;
+}
+
 function Router() {
   const { user, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
@@ -46,7 +60,7 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/auth" component={AuthPage} />
-        <Route path="/" component={ShopPage} />
+        <Route path="/" component={HomeRedirect} />
         <Route path="/deposit" component={DepositPage} />
         <Route path="/shop" component={ShopPage} />
         <Route path="/product/:name" component={ProductDetailPage} />
