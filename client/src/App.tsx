@@ -28,30 +28,43 @@ import BecomeResellerPage from "@/pages/BecomeSellerPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SupportPage from "@/pages/SupportPage";
 
-function HomeRedirect() {
+function useFeatureRedirect(
+  isOff: (f: any) => boolean,
+  fallback: (f: any) => string,
+) {
   const { data: features } = useQuery<any>({ queryKey: ["/api/settings/features"], staleTime: 60000 });
   const [, setLocation] = useLocation();
   useEffect(() => {
-    if (features && features.logs === false) {
-      setLocation("/cards");
-    }
-  }, [features, setLocation]);
-  if (!features) return null;
-  if (features.logs === false) return null;
+    if (features && isOff(features)) setLocation(fallback(features));
+  }, [features]);
+  return features;
+}
+
+function HomeRedirect() {
+  const features = useFeatureRedirect(
+    f => f.logs === false,
+    f => f.cards !== false ? "/cards" : "/deposit",
+  );
+  if (!features || features.logs === false) return null;
   return <ShopPage />;
 }
 
 function ShopRedirect() {
-  const { data: features } = useQuery<any>({ queryKey: ["/api/settings/features"], staleTime: 60000 });
-  const [, setLocation] = useLocation();
-  useEffect(() => {
-    if (features && features.logs === false) {
-      setLocation("/cards");
-    }
-  }, [features, setLocation]);
-  if (!features) return null;
-  if (features.logs === false) return null;
+  const features = useFeatureRedirect(
+    f => f.logs === false,
+    f => f.cards !== false ? "/cards" : "/deposit",
+  );
+  if (!features || features.logs === false) return null;
   return <ShopPage />;
+}
+
+function CardsRedirect() {
+  const features = useFeatureRedirect(
+    f => f.cards === false,
+    () => "/deposit",
+  );
+  if (!features || features.cards === false) return null;
+  return <CardsPage />;
 }
 
 function Router() {
@@ -83,7 +96,7 @@ function Router() {
         <Route path="/cart" component={CartPage} />
         <Route path="/ranks" component={RanksPage} />
         <Route path="/worker" component={WorkerDashboardPage} />
-        <Route path="/cards" component={CardsPage} />
+        <Route path="/cards" component={CardsRedirect} />
         <Route path="/checker" component={CheckerPage} />
         <Route path="/become-reseller" component={BecomeResellerPage} />
         <Route path="/profile" component={ProfilePage} />
