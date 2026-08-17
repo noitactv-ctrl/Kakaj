@@ -513,6 +513,14 @@ function ProductsSection() {
                     </FormControl>
                   </FormItem>
                 )} />
+                <FormField control={addForm.control} name="image" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Image URL <span className="text-white/40 font-normal">(optional)</span></FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="https://i.imgur.com/..." className="bg-[#111]/5 border-white/10 text-sm" />
+                    </FormControl>
+                  </FormItem>
+                )} />
                 <Button type="submit" size="sm" className="w-full text-xs" disabled={addMutation.isPending}>
                   {addMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}Save Product
                 </Button>
@@ -549,6 +557,14 @@ function ProductsSection() {
                         rows={4}
                         className="bg-[#111]/5 border-white/10 resize-none text-sm"
                       />
+                    </FormControl>
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="image" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Image URL <span className="text-white/40 font-normal">(optional)</span></FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="https://i.imgur.com/..." className="bg-[#111]/5 border-white/10 text-sm" />
                     </FormControl>
                   </FormItem>
                 )} />
