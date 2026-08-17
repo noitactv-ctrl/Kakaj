@@ -354,13 +354,20 @@ export function startTelegramBot() {
     );
   });
 
-  // Start long polling
+  // Start long polling — catch 409 Conflict gracefully (happens on rapid restarts
+  // when the previous long-poll connection hasn't timed out yet on Telegram's side)
   bot.start({
     onStart: () => log("Telegram bot started (long polling)", "telegram"),
+  }).catch((err: any) => {
+    if (err?.error_code === 409) {
+      log("Telegram bot 409 conflict — another instance is still polling. Will retry on next start.", "telegram");
+    } else {
+      console.error("[telegram] polling error:", err?.message ?? err);
+    }
   });
 
   bot.catch((err) => {
-    console.error("[telegram] error:", err.message);
+    console.error("[telegram] update handler error:", err.message);
   });
 
   return bot;
