@@ -81,11 +81,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="block w-5 h-[2px] bg-white/70 rounded transition-all" />
         </button>
 
-        {/* Wordmark */}
-        <span className="text-primary font-black tracking-[0.18em] uppercase text-sm select-none">
-          foodplug
-        </span>
-
         {/* Balance pill */}
         {user ? (
           <Link href="/deposit">
