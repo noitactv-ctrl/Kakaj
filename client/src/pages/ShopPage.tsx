@@ -24,117 +24,85 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
   const isTop1 = rank === 0;
   const isTop2 = rank === 1;
 
-  const nameFontSize =
-    product.name.length > 20 ? "0.62rem"
-    : product.name.length > 14 ? "0.78rem"
-    : product.name.length > 9  ? "0.95rem"
-    : "1.15rem";
-
   return (
     <Link href={`/product/${encodeURIComponent(product.name)}`}>
       <div
-        className="cursor-pointer transition-all hover:brightness-110 active:scale-[0.98] flex flex-col select-none overflow-hidden"
+        className="cursor-pointer group select-none overflow-hidden flex flex-col transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.97]"
         style={{
+          borderRadius: 6,
           border: isTop1
-            ? "1.5px solid hsl(330 80% 62%)"
-            : isTop2
-            ? "1.5px solid hsla(330,80%,60%,0.45)"
-            : "1.5px solid hsla(330,80%,60%,0.22)",
-          borderRadius: 5,
+            ? "1px solid hsl(330 80% 58%)"
+            : "1px solid hsla(330,80%,60%,0.18)",
           boxShadow: isTop1
-            ? "0 0 18px hsla(330,80%,60%,0.25), 0 2px 8px rgba(0,0,0,0.7)"
-            : "0 2px 8px rgba(0,0,0,0.55)",
+            ? "0 0 14px hsla(330,80%,55%,0.22), 0 2px 6px rgba(0,0,0,0.6)"
+            : "0 1px 4px rgba(0,0,0,0.5)",
+          background: "#0b0b14",
         }}
         data-testid={`card-product-${product.id}`}
       >
-        {/* ── Card face — topographic background ── */}
-        <div className="relative w-full aspect-square overflow-hidden flex flex-col items-center justify-center" style={{ background: "#08080e" }}>
-
-          {/* Topographic SVG — same for every card */}
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 320 320" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-            <g stroke="hsl(330 65% 42%)" strokeWidth="0.65" fill="none" opacity="0.6">
-              {/* Horizontal contour lines spanning full height */}
-              <path d="M-30,10 C20,2 70,22 120,8 S190,-4 240,14 S290,28 340,10"/>
-              <path d="M-30,36 C15,28 65,48 115,34 S185,20 235,40 S288,54 338,36"/>
-              <path d="M-30,62 C10,52 60,72 110,60 S180,44 230,64 S285,78 335,62"/>
-              <path d="M-30,88 C5,78 55,98 105,86 S175,70 225,90 S282,104 332,88"/>
-              <path d="M-30,114 C2,104 50,124 100,112 S172,96 220,116 S280,130 330,114"/>
-              <path d="M-30,140 C0,130 47,150 97,138 S170,122 218,142 S278,156 328,140"/>
-              <path d="M-30,166 C-2,156 44,176 94,164 S168,148 216,168 S276,184 326,166"/>
-              <path d="M-30,192 C0,182 46,202 96,190 S169,174 217,194 S277,210 327,192"/>
-              <path d="M-30,218 C1,208 47,228 97,216 S170,200 218,220 S278,236 328,218"/>
-              <path d="M-30,244 C2,234 48,254 98,242 S171,226 219,246 S279,262 329,244"/>
-              <path d="M-30,270 C3,260 49,280 99,268 S172,252 220,272 S280,288 330,270"/>
-              <path d="M-30,296 C4,286 50,306 100,294 S173,278 221,298 S281,314 331,296"/>
-              {/* Vertical contour lines spanning full height */}
-              <path d="M30,-5 C38,40 32,85 44,130 S48,186 36,232 S30,278 42,325"/>
-              <path d="M75,-5 C82,42 76,88 88,134 S91,190 79,236 S74,282 85,328"/>
-              <path d="M120,-5 C126,44 119,92 130,138 S133,194 121,240 S116,286 127,332"/>
-              <path d="M165,-5 C170,46 162,96 173,142 S175,198 163,244 S158,290 169,336"/>
-              <path d="M210,-5 C214,48 205,98 215,145 S217,202 204,248 S200,294 210,340"/>
-              <path d="M255,-5 C258,50 248,102 258,148 S259,206 246,252 S242,298 252,344"/>
-              <path d="M300,-5 C302,52 292,106 301,152 S301,210 288,256 S284,302 293,348"/>
-              <path d="M53,-5 C60,44 54,90 65,136 S68,192 56,238 S51,284 62,330"/>
-              <path d="M98,-5 C104,46 97,94 108,140 S110,196 98,242 S93,288 104,334"/>
-              <path d="M143,-5 C148,48 140,98 150,144 S152,200 140,246 S135,292 146,338"/>
-              <path d="M188,-5 C192,50 183,102 193,148 S194,204 181,250 S177,296 188,342"/>
-              <path d="M233,-5 C236,52 226,106 236,152 S236,208 223,254 S219,300 230,346"/>
-              <path d="M278,-5 C280,54 270,108 280,154 S279,212 266,258 S262,304 272,350"/>
+        {/* ── Background panel ── */}
+        <div className="relative w-full overflow-hidden" style={{ height: 72, background: "#08080e" }}>
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 72" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="hsl(330 60% 38%)" strokeWidth="0.6" fill="none" opacity="0.55">
+              <path d="M-20,6 C15,0 50,14 90,6 S145,-4 185,8 S215,18 240,6"/>
+              <path d="M-20,18 C12,12 48,26 88,18 S143,8 183,20 S213,30 238,18"/>
+              <path d="M-20,30 C10,24 46,38 86,30 S141,18 181,32 S211,42 236,30"/>
+              <path d="M-20,42 C8,36 44,50 84,42 S139,30 179,44 S209,54 234,42"/>
+              <path d="M-20,54 C6,48 42,62 82,54 S137,42 177,56 S207,66 232,54"/>
+              <path d="M-20,66 C4,60 40,74 80,66 S135,54 175,68 S205,78 230,66"/>
+              <path d="M20,-4 C24,18 20,38 28,54 S30,66 22,78"/>
+              <path d="M50,-4 C54,18 50,38 58,54 S60,66 52,78"/>
+              <path d="M80,-4 C84,18 80,38 88,54 S90,66 82,78"/>
+              <path d="M110,-4 C114,18 110,38 118,54 S120,66 112,78"/>
+              <path d="M140,-4 C144,18 140,38 148,54 S150,66 142,78"/>
+              <path d="M170,-4 C174,18 170,38 178,54 S180,66 172,78"/>
             </g>
-            {/* Bottom pink radial glow */}
             <defs>
-              <radialGradient id="cardGlow" cx="50%" cy="100%" r="65%">
-                <stop offset="0%" stopColor="hsl(330,80%,52%)" stopOpacity="0.7"/>
-                <stop offset="100%" stopColor="hsl(330,80%,52%)" stopOpacity="0"/>
+              <radialGradient id="cg" cx="50%" cy="100%" r="70%">
+                <stop offset="0%" stopColor="hsl(330,78%,48%)" stopOpacity="0.65"/>
+                <stop offset="100%" stopColor="hsl(330,78%,48%)" stopOpacity="0"/>
               </radialGradient>
             </defs>
-            <rect x="0" y="0" width="320" height="320" fill="url(#cardGlow)"/>
+            <rect x="0" y="0" width="200" height="72" fill="url(#cg)"/>
           </svg>
 
-          {/* Dark overlay — stronger at top, fades toward bottom glow */}
-          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0) 100%)" }} />
-
-          {/* Rank badge */}
+          {/* top-left badge */}
           {(isTop1 || isTop2) && (
-            <span className="absolute top-1.5 left-1.5 z-20 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
+            <span className="absolute top-1 left-1 z-20 text-[7px] font-black uppercase tracking-widest px-1 py-0.5 rounded-sm"
               style={{
-                background: isTop1 ? "hsl(330 80% 55%)" : "hsla(330,80%,60%,0.18)",
+                background: isTop1 ? "hsl(330 80% 52%)" : "hsla(330,80%,60%,0.15)",
                 color: "#fff",
-                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.4)",
+                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.35)",
               }}>
               {isTop1 ? "⚡ #1" : "🔥 #2"}
             </span>
           )}
 
-          {/* Product name */}
+          {/* Price pill — top right */}
           <span
-            className="relative z-10 font-black uppercase text-center px-3 leading-tight"
-            style={{
-              fontSize: nameFontSize,
-              color: "#ffffff",
-              textShadow: "0 0 24px rgba(255,255,255,0.55), 0 2px 6px rgba(0,0,0,0.9)",
-              wordBreak: "break-word",
-            }}
+            className="absolute top-1 right-1 z-20 text-[8px] font-black tabular-nums px-1.5 py-0.5 rounded-sm"
+            style={{ background: "rgba(0,0,0,0.55)", color: "hsl(330 80% 70%)", border: "1px solid hsla(330,80%,60%,0.25)" }}
+          >
+            {lowestPrice > 0 ? `$${(lowestPrice / 100).toFixed(2)}` : "Free"}
+          </span>
+
+          {/* bottom accent line */}
+          <div className="absolute bottom-0 left-0 right-0 h-[1.5px]"
+            style={{ background: "linear-gradient(90deg, transparent 0%, hsl(330,80%,54%) 30%, hsl(330,85%,60%) 50%, hsl(330,80%,54%) 70%, transparent 100%)" }} />
+        </div>
+
+        {/* ── Info strip ── */}
+        <div className="px-2.5 py-2 flex items-center justify-between gap-1">
+          <span
+            className="font-bold text-white leading-tight truncate"
+            style={{ fontSize: "0.68rem", letterSpacing: "0.02em" }}
           >
             {product.name}
           </span>
-
-          {/* Branding */}
-          <span className="relative z-10 mt-1.5 text-[9px] font-bold" style={{ color: "hsl(330 80% 62%)" }}>
-            foodplug<span style={{ color: "rgba(255,255,255,0.5)" }}>.lol</span>
+          <span className="shrink-0 text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-sm transition-colors group-hover:bg-[hsl(330,80%,48%)]"
+            style={{ background: "hsl(330 80% 42%)", color: "#fff" }}>
+            Buy
           </span>
-
-          {/* Bottom pink line */}
-          <div className="absolute bottom-0 left-0 right-0 h-[2.5px]"
-            style={{ background: "linear-gradient(90deg, transparent 0%, hsl(330,80%,58%) 25%, hsl(330,85%,62%) 50%, hsl(330,80%,58%) 75%, transparent 100%)" }} />
-        </div>
-
-        {/* ── Purchase strip ── */}
-        <div
-          className="w-full text-center text-[10px] font-black uppercase tracking-wider text-white py-2"
-          style={{ background: "linear-gradient(90deg, hsl(330 80% 44%) 0%, hsl(330 75% 38%) 100%)" }}
-        >
-          Purchase | {lowestPrice > 0 ? `$${(lowestPrice / 100).toFixed(2)}` : "Free"}
         </div>
       </div>
     </Link>
@@ -255,7 +223,7 @@ export default function ShopPage() {
       {filtered.length === 0 ? (
         <div className="text-center py-20 text-white/40 text-sm">No products found</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
           {filtered.map((product: any) => {
             const rank = !search.trim() ? topIds.indexOf(product.id) : -1;
             return <ProductCard key={product.id} product={product} rank={rank} />;
