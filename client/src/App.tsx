@@ -33,7 +33,20 @@ function HomeRedirect() {
   const [, setLocation] = useLocation();
   useEffect(() => {
     if (features && features.logs === false) {
-      setLocation("/deposit");
+      setLocation("/cards");
+    }
+  }, [features, setLocation]);
+  if (!features) return null;
+  if (features.logs === false) return null;
+  return <ShopPage />;
+}
+
+function ShopRedirect() {
+  const { data: features } = useQuery<any>({ queryKey: ["/api/settings/features"], staleTime: 60000 });
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    if (features && features.logs === false) {
+      setLocation("/cards");
     }
   }, [features, setLocation]);
   if (!features) return null;
@@ -62,7 +75,7 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/" component={HomeRedirect} />
         <Route path="/deposit" component={DepositPage} />
-        <Route path="/shop" component={ShopPage} />
+        <Route path="/shop" component={ShopRedirect} />
         <Route path="/product/:name" component={ProductDetailPage} />
         <Route path="/order/:id" component={OrderDetailPageNew} />
         <Route path="/orders" component={OrdersPage} />

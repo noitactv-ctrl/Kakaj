@@ -36,7 +36,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const activeAnnouncement = announcements?.find(a => a.active);
 
   const navLinks = [
-    { href: "/shop", label: "Shop" },
+    ...(features?.logs !== false ? [{ href: "/shop", label: "Shop" }] : []),
     { href: "/cards", label: "Cards" },
     { href: "/deposit", label: "Deposit" },
     { href: "/orders", label: "Orders" },
