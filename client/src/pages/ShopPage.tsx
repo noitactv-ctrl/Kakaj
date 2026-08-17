@@ -83,13 +83,24 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
             foodplug<span style={{ color: "rgba(255,255,255,0.4)" }}>.lol</span>
           </span>
 
-          {/* Description */}
-          {product.description ? (
-            <p className="text-[9.5px] leading-snug w-full" style={{ color: "rgba(255,255,255,0.42)" }}>
-              {product.description.length > 60
-                ? product.description.slice(0, 57) + "..."
-                : product.description}
-            </p>
+          {/* Image (if available) */}
+          {product.image ? (
+            <div
+              className="w-full mt-1 overflow-hidden flex items-center justify-center"
+              style={{
+                height: 58,
+                background: "#050508",
+                border: "1px solid hsla(330,80%,60%,0.2)",
+                borderRadius: 4,
+              }}
+            >
+              <img
+                src={product.image}
+                alt={product.name}
+                className="max-h-full max-w-full object-contain"
+                onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }}
+              />
+            </div>
           ) : (
             <div className="flex-1" />
           )}
