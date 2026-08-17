@@ -279,7 +279,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addStockItems(variantId: number, content: string, sellerId?: number): Promise<{ added: number; skipped: number }> {
-    const items = content.split(/\n\s*\n/).map(block => block.trim()).filter(block => block.length > 0);
+    // Support both single-line-per-item and blank-line-separated blocks.
+    // If the content has blank lines, treat each blank-separated block as one item.
+    // Otherwise split by single newline so each line = one item.
+    const hasBlankLines = /\n[ \t]*\n/.test(content);
+    const items = hasBlankLines
+      ? content.split(/\n\s*\n/).map(block => block.trim()).filter(block => block.length > 0)
+      : content.split(/\n/).map(line => line.trim()).filter(line => line.length > 0);
     if (items.length === 0) return { added: 0, skipped: 0 };
 
     let added = 0;

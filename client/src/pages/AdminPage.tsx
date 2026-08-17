@@ -513,26 +513,6 @@ function ProductsSection() {
                     </FormControl>
                   </FormItem>
                 )} />
-                <FormField control={addForm.control} name="image" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image <span className="text-white/40 font-normal">(optional)</span></FormLabel>
-                    <div className="flex gap-2 items-start">
-                      <FormControl className="flex-1">
-                        <Input {...field} placeholder="https://... or upload below" className="bg-[#111]/5 border-white/10" data-testid="input-product-image" />
-                      </FormControl>
-                      <label className="relative cursor-pointer shrink-0">
-                        <div className="flex items-center gap-1.5 h-10 px-3 rounded-md border border-white/10 bg-[#111]/5 text-xs text-white/60 hover:text-white hover:border-white/20 transition-colors">
-                          {isUploadingAddImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                          Gallery
-                        </div>
-                        <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={e => handleProductImageUpload(e, "add")} />
-                      </label>
-                    </div>
-                    {field.value && (
-                      <img src={field.value} alt="Preview" className="mt-2 h-20 w-20 object-cover rounded border border-white/10" onError={e => (e.currentTarget.style.display = "none")} />
-                    )}
-                  </FormItem>
-                )} />
                 <Button type="submit" size="sm" className="w-full text-xs" disabled={addMutation.isPending}>
                   {addMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}Save Product
                 </Button>
@@ -570,26 +550,6 @@ function ProductsSection() {
                         className="bg-[#111]/5 border-white/10 resize-none text-sm"
                       />
                     </FormControl>
-                  </FormItem>
-                )} />
-                <FormField control={editForm.control} name="image" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Image <span className="text-white/40 font-normal">(optional)</span></FormLabel>
-                    <div className="flex gap-2 items-start">
-                      <FormControl className="flex-1">
-                        <Input {...field} placeholder="https://... or upload below" className="bg-[#111]/5 border-white/10" data-testid="input-edit-product-image" />
-                      </FormControl>
-                      <label className="relative cursor-pointer shrink-0">
-                        <div className="flex items-center gap-1.5 h-10 px-3 rounded-md border border-white/10 bg-[#111]/5 text-xs text-white/60 hover:text-white hover:border-white/20 transition-colors">
-                          {isUploadingEditImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                          Gallery
-                        </div>
-                        <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer w-full" onChange={e => handleProductImageUpload(e, "edit")} />
-                      </label>
-                    </div>
-                    {field.value && (
-                      <img src={field.value} alt="Preview" className="mt-2 h-20 w-20 object-cover rounded border border-white/10" onError={e => (e.currentTarget.style.display = "none")} />
-                    )}
                   </FormItem>
                 )} />
                 <Button type="submit" size="sm" className="w-full text-xs" disabled={editMutation.isPending}>
@@ -861,13 +821,28 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
       </div>
 
       <div className="space-y-1.5">
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={"Blank line separates items:\nstock1\n\nstock2\n\nstock3"}
-          rows={4}
-          className="bg-black/60 border-white/10 text-xs font-mono resize-none placeholder:text-white/30"
-        />
+        <div className="relative">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={"Paste logs — one per line:\nuser@email.com:pass | Cards = [...]\nuser2@email.com:pass | Cards = [...]"}
+            rows={5}
+            className="bg-black/60 border-white/10 text-xs font-mono resize-none placeholder:text-white/30 pb-7"
+          />
+          {/* Live item counter */}
+          {input.trim() && (() => {
+            const hasBlankLines = /\n[ \t]*\n/.test(input);
+            const count = hasBlankLines
+              ? input.split(/\n\s*\n/).filter(b => b.trim()).length
+              : input.split(/\n/).filter(l => l.trim()).length;
+            return (
+              <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-primary/20 border border-primary/30 rounded px-2 py-0.5">
+                <span className="text-[10px] font-black text-primary">{count}</span>
+                <span className="text-[9px] text-primary/70 font-medium">{count === 1 ? "item" : "items"} detected</span>
+              </div>
+            );
+          })()}
+        </div>
         <Button
           size="sm"
           className="w-full h-7 text-xs gap-1"

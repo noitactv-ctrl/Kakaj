@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { ChevronDown, ShoppingCart, X, User } from "lucide-react";
+import { ShoppingCart, X, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useCart } from "@/hooks/use-cart";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -23,6 +24,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [navOpen]);
 
   const balanceDollars = user ? (user.balance / 100).toFixed(2) : "0.00";
+  const cartItems = useCart(s => s.items);
+  const cartCount = cartItems.reduce((acc, i) => acc + i.quantity, 0);
 
   const { data: features } = useQuery<{ checker: boolean; reseller: boolean; ranks: boolean; logs: boolean; cards: boolean }>({
     queryKey: ["/api/settings/features"],
@@ -81,13 +84,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="block w-5 h-[2px] bg-white/70 rounded transition-all" />
         </button>
 
-        {/* Balance pill */}
+        {/* Right side: balance + cart */}
         {user ? (
-          <Link href="/deposit">
-            <button className="text-xs font-mono font-bold text-primary border border-primary/30 bg-primary/10 px-3 py-1 rounded hover:bg-primary/15 transition-colors" data-testid="btn-balance">
-              ${balanceDollars}
-            </button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/deposit">
+              <button className="text-xs font-mono font-bold text-primary border border-primary/30 bg-primary/10 px-3 py-1 rounded hover:bg-primary/15 transition-colors" data-testid="btn-balance">
+                ${balanceDollars}
+              </button>
+            </Link>
+            <Link href="/cart">
+              <button
+                className="relative flex items-center justify-center w-8 h-8 rounded border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+                data-testid="btn-cart"
+                aria-label="Cart"
+              >
+                <ShoppingCart className="h-3.5 w-3.5 text-white/70" />
+                {cartCount > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-black text-white px-0.5"
+                    style={{ background: "hsl(330 80% 60%)" }}
+                  >
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
+              </button>
+            </Link>
+          </div>
         ) : <div className="w-14" />}
       </header>
 
