@@ -16,13 +16,6 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return result;
 }
 
-// Generate a unique hue from a string so each product has its own accent color
-function nameToHue(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return h % 360;
-}
-
 function ProductCard({ product, rank }: { product: any; rank: number }) {
   const lowestVariant = product.variants?.length > 0
     ? product.variants.reduce((a: any, b: any) => a.price < b.price ? a : b)
@@ -31,13 +24,11 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
   const isTop1 = rank === 0;
   const isTop2 = rank === 1;
 
-  const hue = nameToHue(product.name);
-
   const nameFontSize =
-    product.name.length > 20 ? "0.6rem"
-    : product.name.length > 14 ? "0.72rem"
-    : product.name.length > 9  ? "0.85rem"
-    : "1.05rem";
+    product.name.length > 20 ? "0.62rem"
+    : product.name.length > 14 ? "0.78rem"
+    : product.name.length > 9  ? "0.95rem"
+    : "1.15rem";
 
   return (
     <Link href={`/product/${encodeURIComponent(product.name)}`}>
@@ -48,70 +39,93 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
             ? "1.5px solid hsl(330 80% 62%)"
             : isTop2
             ? "1.5px solid hsla(330,80%,60%,0.45)"
-            : "1.5px solid hsla(330,80%,60%,0.2)",
+            : "1.5px solid hsla(330,80%,60%,0.22)",
           borderRadius: 5,
           boxShadow: isTop1
-            ? "0 0 18px hsla(330,80%,60%,0.25), 0 2px 6px rgba(0,0,0,0.7)"
-            : "0 2px 6px rgba(0,0,0,0.55)",
-          background: "#080810",
+            ? "0 0 18px hsla(330,80%,60%,0.25), 0 2px 8px rgba(0,0,0,0.7)"
+            : "0 2px 8px rgba(0,0,0,0.55)",
         }}
         data-testid={`card-product-${product.id}`}
       >
-        {/* ── Auto background box ── */}
-        <div
-          className="w-full flex items-center justify-center relative overflow-hidden"
-          style={{
-            height: 90,
-            background: `linear-gradient(135deg, hsl(${hue} 40% 8%) 0%, hsl(${hue} 55% 14%) 60%, hsl(${hue} 45% 10%) 100%)`,
-          }}
-        >
-          {/* Subtle radial glow */}
-          <div className="absolute inset-0" style={{
-            background: `radial-gradient(ellipse at 50% 110%, hsla(${hue},70%,45%,0.35) 0%, transparent 70%)`,
-          }} />
-          {/* Bottom accent line */}
-          <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{
-            background: `linear-gradient(90deg, transparent, hsl(${hue} 70% 55%), transparent)`,
-          }} />
-          {/* Product name centered */}
+        {/* ── Card face — topographic background ── */}
+        <div className="relative w-full overflow-hidden flex flex-col items-center justify-center" style={{ height: 120, background: "#08080e" }}>
+
+          {/* Topographic SVG — same for every card */}
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 320 120" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="hsl(330 65% 42%)" strokeWidth="0.65" fill="none" opacity="0.6">
+              <path d="M-30,10 C20,2 70,22 120,8 S190,-4 240,14 S290,28 340,10"/>
+              <path d="M-30,22 C15,14 65,34 115,20 S185,6 235,26 S288,40 338,22"/>
+              <path d="M-30,36 C10,26 60,48 110,34 S180,18 230,38 S285,54 335,36"/>
+              <path d="M-30,52 C5,40 55,62 105,50 S175,32 225,52 S282,68 332,52"/>
+              <path d="M-30,68 C2,56 50,78 100,66 S172,48 220,68 S280,84 330,68"/>
+              <path d="M-30,84 C0,72 47,94 97,82 S170,62 218,84 S278,100 328,84"/>
+              <path d="M-30,100 C-2,88 44,108 94,98 S168,78 216,100 S276,116 326,100"/>
+              <path d="M30,-5 C38,14 32,35 44,52 S48,76 36,98 S30,115 42,128"/>
+              <path d="M75,-5 C82,16 76,38 88,56 S91,80 79,102 S74,118 85,130"/>
+              <path d="M120,-5 C126,18 119,42 130,60 S133,84 121,106 S116,122 127,132"/>
+              <path d="M165,-5 C170,20 162,46 173,64 S175,88 163,110 S158,126 169,136"/>
+              <path d="M210,-5 C214,22 205,48 215,67 S217,92 204,114 S200,130 210,140"/>
+              <path d="M255,-5 C258,24 248,52 258,70 S259,96 246,118 S242,134 252,144"/>
+              <path d="M300,-5 C302,26 292,54 301,73 S301,100 288,122 S284,138 293,148"/>
+              <path d="M53,0 C60,18 54,40 65,57 S68,82 56,104 S51,120 62,132"/>
+              <path d="M98,0 C104,20 97,44 108,62 S110,86 98,108 S93,124 104,136"/>
+              <path d="M143,0 C148,22 140,47 150,66 S152,90 140,112 S135,128 146,140"/>
+              <path d="M188,0 C192,24 183,50 193,69 S194,94 181,116 S177,132 188,144"/>
+              <path d="M233,0 C236,26 226,54 236,72 S236,98 223,120 S219,136 230,148"/>
+              <path d="M278,0 C280,28 270,56 280,75 S279,102 266,124 S262,140 272,152"/>
+            </g>
+            {/* Bottom pink radial glow */}
+            <defs>
+              <radialGradient id="cardGlow" cx="50%" cy="100%" r="65%">
+                <stop offset="0%" stopColor="hsl(330,80%,52%)" stopOpacity="0.7"/>
+                <stop offset="100%" stopColor="hsl(330,80%,52%)" stopOpacity="0"/>
+              </radialGradient>
+            </defs>
+            <rect x="0" y="0" width="320" height="120" fill="url(#cardGlow)"/>
+          </svg>
+
+          {/* Dark overlay — stronger at top, fades toward bottom glow */}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0) 100%)" }} />
+
+          {/* Rank badge */}
+          {(isTop1 || isTop2) && (
+            <span className="absolute top-1.5 left-1.5 z-20 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
+              style={{
+                background: isTop1 ? "hsl(330 80% 55%)" : "hsla(330,80%,60%,0.18)",
+                color: "#fff",
+                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.4)",
+              }}>
+              {isTop1 ? "⚡ #1" : "🔥 #2"}
+            </span>
+          )}
+
+          {/* Product name */}
           <span
-            className="relative z-10 font-black uppercase leading-tight tracking-tight text-white text-center px-2"
+            className="relative z-10 font-black uppercase text-center px-3 leading-tight"
             style={{
               fontSize: nameFontSize,
-              textShadow: `0 0 20px hsla(${hue},80%,70%,0.6), 0 2px 4px rgba(0,0,0,0.9)`,
+              color: "#ffffff",
+              textShadow: "0 0 24px rgba(255,255,255,0.55), 0 2px 6px rgba(0,0,0,0.9)",
               wordBreak: "break-word",
             }}
           >
             {product.name}
           </span>
-          {/* Rank badge */}
-          {(isTop1 || isTop2) && (
-            <span
-              className="absolute top-1.5 left-1.5 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
-              style={{
-                background: isTop1 ? "hsl(330 80% 58%)" : "hsla(330,80%,60%,0.2)",
-                color: "#fff",
-                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.4)",
-              }}
-            >
-              {isTop1 ? "⚡ #1" : "🔥 #2"}
-            </span>
-          )}
-        </div>
 
-        {/* ── Info strip ── */}
-        <div className="px-2.5 py-1.5 flex items-center justify-between">
-          <span className="text-[8px] font-bold" style={{ color: `hsl(${hue} 65% 60%)` }}>
-            foodplug<span style={{ color: "rgba(255,255,255,0.35)" }}>.lol</span>
+          {/* Branding */}
+          <span className="relative z-10 mt-1.5 text-[9px] font-bold" style={{ color: "hsl(330 80% 62%)" }}>
+            foodplug<span style={{ color: "rgba(255,255,255,0.5)" }}>.lol</span>
           </span>
+
+          {/* Bottom pink line */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2.5px]"
+            style={{ background: "linear-gradient(90deg, transparent 0%, hsl(330,80%,58%) 25%, hsl(330,85%,62%) 50%, hsl(330,80%,58%) 75%, transparent 100%)" }} />
         </div>
 
         {/* ── Purchase strip ── */}
         <div
           className="w-full text-center text-[10px] font-black uppercase tracking-wider text-white py-2"
-          style={{
-            background: "linear-gradient(90deg, hsl(330 80% 48%) 0%, hsl(330 75% 40%) 100%)",
-          }}
+          style={{ background: "linear-gradient(90deg, hsl(330 80% 44%) 0%, hsl(330 75% 38%) 100%)" }}
         >
           Purchase | {lowestPrice > 0 ? `$${(lowestPrice / 100).toFixed(2)}` : "Free"}
         </div>
