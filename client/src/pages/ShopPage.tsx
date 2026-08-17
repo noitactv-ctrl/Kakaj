@@ -228,7 +228,7 @@ export default function ShopPage() {
       {filtered.length === 0 ? (
         <div className="text-center py-20 text-white/40 text-sm">No products found</div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filtered.map((product: any) => {
             const rank = !search.trim() ? topIds.indexOf(product.id) : -1;
             return <ProductCard key={product.id} product={product} rank={rank} />;
