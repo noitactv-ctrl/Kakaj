@@ -24,87 +24,118 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
   const isTop1 = rank === 0;
   const isTop2 = rank === 1;
 
+  const nameFontSize =
+    product.name.length > 18 ? "0.7rem"
+    : product.name.length > 12 ? "0.88rem"
+    : product.name.length > 7  ? "1.05rem"
+    : "1.25rem";
+
   return (
     <Link href={`/product/${encodeURIComponent(product.name)}`}>
       <div
-        className="cursor-pointer group select-none overflow-hidden flex flex-col transition-all duration-150 hover:-translate-y-0.5 active:scale-[0.97]"
+        className="cursor-pointer select-none overflow-hidden flex flex-col transition-all duration-150 hover:brightness-105 active:scale-[0.97]"
         style={{
-          borderRadius: 6,
+          borderRadius: 8,
           border: isTop1
-            ? "1px solid hsl(330 80% 58%)"
-            : "1px solid hsla(330,80%,60%,0.18)",
+            ? "1.5px solid hsl(330 80% 60%)"
+            : "1.5px solid rgba(255,255,255,0.1)",
           boxShadow: isTop1
-            ? "0 0 14px hsla(330,80%,55%,0.22), 0 2px 6px rgba(0,0,0,0.6)"
-            : "0 1px 4px rgba(0,0,0,0.5)",
-          background: "#0b0b14",
+            ? "0 0 16px hsla(330,80%,55%,0.2), 0 2px 8px rgba(0,0,0,0.7)"
+            : "0 2px 8px rgba(0,0,0,0.6)",
         }}
         data-testid={`card-product-${product.id}`}
       >
-        {/* ── Background panel ── */}
-        <div className="relative w-full aspect-square overflow-hidden" style={{ background: "#08080e" }}>
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-            <g stroke="hsl(330 60% 38%)" strokeWidth="0.6" fill="none" opacity="0.55">
-              <path d="M-20,8  C15,2  50,16 90,8  S145,-2 185,10 S215,20 240,8"/>
-              <path d="M-20,22 C12,16 48,30 88,22 S143,10 183,24 S213,34 238,22"/>
-              <path d="M-20,36 C10,28 46,44 86,36 S141,22 181,38 S211,48 236,36"/>
-              <path d="M-20,50 C8, 42 44,58 84,50 S139,36 179,52 S209,62 234,50"/>
-              <path d="M-20,64 C6, 56 42,72 82,64 S137,50 177,66 S207,76 232,64"/>
-              <path d="M-20,78 C4, 70 40,86 80,78 S135,64 175,80 S205,90 230,78"/>
-              <path d="M-20,92 C2, 84 38,100 78,92 S133,78 173,94 S203,104 228,92"/>
-              <path d="M-20,106 C0,98 36,114 76,106 S131,92 171,108 S201,118 226,106"/>
-              <path d="M20,-4  C24,26 20,54 28,80  S30,100 22,124"/>
-              <path d="M55,-4  C59,26 55,54 63,80  S65,100 57,124"/>
-              <path d="M90,-4  C94,26 90,54 98,80  S100,100 92,124"/>
-              <path d="M125,-4 C129,26 125,54 133,80 S135,100 127,124"/>
-              <path d="M160,-4 C164,26 160,54 168,80 S170,100 162,124"/>
-              <path d="M195,-4 C199,26 195,54 203,80 S205,100 197,124"/>
+        {/* ── Square topo image area ── */}
+        <div className="relative w-full aspect-square overflow-hidden flex flex-col items-center justify-center" style={{ background: "#09090f" }}>
+
+          {/* Topographic SVG — white contour lines like reference */}
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="rgba(255,255,255,0.13)" strokeWidth="1" fill="none">
+              <path d="M-30,18  C30,8  80,28  140,14 S220,-2  280,18 S330,34 370,18"/>
+              <path d="M-30,38  C28,26 78,48  138,34 S218,16  278,38 S328,54 368,38"/>
+              <path d="M-30,58  C26,46 76,68  136,54 S216,34  276,58 S326,74 366,58"/>
+              <path d="M-30,78  C24,66 74,88  134,74 S214,52  274,78 S324,94 364,78"/>
+              <path d="M-30,100 C22,88 72,108 132,96 S212,72  272,100 S322,116 362,100"/>
+              <path d="M-30,122 C20,110 70,130 130,118 S210,94  270,122 S320,138 360,122"/>
+              <path d="M-30,144 C18,132 68,152 128,140 S208,116 268,144 S318,160 358,144"/>
+              <path d="M-30,166 C16,154 66,174 126,162 S206,138 266,166 S316,182 356,166"/>
+              <path d="M-30,188 C14,176 64,196 124,184 S204,160 264,188 S314,204 354,188"/>
+              <path d="M-30,210 C12,198 62,218 122,206 S202,182 262,210 S312,226 352,210"/>
+              <path d="M-30,232 C10,220 60,240 120,228 S200,204 260,232 S310,248 350,232"/>
+              <path d="M-30,254 C8,242 58,262 118,250 S198,226 258,254 S308,270 348,254"/>
+              <path d="M-30,276 C6,264 56,284 116,272 S196,248 256,276 S306,292 346,276"/>
+              <path d="M-30,298 C4,286 54,306 114,294 S194,270 254,298 S304,314 344,298"/>
+              <path d="M18,-10  C22,50 16,110 26,160 S28,220 18,310"/>
+              <path d="M54,-10  C58,50 52,110 62,160 S64,220 54,310"/>
+              <path d="M90,-10  C94,50 88,110 98,160 S100,220 90,310"/>
+              <path d="M126,-10 C130,50 124,110 134,160 S136,220 126,310"/>
+              <path d="M162,-10 C166,50 160,110 170,160 S172,220 162,310"/>
+              <path d="M198,-10 C202,50 196,110 206,160 S208,220 198,310"/>
+              <path d="M234,-10 C238,50 232,110 242,160 S244,220 234,310"/>
+              <path d="M270,-10 C274,50 268,110 278,160 S280,220 270,310"/>
             </g>
+            {/* Bottom radial glow — pink */}
             <defs>
-              <radialGradient id="cg" cx="50%" cy="100%" r="70%">
-                <stop offset="0%" stopColor="hsl(330,78%,48%)" stopOpacity="0.65"/>
-                <stop offset="100%" stopColor="hsl(330,78%,48%)" stopOpacity="0"/>
+              <radialGradient id="cg2" cx="50%" cy="100%" r="65%">
+                <stop offset="0%" stopColor="hsl(330,75%,45%)" stopOpacity="0.55"/>
+                <stop offset="100%" stopColor="hsl(330,75%,45%)" stopOpacity="0"/>
               </radialGradient>
             </defs>
-            <rect x="0" y="0" width="200" height="120" fill="url(#cg)"/>
+            <rect x="0" y="0" width="300" height="300" fill="url(#cg2)"/>
           </svg>
 
-          {/* top-left badge */}
+          {/* Dark overlay — heavier at top */}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.1) 55%,rgba(0,0,0,0) 100%)" }}/>
+
+          {/* Rank badge */}
           {(isTop1 || isTop2) && (
-            <span className="absolute top-1 left-1 z-20 text-[7px] font-black uppercase tracking-widest px-1 py-0.5 rounded-sm"
+            <span className="absolute top-1.5 left-1.5 z-20 text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
               style={{
                 background: isTop1 ? "hsl(330 80% 52%)" : "hsla(330,80%,60%,0.15)",
                 color: "#fff",
-                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.35)",
+                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.4)",
               }}>
               {isTop1 ? "⚡ #1" : "🔥 #2"}
             </span>
           )}
 
-          {/* Price pill — top right */}
+          {/* Product name — centered, large, bold */}
           <span
-            className="absolute top-1 right-1 z-20 text-[8px] font-black tabular-nums px-1.5 py-0.5 rounded-sm"
-            style={{ background: "rgba(0,0,0,0.55)", color: "hsl(330 80% 70%)", border: "1px solid hsla(330,80%,60%,0.25)" }}
-          >
-            {lowestPrice > 0 ? `$${(lowestPrice / 100).toFixed(2)}` : "Free"}
-          </span>
-
-          {/* bottom accent line */}
-          <div className="absolute bottom-0 left-0 right-0 h-[1.5px]"
-            style={{ background: "linear-gradient(90deg, transparent 0%, hsl(330,80%,54%) 30%, hsl(330,85%,60%) 50%, hsl(330,80%,54%) 70%, transparent 100%)" }} />
-        </div>
-
-        {/* ── Info strip ── */}
-        <div className="px-2.5 py-2 flex items-center justify-between gap-1">
-          <span
-            className="font-bold text-white leading-tight truncate"
-            style={{ fontSize: "0.68rem", letterSpacing: "0.02em" }}
+            className="relative z-10 font-black uppercase text-center leading-tight px-3"
+            style={{
+              fontSize: nameFontSize,
+              color: "#fff",
+              textShadow: "0 0 30px rgba(255,255,255,0.4), 0 2px 8px rgba(0,0,0,1)",
+              wordBreak: "break-word",
+              letterSpacing: "0.02em",
+            }}
           >
             {product.name}
           </span>
-          <span className="shrink-0 text-[8px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-sm transition-colors group-hover:bg-[hsl(330,80%,48%)]"
-            style={{ background: "hsl(330 80% 42%)", color: "#fff" }}>
-            Buy
+
+          {/* Branding */}
+          <span className="relative z-10 mt-2 text-[9px] font-bold tracking-wide" style={{ color: "hsl(330 80% 62%)" }}>
+            foodplug<span style={{ color: "rgba(255,255,255,0.45)" }}>.lol</span>
           </span>
+
+          {/* Bottom separator line */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2px]"
+            style={{ background: "hsl(330 80% 55%)" }}/>
+        </div>
+
+        {/* ── Product name strip ── */}
+        <div className="px-3 py-2 text-center" style={{ background: "#0e0e1a" }}>
+          <p className="text-[0.7rem] font-bold text-white/85 leading-snug line-clamp-2">
+            {product.name}
+          </p>
+        </div>
+
+        {/* ── Purchase button ── */}
+        <div
+          className="w-full text-center text-[0.7rem] font-black uppercase tracking-wider text-white py-2"
+          style={{ background: "hsl(330 80% 42%)" }}
+        >
+          Purchase | {lowestPrice > 0 ? `$${(lowestPrice / 100).toFixed(2)}` : "Free"}
         </div>
       </div>
     </Link>
