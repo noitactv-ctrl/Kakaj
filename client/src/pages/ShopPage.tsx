@@ -41,21 +41,23 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
         data-testid={`card-product-${product.id}`}
       >
         {/* ── Background panel ── */}
-        <div className="relative w-full overflow-hidden" style={{ height: 72, background: "#08080e" }}>
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 72" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <div className="relative w-full overflow-hidden" style={{ height: 120, background: "#08080e" }}>
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
             <g stroke="hsl(330 60% 38%)" strokeWidth="0.6" fill="none" opacity="0.55">
-              <path d="M-20,6 C15,0 50,14 90,6 S145,-4 185,8 S215,18 240,6"/>
-              <path d="M-20,18 C12,12 48,26 88,18 S143,8 183,20 S213,30 238,18"/>
-              <path d="M-20,30 C10,24 46,38 86,30 S141,18 181,32 S211,42 236,30"/>
-              <path d="M-20,42 C8,36 44,50 84,42 S139,30 179,44 S209,54 234,42"/>
-              <path d="M-20,54 C6,48 42,62 82,54 S137,42 177,56 S207,66 232,54"/>
-              <path d="M-20,66 C4,60 40,74 80,66 S135,54 175,68 S205,78 230,66"/>
-              <path d="M20,-4 C24,18 20,38 28,54 S30,66 22,78"/>
-              <path d="M50,-4 C54,18 50,38 58,54 S60,66 52,78"/>
-              <path d="M80,-4 C84,18 80,38 88,54 S90,66 82,78"/>
-              <path d="M110,-4 C114,18 110,38 118,54 S120,66 112,78"/>
-              <path d="M140,-4 C144,18 140,38 148,54 S150,66 142,78"/>
-              <path d="M170,-4 C174,18 170,38 178,54 S180,66 172,78"/>
+              <path d="M-20,8  C15,2  50,16 90,8  S145,-2 185,10 S215,20 240,8"/>
+              <path d="M-20,22 C12,16 48,30 88,22 S143,10 183,24 S213,34 238,22"/>
+              <path d="M-20,36 C10,28 46,44 86,36 S141,22 181,38 S211,48 236,36"/>
+              <path d="M-20,50 C8, 42 44,58 84,50 S139,36 179,52 S209,62 234,50"/>
+              <path d="M-20,64 C6, 56 42,72 82,64 S137,50 177,66 S207,76 232,64"/>
+              <path d="M-20,78 C4, 70 40,86 80,78 S135,64 175,80 S205,90 230,78"/>
+              <path d="M-20,92 C2, 84 38,100 78,92 S133,78 173,94 S203,104 228,92"/>
+              <path d="M-20,106 C0,98 36,114 76,106 S131,92 171,108 S201,118 226,106"/>
+              <path d="M20,-4  C24,26 20,54 28,80  S30,100 22,124"/>
+              <path d="M55,-4  C59,26 55,54 63,80  S65,100 57,124"/>
+              <path d="M90,-4  C94,26 90,54 98,80  S100,100 92,124"/>
+              <path d="M125,-4 C129,26 125,54 133,80 S135,100 127,124"/>
+              <path d="M160,-4 C164,26 160,54 168,80 S170,100 162,124"/>
+              <path d="M195,-4 C199,26 195,54 203,80 S205,100 197,124"/>
             </g>
             <defs>
               <radialGradient id="cg" cx="50%" cy="100%" r="70%">
@@ -63,7 +65,7 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
                 <stop offset="100%" stopColor="hsl(330,78%,48%)" stopOpacity="0"/>
               </radialGradient>
             </defs>
-            <rect x="0" y="0" width="200" height="72" fill="url(#cg)"/>
+            <rect x="0" y="0" width="200" height="120" fill="url(#cg)"/>
           </svg>
 
           {/* top-left badge */}
@@ -223,7 +225,7 @@ export default function ShopPage() {
       {filtered.length === 0 ? (
         <div className="text-center py-20 text-white/40 text-sm">No products found</div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
           {filtered.map((product: any) => {
             const rank = !search.trim() ? topIds.indexOf(product.id) : -1;
             return <ProductCard key={product.id} product={product} rank={rank} />;
