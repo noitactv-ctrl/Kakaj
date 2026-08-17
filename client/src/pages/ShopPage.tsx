@@ -16,6 +16,13 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return result;
 }
 
+// Generate a unique hue from a string so each product has its own accent color
+function nameToHue(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return h % 360;
+}
+
 function ProductCard({ product, rank }: { product: any; rank: number }) {
   const lowestVariant = product.variants?.length > 0
     ? product.variants.reduce((a: any, b: any) => a.price < b.price ? a : b)
@@ -24,7 +31,8 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
   const isTop1 = rank === 0;
   const isTop2 = rank === 1;
 
-  // font scale based on name length
+  const hue = nameToHue(product.name);
+
   const nameFontSize =
     product.name.length > 20 ? "0.6rem"
     : product.name.length > 14 ? "0.72rem"
@@ -36,7 +44,6 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
       <div
         className="cursor-pointer transition-all hover:brightness-110 active:scale-[0.98] flex flex-col select-none overflow-hidden"
         style={{
-          background: "linear-gradient(160deg, #0c0c14 0%, #080810 100%)",
           border: isTop1
             ? "1.5px solid hsl(330 80% 62%)"
             : isTop2
@@ -44,71 +51,64 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
             : "1.5px solid hsla(330,80%,60%,0.2)",
           borderRadius: 5,
           boxShadow: isTop1
-            ? "0 0 18px hsla(330,80%,60%,0.28), 0 2px 6px rgba(0,0,0,0.7)"
+            ? "0 0 18px hsla(330,80%,60%,0.25), 0 2px 6px rgba(0,0,0,0.7)"
             : "0 2px 6px rgba(0,0,0,0.55)",
+          background: "#080810",
         }}
         data-testid={`card-product-${product.id}`}
       >
-        {/* ── Body ── */}
-        <div className="flex flex-col items-center justify-between px-2.5 pt-3 pb-2 gap-1.5 text-center flex-1">
-
-          {/* Rank badge */}
-          {(isTop1 || isTop2) && (
-            <span
-              className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded self-start"
-              style={{
-                background: isTop1 ? "hsl(330 80% 58%)" : "hsla(330,80%,60%,0.14)",
-                color: isTop1 ? "#fff" : "hsl(330 80% 65%)",
-                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.35)",
-              }}
-            >
-              {isTop1 ? "⚡ #1" : "🔥 #2"}
-            </span>
-          )}
-
-          {/* Product name */}
+        {/* ── Auto background box ── */}
+        <div
+          className="w-full flex items-center justify-center relative overflow-hidden"
+          style={{
+            height: 90,
+            background: `linear-gradient(135deg, hsl(${hue} 40% 8%) 0%, hsl(${hue} 55% 14%) 60%, hsl(${hue} 45% 10%) 100%)`,
+          }}
+        >
+          {/* Subtle radial glow */}
+          <div className="absolute inset-0" style={{
+            background: `radial-gradient(ellipse at 50% 110%, hsla(${hue},70%,45%,0.35) 0%, transparent 70%)`,
+          }} />
+          {/* Bottom accent line */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{
+            background: `linear-gradient(90deg, transparent, hsl(${hue} 70% 55%), transparent)`,
+          }} />
+          {/* Product name centered */}
           <span
-            className="font-black uppercase leading-tight tracking-tight text-white w-full"
+            className="relative z-10 font-black uppercase leading-tight tracking-tight text-white text-center px-2"
             style={{
               fontSize: nameFontSize,
-              textShadow: "0 0 16px rgba(255,255,255,0.18)",
+              textShadow: `0 0 20px hsla(${hue},80%,70%,0.6), 0 2px 4px rgba(0,0,0,0.9)`,
               wordBreak: "break-word",
             }}
           >
             {product.name}
           </span>
-
-          {/* Branding */}
-          <span className="text-[8px] font-bold tracking-wide" style={{ color: "hsl(330 75% 58%)" }}>
-            foodplug<span style={{ color: "rgba(255,255,255,0.4)" }}>.lol</span>
-          </span>
-
-          {/* Image (if available) */}
-          {product.image ? (
-            <div
-              className="w-full mt-1 overflow-hidden flex items-center justify-center"
+          {/* Rank badge */}
+          {(isTop1 || isTop2) && (
+            <span
+              className="absolute top-1.5 left-1.5 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
               style={{
-                height: 58,
-                background: "#050508",
-                border: "1px solid hsla(330,80%,60%,0.2)",
-                borderRadius: 4,
+                background: isTop1 ? "hsl(330 80% 58%)" : "hsla(330,80%,60%,0.2)",
+                color: "#fff",
+                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.4)",
               }}
             >
-              <img
-                src={product.image}
-                alt={product.name}
-                className="max-h-full max-w-full object-contain"
-                onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }}
-              />
-            </div>
-          ) : (
-            <div className="flex-1" />
+              {isTop1 ? "⚡ #1" : "🔥 #2"}
+            </span>
           )}
+        </div>
+
+        {/* ── Info strip ── */}
+        <div className="px-2.5 py-1.5 flex items-center justify-between">
+          <span className="text-[8px] font-bold" style={{ color: `hsl(${hue} 65% 60%)` }}>
+            foodplug<span style={{ color: "rgba(255,255,255,0.35)" }}>.lol</span>
+          </span>
         </div>
 
         {/* ── Purchase strip ── */}
         <div
-          className="w-full text-center text-[10px] font-black uppercase tracking-wider text-white py-2 mt-1"
+          className="w-full text-center text-[10px] font-black uppercase tracking-wider text-white py-2"
           style={{
             background: "linear-gradient(90deg, hsl(330 80% 48%) 0%, hsl(330 75% 40%) 100%)",
           }}
