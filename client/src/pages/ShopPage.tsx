@@ -41,7 +41,7 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
         data-testid={`card-product-${product.id}`}
       >
         {/* ── Background panel ── */}
-        <div className="relative w-full overflow-hidden" style={{ height: 120, background: "#08080e" }}>
+        <div className="relative w-full aspect-square overflow-hidden" style={{ background: "#08080e" }}>
           <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
             <g stroke="hsl(330 60% 38%)" strokeWidth="0.6" fill="none" opacity="0.55">
               <path d="M-20,8  C15,2  50,16 90,8  S145,-2 185,10 S215,20 240,8"/>
