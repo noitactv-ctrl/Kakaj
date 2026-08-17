@@ -369,6 +369,7 @@ function ProductsSection() {
     name: z.string().min(1, "Name required"),
     description: z.string().optional(),
     image: z.string().optional(),
+    category: z.string().optional(),
   });
 
   const variantSchema = z.object({
@@ -379,12 +380,12 @@ function ProductsSection() {
 
   const addForm = useForm<z.infer<typeof productSchema>>({
     resolver: zodResolver(productSchema),
-    defaultValues: { name: "", description: "", image: "" },
+    defaultValues: { name: "", description: "", image: "", category: "" },
   });
 
   const editForm = useForm<z.infer<typeof productSchema>>({
     resolver: zodResolver(productSchema),
-    defaultValues: { name: "", description: "", image: "" },
+    defaultValues: { name: "", description: "", image: "", category: "" },
   });
 
   const variantForm = useForm<z.infer<typeof variantSchema>>({
@@ -470,7 +471,7 @@ function ProductsSection() {
 
   const startEdit = (product: any) => {
     setEditingProduct(product);
-    editForm.reset({ name: product.name, description: product.description || "", image: product.image || "" });
+    editForm.reset({ name: product.name, description: product.description || "", image: product.image || "", category: product.category || "" });
     setShowAddForm(false);
   };
 
@@ -513,6 +514,14 @@ function ProductsSection() {
                     </FormControl>
                   </FormItem>
                 )} />
+                <FormField control={addForm.control} name="category" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category <span className="text-white/40 font-normal">(optional)</span></FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g. Food, Retail, Entertainment" className="bg-[#111]/5 border-white/10 text-sm" />
+                    </FormControl>
+                  </FormItem>
+                )} />
                 <Button type="submit" size="sm" className="w-full text-xs" disabled={addMutation.isPending}>
                   {addMutation.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}Save Product
                 </Button>
@@ -549,6 +558,14 @@ function ProductsSection() {
                         rows={4}
                         className="bg-[#111]/5 border-white/10 resize-none text-sm"
                       />
+                    </FormControl>
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="category" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category <span className="text-white/40 font-normal">(optional)</span></FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g. Food, Retail, Entertainment" className="bg-[#111]/5 border-white/10 text-sm" />
                     </FormControl>
                   </FormItem>
                 )} />

@@ -142,7 +142,7 @@ export default function ShopPage() {
     refetchInterval: 60 * 60 * 1000,
   });
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [activeCategory, setActiveCategory] = useState<string>("all");
   const [shuffleSeed] = useState(() => Math.random() * 233280);
 
   const topIds: number[] = useMemo(() => (topProducts ?? []).map((p: any) => p.id), [topProducts]);
@@ -156,15 +156,21 @@ export default function ShopPage() {
     return [...top, ...rest];
   }, [products, shuffleSeed, topIds]);
 
+  const categories = useMemo(() => {
+    if (!sortedProducts) return [];
+    const cats = [...new Set(sortedProducts.map((p: any) => p.category).filter(Boolean))];
+    return cats.sort();
+  }, [sortedProducts]);
+
   const filtered = useMemo(() => {
     let base = sortedProducts;
-    if (activeFilter !== "all") base = base.filter((p: any) => p.name === activeFilter);
+    if (activeCategory !== "all") base = base.filter((p: any) => p.category === activeCategory);
     const q = search.trim().toLowerCase();
     if (!q) return base;
     return base.filter((p: any) =>
       p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q)
     );
-  }, [sortedProducts, search, activeFilter]);
+  }, [sortedProducts, search, activeCategory]);
 
   if (isLoading) {
     return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-[hsl(330_80%_60%)]" /></div>;
@@ -214,14 +220,14 @@ export default function ShopPage() {
         </div>
         <div className="relative">
           <select
-            value={activeFilter}
-            onChange={e => setActiveFilter(e.target.value)}
+            value={activeCategory}
+            onChange={e => setActiveCategory(e.target.value)}
             className="h-10 rounded border border-white/10 bg-[#0d0d18] text-sm text-white/80 pl-8 pr-8 outline-none cursor-pointer appearance-none focus:border-primary/50 transition-colors"
             data-testid="filter-select"
           >
             <option value="all">All</option>
-            {sortedProducts.map((p: any) => (
-              <option key={p.id} value={p.name}>{p.name}</option>
+            {categories.map((cat: string) => (
+              <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
           <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 grid grid-cols-2 gap-0.5">

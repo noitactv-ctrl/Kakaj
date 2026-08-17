@@ -74,6 +74,7 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   description: text("description").default("").notNull(),
   image: text("image").default(""),
+  category: text("category").default(""),
   active: boolean("active").default(true).notNull(),
   pinned: boolean("pinned").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -82,6 +83,7 @@ export const products = pgTable("products", {
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true }).extend({
   description: z.string().optional().default(""),
   image: z.string().optional().default(""),
+  category: z.string().optional().default(""),
 });
 
 // === VARIANTS (OPTIONS) ===
