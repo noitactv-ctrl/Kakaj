@@ -812,12 +812,28 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
     },
   });
 
+  // Live count from textarea
+  const hasBlankLines = /\n[ \t]*\n/.test(input);
+  const pendingCount = input.trim()
+    ? hasBlankLines
+      ? input.split(/\n\s*\n/).filter(b => b.trim()).length
+      : input.split(/\n/).filter(l => l.trim()).length
+    : 0;
+
   return (
     <div className="mt-1 mb-2 bg-[#111]/5 rounded-lg border border-white/10 p-3 space-y-3">
+
+      {/* Header row — available in stock + pending count */}
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-bold text-muted-foreground">
-          🔥 Top Seller — {isLoading ? "..." : `${items?.length || 0} available`}
-        </p>
+        <span className="text-[10px] text-white/40">
+          {isLoading ? "..." : `${items?.length || 0} in stock`}
+        </span>
+        {pendingCount > 0 && (
+          <span className="flex items-center gap-1 bg-primary/20 border border-primary/30 rounded px-2 py-0.5">
+            <span className="text-[10px] font-black text-primary">{pendingCount}</span>
+            <span className="text-[9px] text-primary/70 font-medium">{pendingCount === 1 ? "item" : "items"} to add</span>
+          </span>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -827,21 +843,8 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
             onChange={(e) => setInput(e.target.value)}
             placeholder={"Paste logs — one per line:\nuser@email.com:pass | Cards = [...]\nuser2@email.com:pass | Cards = [...]"}
             rows={5}
-            className="bg-black/60 border-white/10 text-xs font-mono resize-none placeholder:text-white/30 pb-7"
+            className="bg-black/60 border-white/10 text-xs font-mono resize-none placeholder:text-white/30"
           />
-          {/* Live item counter */}
-          {input.trim() && (() => {
-            const hasBlankLines = /\n[ \t]*\n/.test(input);
-            const count = hasBlankLines
-              ? input.split(/\n\s*\n/).filter(b => b.trim()).length
-              : input.split(/\n/).filter(l => l.trim()).length;
-            return (
-              <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-primary/20 border border-primary/30 rounded px-2 py-0.5">
-                <span className="text-[10px] font-black text-primary">{count}</span>
-                <span className="text-[9px] text-primary/70 font-medium">{count === 1 ? "item" : "items"} detected</span>
-              </div>
-            );
-          })()}
         </div>
         <Button
           size="sm"
