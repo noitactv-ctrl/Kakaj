@@ -48,31 +48,38 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
         data-testid={`card-product-${product.id}`}
       >
         {/* ── Card face — topographic background ── */}
-        <div className="relative w-full overflow-hidden flex flex-col items-center justify-center" style={{ height: 120, background: "#08080e" }}>
+        <div className="relative w-full aspect-square overflow-hidden flex flex-col items-center justify-center" style={{ background: "#08080e" }}>
 
           {/* Topographic SVG — same for every card */}
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 320 120" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 320 320" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
             <g stroke="hsl(330 65% 42%)" strokeWidth="0.65" fill="none" opacity="0.6">
+              {/* Horizontal contour lines spanning full height */}
               <path d="M-30,10 C20,2 70,22 120,8 S190,-4 240,14 S290,28 340,10"/>
-              <path d="M-30,22 C15,14 65,34 115,20 S185,6 235,26 S288,40 338,22"/>
-              <path d="M-30,36 C10,26 60,48 110,34 S180,18 230,38 S285,54 335,36"/>
-              <path d="M-30,52 C5,40 55,62 105,50 S175,32 225,52 S282,68 332,52"/>
-              <path d="M-30,68 C2,56 50,78 100,66 S172,48 220,68 S280,84 330,68"/>
-              <path d="M-30,84 C0,72 47,94 97,82 S170,62 218,84 S278,100 328,84"/>
-              <path d="M-30,100 C-2,88 44,108 94,98 S168,78 216,100 S276,116 326,100"/>
-              <path d="M30,-5 C38,14 32,35 44,52 S48,76 36,98 S30,115 42,128"/>
-              <path d="M75,-5 C82,16 76,38 88,56 S91,80 79,102 S74,118 85,130"/>
-              <path d="M120,-5 C126,18 119,42 130,60 S133,84 121,106 S116,122 127,132"/>
-              <path d="M165,-5 C170,20 162,46 173,64 S175,88 163,110 S158,126 169,136"/>
-              <path d="M210,-5 C214,22 205,48 215,67 S217,92 204,114 S200,130 210,140"/>
-              <path d="M255,-5 C258,24 248,52 258,70 S259,96 246,118 S242,134 252,144"/>
-              <path d="M300,-5 C302,26 292,54 301,73 S301,100 288,122 S284,138 293,148"/>
-              <path d="M53,0 C60,18 54,40 65,57 S68,82 56,104 S51,120 62,132"/>
-              <path d="M98,0 C104,20 97,44 108,62 S110,86 98,108 S93,124 104,136"/>
-              <path d="M143,0 C148,22 140,47 150,66 S152,90 140,112 S135,128 146,140"/>
-              <path d="M188,0 C192,24 183,50 193,69 S194,94 181,116 S177,132 188,144"/>
-              <path d="M233,0 C236,26 226,54 236,72 S236,98 223,120 S219,136 230,148"/>
-              <path d="M278,0 C280,28 270,56 280,75 S279,102 266,124 S262,140 272,152"/>
+              <path d="M-30,36 C15,28 65,48 115,34 S185,20 235,40 S288,54 338,36"/>
+              <path d="M-30,62 C10,52 60,72 110,60 S180,44 230,64 S285,78 335,62"/>
+              <path d="M-30,88 C5,78 55,98 105,86 S175,70 225,90 S282,104 332,88"/>
+              <path d="M-30,114 C2,104 50,124 100,112 S172,96 220,116 S280,130 330,114"/>
+              <path d="M-30,140 C0,130 47,150 97,138 S170,122 218,142 S278,156 328,140"/>
+              <path d="M-30,166 C-2,156 44,176 94,164 S168,148 216,168 S276,184 326,166"/>
+              <path d="M-30,192 C0,182 46,202 96,190 S169,174 217,194 S277,210 327,192"/>
+              <path d="M-30,218 C1,208 47,228 97,216 S170,200 218,220 S278,236 328,218"/>
+              <path d="M-30,244 C2,234 48,254 98,242 S171,226 219,246 S279,262 329,244"/>
+              <path d="M-30,270 C3,260 49,280 99,268 S172,252 220,272 S280,288 330,270"/>
+              <path d="M-30,296 C4,286 50,306 100,294 S173,278 221,298 S281,314 331,296"/>
+              {/* Vertical contour lines spanning full height */}
+              <path d="M30,-5 C38,40 32,85 44,130 S48,186 36,232 S30,278 42,325"/>
+              <path d="M75,-5 C82,42 76,88 88,134 S91,190 79,236 S74,282 85,328"/>
+              <path d="M120,-5 C126,44 119,92 130,138 S133,194 121,240 S116,286 127,332"/>
+              <path d="M165,-5 C170,46 162,96 173,142 S175,198 163,244 S158,290 169,336"/>
+              <path d="M210,-5 C214,48 205,98 215,145 S217,202 204,248 S200,294 210,340"/>
+              <path d="M255,-5 C258,50 248,102 258,148 S259,206 246,252 S242,298 252,344"/>
+              <path d="M300,-5 C302,52 292,106 301,152 S301,210 288,256 S284,302 293,348"/>
+              <path d="M53,-5 C60,44 54,90 65,136 S68,192 56,238 S51,284 62,330"/>
+              <path d="M98,-5 C104,46 97,94 108,140 S110,196 98,242 S93,288 104,334"/>
+              <path d="M143,-5 C148,48 140,98 150,144 S152,200 140,246 S135,292 146,338"/>
+              <path d="M188,-5 C192,50 183,102 193,148 S194,204 181,250 S177,296 188,342"/>
+              <path d="M233,-5 C236,52 226,106 236,152 S236,208 223,254 S219,300 230,346"/>
+              <path d="M278,-5 C280,54 270,108 280,154 S279,212 266,258 S262,304 272,350"/>
             </g>
             {/* Bottom pink radial glow */}
             <defs>
@@ -81,7 +88,7 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
                 <stop offset="100%" stopColor="hsl(330,80%,52%)" stopOpacity="0"/>
               </radialGradient>
             </defs>
-            <rect x="0" y="0" width="320" height="120" fill="url(#cardGlow)"/>
+            <rect x="0" y="0" width="320" height="320" fill="url(#cardGlow)"/>
           </svg>
 
           {/* Dark overlay — stronger at top, fades toward bottom glow */}
