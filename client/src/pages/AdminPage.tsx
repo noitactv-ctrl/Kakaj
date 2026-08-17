@@ -3381,15 +3381,18 @@ function SupportSection() {
   const qc = useQueryClient();
   const [actionTicketId, setActionTicketId] = useState<number | null>(null);
   const [adminMessage, setAdminMessage] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
 
   const { data: tickets, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/support"],
     staleTime: 10000,
+    refetchInterval: 15000,
   });
 
   const actionMutation = useMutation({
     mutationFn: async ({ id, action }: { id: number; action: string }) => {
       const res = await apiRequest("PATCH", `/api/admin/support/${id}`, { action, message: adminMessage });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed"); }
       return res.json();
     },
     onSuccess: () => {
@@ -3402,49 +3405,73 @@ function SupportSection() {
   });
 
   const statusCls = (s: string) => {
-    if (s === "open")     return "bg-yellow-500/15 text-yellow-400 border-yellow-500/20";
-    if (s === "refunded") return "bg-green-500/15  text-green-400  border-green-500/20";
-    if (s === "replaced") return "bg-blue-500/15   text-blue-400   border-blue-500/20";
-    return "bg-white/8 text-white/40 border-white/10";
+    if (s === "open")     return "bg-amber-500/15 text-amber-400 border-amber-500/25";
+    if (s === "refunded") return "bg-emerald-500/15 text-emerald-400 border-emerald-500/25";
+    if (s === "replaced") return "bg-sky-500/15 text-sky-400 border-sky-500/25";
+    return "bg-white/8 text-white/35 border-white/10";
   };
 
   if (isLoading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   const open   = (tickets ?? []).filter((t: any) => t.status === "open");
   const closed = (tickets ?? []).filter((t: any) => t.status !== "open");
+  const displayed = showHistory ? closed : open;
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <p className="text-sm font-semibold text-white mb-0.5">Support Tickets</p>
-        <p className="text-xs text-white/40">{open.length} open · {closed.length} closed</p>
+    <div className="space-y-5 max-w-3xl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold text-white">Support Tickets</p>
+          <p className="text-xs text-white/40 mt-0.5">
+            {open.length} open · {closed.length} resolved
+          </p>
+        </div>
+        <button
+          onClick={() => { setShowHistory(h => !h); setActionTicketId(null); setAdminMessage(""); }}
+          className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
+            showHistory
+              ? "bg-primary/15 border-primary/30 text-primary"
+              : "bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/20"
+          }`}
+        >
+          {showHistory ? "← Active" : `History (${closed.length})`}
+        </button>
       </div>
 
-      {(tickets ?? []).length === 0 && (
-        <div className="text-center py-16 text-white/30 text-sm">No tickets yet</div>
+      {displayed.length === 0 && (
+        <div className="text-center py-16 space-y-2">
+          <p className="text-white/30 text-sm">
+            {showHistory ? "No resolved tickets yet" : "No open tickets — all clear ✓"}
+          </p>
+        </div>
       )}
 
-      {(tickets ?? []).map((ticket: any) => (
+      {displayed.map((ticket: any) => (
         <Card key={ticket.id} className="bg-[#111] border-white/10">
           <CardContent className="p-4 space-y-3">
+            {/* Top row */}
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusCls(ticket.status)}`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusCls(ticket.status)}`}>
                     {ticket.status.toUpperCase()}
                   </span>
-                  <span className="text-xs text-white/50 font-mono">#{ticket.id}</span>
+                  <span className="text-[10px] font-bold text-white/70">{ticket.subject}</span>
+                  <span className="text-[10px] text-white/35 font-mono">#{ticket.id}</span>
                 </div>
-                <p className="text-xs text-white/40 font-mono">Order: {ticket.orderId}</p>
+                <p className="text-[11px] text-white/40 font-mono">Order: {ticket.orderId}</p>
+                {ticket.user?.username && (
+                  <p className="text-[11px] text-white/35">User: <span className="text-white/60">{ticket.user.username}</span></p>
+                )}
               </div>
-              <p className="text-[10px] text-white/30 shrink-0">{new Date(ticket.createdAt).toLocaleDateString()}</p>
+              <p className="text-[10px] text-white/25 shrink-0 whitespace-nowrap">
+                {new Date(ticket.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </p>
             </div>
 
-            <div className="bg-white/[0.03] rounded p-3 space-y-1.5 border border-white/5">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase tracking-widest text-white/30">Issue</span>
-                <span className="text-xs font-semibold text-white">{ticket.subject}</span>
-              </div>
+            {/* Body */}
+            <div className="bg-white/[0.03] rounded-lg p-3 space-y-1.5 border border-white/5">
               <p className="text-xs text-white/60 leading-relaxed">{ticket.description}</p>
               {ticket.imageUrl && (
                 <a href={ticket.imageUrl} target="_blank" rel="noopener noreferrer"
@@ -3452,19 +3479,21 @@ function SupportSection() {
               )}
             </div>
 
+            {/* Existing admin message */}
             {ticket.adminMessage && (
-              <div className="bg-primary/5 border border-primary/15 rounded px-3 py-2">
+              <div className="bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
                 <p className="text-[10px] text-primary/60 uppercase tracking-widest mb-0.5">Your response</p>
                 <p className="text-xs text-white/70">{ticket.adminMessage}</p>
               </div>
             )}
 
+            {/* Action panel — only for open tickets */}
             {ticket.status === "open" && (
-              <div className="space-y-2 pt-1">
+              <div className="space-y-2 pt-1 border-t border-white/5">
                 {actionTicketId === ticket.id ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 pt-2">
                     <Textarea
-                      placeholder="Optional message to user..."
+                      placeholder="Message to user (optional)..."
                       value={adminMessage}
                       onChange={e => setAdminMessage(e.target.value)}
                       className="h-20 text-xs bg-[#0d0d0d] border-white/10 resize-none"
@@ -3475,16 +3504,16 @@ function SupportSection() {
                           key={action}
                           size="sm"
                           disabled={actionMutation.isPending}
-                          className={`text-xs h-8 ${
+                          className={`text-xs h-8 font-semibold ${
                             action === "refund"
-                              ? "bg-green-700 hover:bg-green-600 text-white"
+                              ? "bg-emerald-700 hover:bg-emerald-600 text-white"
                               : action === "replace"
-                              ? "bg-blue-700 hover:bg-blue-600 text-white"
+                              ? "bg-sky-700 hover:bg-sky-600 text-white"
                               : "bg-white/10 hover:bg-white/15 text-white/70"
                           }`}
                           onClick={() => actionMutation.mutate({ id: ticket.id, action })}
                         >
-                          {actionMutation.isPending
+                          {actionMutation.isPending && actionTicketId === ticket.id
                             ? <Loader2 className="h-3 w-3 animate-spin" />
                             : action.charAt(0).toUpperCase() + action.slice(1)}
                         </Button>
@@ -3501,8 +3530,8 @@ function SupportSection() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs h-8 border-white/10 text-white/60 hover:text-white"
-                    onClick={() => setActionTicketId(ticket.id)}
+                    className="text-xs h-8 border-white/10 text-white/60 hover:text-white mt-2"
+                    onClick={() => { setActionTicketId(ticket.id); setAdminMessage(ticket.adminMessage || ""); }}
                   >
                     Take Action
                   </Button>

@@ -37,12 +37,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navLinks = [
     { href: "/shop", label: "Shop" },
+    { href: "/cards", label: "Cards" },
     { href: "/deposit", label: "Deposit" },
     { href: "/orders", label: "Orders" },
-    ...(features?.cards !== false ? [{ href: "/cards", label: "Cards" }] : []),
+    { href: "/support", label: "Support" },
     ...(features?.ranks !== false ? [{ href: "/ranks", label: "Ranks" }] : []),
     ...(features?.checker !== false ? [{ href: "/checker", label: "Checker" }] : []),
-    { href: "/support", label: "Support" },
     ...(features?.reseller !== false ? [{ href: "/become-reseller", label: "Become Seller" }] : []),
     ...(user?.role === "admin" ? [{ href: "/admin", label: "Admin" }] : []),
     ...((user as any)?.isWorker && user?.role !== "admin" ? [{ href: "/worker", label: "Worker" }] : []),
@@ -102,9 +102,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         className={`fixed top-0 left-0 z-50 h-full w-52 bg-[#0a0a0a] border-r border-white/8 flex flex-col shadow-2xl transition-transform duration-200 ease-out ${navOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Drawer header */}
-        <div className="flex items-center justify-between px-4 h-[52px] border-b border-white/8 shrink-0">
-          <span className="text-primary font-black tracking-[0.18em] uppercase text-xs">foodplug</span>
-          <button onClick={() => setNavOpen(false)} className="text-white/40 hover:text-white/80 transition-colors p-1">
+        <div className="flex items-start justify-between px-4 pt-4 pb-3 border-b border-white/8 shrink-0">
+          <div>
+            <span className="text-primary font-black tracking-[0.18em] uppercase text-xs block">foodplug</span>
+            <span className="text-white/30 text-[10px] leading-tight mt-0.5 block">Providing high quality accounts<br />and cards since 2023</span>
+          </div>
+          <button onClick={() => setNavOpen(false)} className="text-white/40 hover:text-white/80 transition-colors p-1 mt-0.5">
             <X className="h-4 w-4" />
           </button>
         </div>

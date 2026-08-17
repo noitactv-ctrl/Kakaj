@@ -1411,8 +1411,29 @@ export async function registerRoutes(
   // Support
   app.post("/api/support", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const ticket = await storage.createSupportTicket({ ...req.body, userId: (req.user as any).id });
-    res.status(201).json(ticket);
+    try {
+      const userId = (req.user as any).id;
+      const { orderId, subject, description } = req.body;
+
+      if (!orderId?.trim()) return res.status(400).json({ message: "Order ID is required" });
+      if (!subject?.trim()) return res.status(400).json({ message: "Issue type is required" });
+      if (!description?.trim()) return res.status(400).json({ message: "Description is required" });
+
+      // Validate that the order belongs to this user
+      const [matchedOrder] = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(and(eq(orders.orderId, orderId.trim()), eq(orders.userId, userId)));
+
+      if (!matchedOrder) {
+        return res.status(400).json({ message: "Order ID not found. Please check your Orders page and enter a valid Order ID." });
+      }
+
+      const ticket = await storage.createSupportTicket({ ...req.body, userId });
+      res.status(201).json(ticket);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
   });
 
   app.get("/api/support", async (req, res) => {
