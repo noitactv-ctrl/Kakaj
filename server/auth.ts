@@ -7,11 +7,17 @@ import { scrypt, randomBytes, timingSafeEqual, createHash } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User, userIps, users } from "@shared/schema";
+import type { PublicUser } from "@shared/routes";
 import pgSession from "connect-pg-simple";
 import { pool, db } from "./db";
 import { eq } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
+
+function publicUser(user: User): PublicUser {
+  const { password, loginCode, ...safeUser } = user;
+  return safeUser;
+}
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -139,7 +145,7 @@ export function setupAuth(app: Express) {
           const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
           await db.insert(userIps).values({ userId: user.id, ip });
         } catch {}
-        res.status(200).json(user);
+        res.status(200).json(publicUser(user));
       });
     } catch (err) {
       next(err);
@@ -180,7 +186,7 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+        res.status(201).json(publicUser(user));
       });
     } catch (err: any) {
       if (err.code === "23505") {
@@ -199,6 +205,11 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
-    res.json(req.user);
+    res.json(publicUser(req.user as User));
+  });
+
+  app.get("/api/user/login-code", (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    res.json({ loginCode: (req.user as User).loginCode ?? "" });
   });
 }

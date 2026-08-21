@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
 import { Copy, Check, ShieldCheck, AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -7,10 +8,20 @@ export default function MyCodePage() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const { data: codeData, isLoading: isCodeLoading } = useQuery<{ loginCode: string }>({
+    queryKey: ["/api/user/login-code"],
+    enabled: !!user,
+    queryFn: async () => {
+      const response = await fetch("/api/user/login-code", { credentials: "include" });
+      if (!response.ok) throw new Error("Could not load login code");
+      return response.json();
+    },
+  });
+  const loginCode = codeData?.loginCode ?? "";
 
   const copyCode = () => {
-    if (!user?.loginCode) return;
-    navigator.clipboard.writeText(user.loginCode);
+    if (!loginCode) return;
+    navigator.clipboard.writeText(loginCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast({ title: "Login code copied!" });
@@ -43,10 +54,11 @@ export default function MyCodePage() {
               className="font-mono text-2xl font-black text-white tracking-[0.25em] select-all cursor-text"
               data-testid="text-login-code"
             >
-              {user?.loginCode ?? "—"}
+              {isCodeLoading ? "..." : loginCode || "—"}
             </p>
             <button
               onClick={copyCode}
+              disabled={!loginCode}
               className="flex items-center gap-1.5 mx-auto text-xs text-primary hover:text-primary/80 transition-colors"
               data-testid="btn-copy-login-code"
             >

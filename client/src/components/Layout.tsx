@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Coins, Crown, Gamepad2, HeartHandshake, Menu, ShoppingCart,
-  Ticket, X, CreditCard, ReceiptText, LogOut, ShieldCheck,
+  Ticket, X, CreditCard, ReceiptText, LogOut, ShieldCheck, UserRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -99,6 +99,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </section>
         ))}
+        {user?.role === "admin" && (
+          <section>
+            <p className="pixel-text mb-2 px-1 text-[8px] text-[#ffe177]">ADMIN</p>
+            <Link href="/admin">
+              <div className={`pixel-button flex items-center gap-2 px-2.5 py-2 text-[9px] leading-none ${isActive("/admin") ? "!bg-[#ee292b] !text-white" : ""}`}>
+                <ShieldCheck className="h-3 w-3 shrink-0" />
+                <span>Admin Panel</span>
+              </div>
+            </Link>
+          </section>
+        )}
       </nav>
 
       <div className="p-2.5 border-t-[3px] border-dashed border-[#08122f] space-y-2">
@@ -111,10 +122,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {user && (
           <>
             <Link href="/profile">
-              <div className="px-2 text-[9px] text-[#f6dbac]/80 hover:text-white truncate">
-                {user.username} · ${balance}
+              <div className={`pixel-button flex items-center gap-2 px-2.5 py-2 text-[9px] ${isActive("/profile") ? "!bg-[#ee292b] !text-white" : ""}`}>
+                <UserRound className="h-3 w-3" />
+                <span className="truncate">Profile & Settings</span>
               </div>
             </Link>
+            <p className="px-2 font-mono text-[9px] text-[#f6dbac]/80 truncate">{user.username} · ${balance}</p>
             <button
               onClick={() => logout()}
               className="pixel-button flex w-full items-center gap-2 px-2.5 py-2 text-[9px] !bg-[#43b94e] !text-white"
@@ -155,15 +168,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="hidden items-center gap-6 text-[10px] uppercase tracking-wide text-white/70 lg:flex">
-            <Link href="/cards">Cards</Link>
-            <Link href="/orders">Orders</Link>
-            <Link href="/plinko">Plinko</Link>
-          </div>
           <div className="ml-auto flex items-center gap-3">
-            {user?.role === "admin" && (
-              <Link href="/admin" className="hidden text-[10px] text-[#ffe177] sm:block">Admin</Link>
-            )}
             <Link href="/deposit" className="pixel-button px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
               ${balance}
             </Link>

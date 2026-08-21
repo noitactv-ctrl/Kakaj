@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
-import { Loader2, Eye, EyeOff, RefreshCw, Send } from "lucide-react";
+import { Loader2, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 /* ── SVG Captcha ──────────────────────────────────────────── */
@@ -267,24 +267,6 @@ function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   );
 }
 
-/* ── Footer ─────────────────────────────────────────────────── */
-function AuthFooter() {
-  return (
-    <div className="mt-auto border-t border-white/8 py-6 px-4 text-center space-y-2">
-      <div className="flex items-center justify-center gap-5 text-xs font-semibold text-white/50 tracking-widest uppercase">
-        <span>Reviews</span>
-        <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noopener noreferrer"
-          className="flex items-center justify-center h-5 w-5 rounded-none bg-[#ee292b] border border-black">
-          <Send className="h-2.5 w-2.5 text-white fill-white" />
-        </a>
-        <span>TOS</span>
-        <span>FAQs</span>
-      </div>
-      <p className="text-xs text-white/25">© 2026 foodplug. All rights reserved</p>
-    </div>
-  );
-}
-
 /* ── Main page ──────────────────────────────────────────────── */
 export default function AuthPage() {
   const { user } = useAuth();
@@ -294,7 +276,7 @@ export default function AuthPage() {
 
   return (
     <div className="pixel-shell min-h-screen flex flex-col bg-[#050505]">
-      <div className="flex-1 flex flex-col items-center justify-center px-5 py-10">
+      <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10">
         <div className="w-full max-w-[380px] border-[3px] border-black bg-[#10215e] p-6 shadow-[5px_5px_0_#000]">
           {tab === "login"
             ? <LoginForm onSwitchToRegister={() => setTab("register")} />
@@ -302,7 +284,6 @@ export default function AuthPage() {
           }
         </div>
       </div>
-      <AuthFooter />
     </div>
   );
 }

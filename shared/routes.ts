@@ -8,6 +8,8 @@ import {
   users, products, variants, orders, transactions, announcements
 } from './schema';
 
+export type PublicUser = Omit<typeof users.$inferSelect, 'password' | 'loginCode'>;
+
 export const errorSchemas = {
   validation: z.object({
     message: z.string(),
@@ -29,9 +31,12 @@ export const api = {
     register: {
       method: 'POST' as const,
       path: '/api/register',
-      input: z.object({}),
+      input: z.object({
+        email: z.string().email(),
+        password: z.string().min(6),
+      }),
       responses: {
-        201: z.custom<typeof users.$inferSelect & { loginCode: string }>(),
+        201: z.custom<PublicUser>(),
         400: errorSchemas.validation,
       },
     },
@@ -39,10 +44,11 @@ export const api = {
       method: 'POST' as const,
       path: '/api/login',
       input: z.object({
-        loginCode: z.string(),
+        email: z.string().email(),
+        password: z.string().min(1),
       }),
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: z.custom<PublicUser>(),
         401: errorSchemas.unauthorized,
       },
     },
@@ -57,7 +63,15 @@ export const api = {
       method: 'GET' as const,
       path: '/api/user',
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: z.custom<PublicUser>(),
+        401: errorSchemas.unauthorized,
+      },
+    },
+    loginCode: {
+      method: 'GET' as const,
+      path: '/api/user/login-code',
+      responses: {
+        200: z.object({ loginCode: z.string() }),
         401: errorSchemas.unauthorized,
       },
     },

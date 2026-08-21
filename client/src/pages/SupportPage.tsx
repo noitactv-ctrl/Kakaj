@@ -326,19 +326,6 @@ export default function SupportPage() {
         )}
       </div>
 
-      {/* Footer */}
-      <div className="border-t border-[#1e3f98] py-6 px-4 text-center space-y-2">
-        <div className="flex items-center justify-center gap-5 text-xs font-semibold text-white/50 tracking-widest uppercase">
-          <span>Reviews</span>
-          <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center h-5 w-5 rounded-full bg-primary">
-            <Send className="h-2.5 w-2.5 text-white fill-white" />
-          </a>
-          <span>TOS</span>
-          <span>FAQs</span>
-        </div>
-        <p className="text-xs text-white/25">© 2026 foodplug. All rights reserved</p>
-      </div>
     </div>
   );
 }
