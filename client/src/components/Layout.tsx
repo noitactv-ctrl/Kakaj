@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Coins, Crown, Gamepad2, HeartHandshake, Menu, ShoppingCart,
-  Ticket, X, CreditCard, ReceiptText, LogOut, ShieldCheck, UserRound,
+  Ticket, X, CreditCard, ReceiptText, LogOut, ShieldCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -21,7 +21,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/deposit", label: "Topup", icon: Coins },
       { href: "/orders", label: "Orders", icon: ReceiptText },
-      { href: "/ranks", label: "Loyalty", icon: Crown },
+      { href: "/ranks", label: "Rank", icon: Crown },
     ],
   },
   {
@@ -67,26 +67,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navContent = (
     <>
-      <div className="px-3 py-4 border-b-[3px] border-[#0b1538]">
+      <div className="px-3 pt-4 pb-3 space-y-4">
         <Link href="/cards">
-          <p className="pixel-text text-[11px] leading-relaxed text-[#ffe177] cursor-pointer">FOODPLUG</p>
+          <div className="pixel-button flex h-16 items-center justify-center !bg-[#ee292b] !text-white">
+            <p className="pixel-text text-[15px] leading-none">FOODPLUG</p>
+          </div>
         </Link>
-        <p className="mt-1 text-[8px] tracking-[0.22em] text-[#dbe7ff]/70 uppercase">Card Market</p>
+        <Link href="/profile">
+          <div className="flex h-7 items-center gap-1.5 border-[3px] border-[#0a1021] bg-[#5f90ef] px-2 text-white shadow-[2px_2px_0_#0a1021]">
+            <Coins className="h-3.5 w-3.5 shrink-0 text-[#ffe14f]" />
+            <span className="pixel-text truncate text-[9px] leading-none">{user?.username ?? "GUEST"}</span>
+          </div>
+        </Link>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-3">
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-5">
         {navigation.map(group => (
           <section key={group.label}>
-            <p className="pixel-text mb-2 px-1 text-[8px] text-[#ffe177]">{group.label}</p>
-            <div className="space-y-2">
+            <p className="pixel-text mb-2 px-1 text-[9px] leading-none text-[#ffe177] [text-shadow:2px_2px_0_#131e48]">{group.label}</p>
+            <div className="space-y-3">
               {group.items.map(item => {
                 const content = (
                   <div
-                    className={`pixel-button flex items-center gap-2 px-2.5 py-2 text-[9px] leading-none transition-colors ${
+                    className={`pixel-button flex min-h-11 items-center gap-2.5 px-3 py-2.5 text-[10px] leading-none transition-colors ${
                       !item.external && isActive(item.href) ? "!bg-[#ee292b] !text-white" : ""
                     }`}
                   >
-                    <item.icon className="h-3 w-3 shrink-0" />
+                    <item.icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{item.label}</span>
                   </div>
                 );
@@ -101,10 +108,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         ))}
         {user?.role === "admin" && (
           <section>
-            <p className="pixel-text mb-2 px-1 text-[8px] text-[#ffe177]">ADMIN</p>
+            <p className="pixel-text mb-2 px-1 text-[9px] leading-none text-[#ffe177] [text-shadow:2px_2px_0_#131e48]">ADMIN</p>
             <Link href="/admin">
-              <div className={`pixel-button flex items-center gap-2 px-2.5 py-2 text-[9px] leading-none ${isActive("/admin") ? "!bg-[#ee292b] !text-white" : ""}`}>
-                <ShieldCheck className="h-3 w-3 shrink-0" />
+              <div className={`pixel-button flex min-h-11 items-center gap-2.5 px-3 py-2.5 text-[10px] leading-none ${isActive("/admin") ? "!bg-[#ee292b] !text-white" : ""}`}>
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
                 <span>Admin Panel</span>
               </div>
             </Link>
@@ -112,27 +119,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </nav>
 
-      <div className="p-2.5 border-t-[3px] border-dashed border-[#08122f] space-y-2">
+      <div className="mx-3 border-t-[4px] border-dashed border-[#0a1021] pt-4 pb-3 space-y-3">
         <Link href="/cart">
-          <div className={`pixel-button flex items-center gap-2 px-2.5 py-2 text-[9px] ${isActive("/cart") ? "!bg-[#ee292b] !text-white" : ""}`}>
-            <ShoppingCart className="h-3 w-3" />
+          <div className={`pixel-button flex min-h-11 items-center gap-2.5 px-3 py-2.5 text-[10px] ${isActive("/cart") ? "!bg-[#ee292b] !text-white" : ""}`}>
+            <ShoppingCart className="h-3.5 w-3.5" />
             <span>Cart{cartCount ? ` (${cartCount})` : ""}</span>
           </div>
         </Link>
         {user && (
           <>
-            <Link href="/profile">
-              <div className={`pixel-button flex items-center gap-2 px-2.5 py-2 text-[9px] ${isActive("/profile") ? "!bg-[#ee292b] !text-white" : ""}`}>
-                <UserRound className="h-3 w-3" />
-                <span className="truncate">Profile & Settings</span>
-              </div>
-            </Link>
-            <p className="px-2 font-mono text-[9px] text-[#f6dbac]/80 truncate">{user.username} · ${balance}</p>
             <button
               onClick={() => logout()}
-              className="pixel-button flex w-full items-center gap-2 px-2.5 py-2 text-[9px] !bg-[#43b94e] !text-white"
+              className="pixel-button flex min-h-11 w-full items-center gap-2.5 px-3 py-2.5 text-[10px] !bg-[#43b94e] !text-white"
             >
-              <LogOut className="h-3 w-3" />
+              <LogOut className="h-3.5 w-3.5" />
               <span>Log out</span>
             </button>
           </>
@@ -143,7 +143,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="pixel-shell min-h-screen bg-[#030303] text-[#fff4dc]">
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[170px] flex-col bg-[#5f90ef] text-[#16100c] lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[296px] flex-col bg-[#5f90ef] text-[#16100c] lg:flex">
         {navContent}
       </aside>
 
@@ -151,14 +151,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         className={`fixed inset-0 z-40 bg-black/70 transition-opacity lg:hidden ${navOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={() => setNavOpen(false)}
       />
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col bg-[#5f90ef] text-[#16100c] transition-transform lg:hidden ${navOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[calc(100vw-16px)] max-w-[316px] flex-col bg-[#5f90ef] text-[#16100c] transition-transform lg:hidden ${navOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <button className="absolute right-2 top-2 z-10 p-2 text-[#111]" onClick={() => setNavOpen(false)} aria-label="Close menu">
           <X className="h-5 w-5" />
         </button>
         {navContent}
       </aside>
 
-      <main className="min-h-screen lg:pl-[170px]">
+      <main className="min-h-screen lg:pl-[296px]">
         <div className="border-b-[3px] border-[#183c9d] bg-[#245cdb] px-4 py-2 text-center">
           <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noreferrer" className="pixel-text text-[8px] text-white underline underline-offset-4">
             {activeAnnouncement?.text || "JOIN OUR TELEGRAM"}
