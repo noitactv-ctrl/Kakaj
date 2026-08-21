@@ -51,6 +51,20 @@
     line-height: 1;
     text-shadow: 4px 4px 0 #080808, 0 0 5px rgba(255, 255, 255, 0.45);
   }
+  .sidebar-brand-button {
+    position: relative;
+    z-index: 0;
+    border-color: #050505;
+    background: #ef2428 !important;
+    box-shadow:
+      9px 9px 0 #050505,
+      inset 7px 7px 0 #ff6668,
+      inset -7px -7px 0 #b9131d;
+  }
+  .sidebar-brand-button .pixel-logo-text {
+    position: relative;
+    z-index: 1;
+  }
   .pixel-panel { border: 3px solid #070707; box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.75); }
   .pixel-button { border: 3px solid #090909; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.72); background: #ffe1aa; color: #17110a; font-family: var(--font-pixel); }
   .pixel-button:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.72); }

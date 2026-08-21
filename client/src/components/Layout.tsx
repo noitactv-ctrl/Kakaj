@@ -69,7 +69,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <>
       <div className="px-3 pt-4 pb-3 space-y-4">
         <Link href="/cards">
-          <div className="pixel-button flex h-[52px] items-center justify-center !bg-[#ee292b] !text-white">
+          <div className="pixel-button sidebar-brand-button flex h-[52px] items-center justify-center !text-white">
             <p className="pixel-logo-text">NYCHQ</p>
           </div>
         </Link>
