@@ -47,9 +47,9 @@
     font-family: var(--font-pixel);
     font-size: 17px;
     font-weight: 900;
-    letter-spacing: -0.08em;
+    letter-spacing: 0.05em;
     line-height: 1;
-    text-shadow: 4px 4px 0 #080808;
+    text-shadow: 4px 4px 0 #080808, 0 0 5px rgba(255, 255, 255, 0.45);
   }
   .pixel-panel { border: 3px solid #070707; box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.75); }
   .pixel-button { border: 3px solid #090909; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.72); background: #ffe1aa; color: #17110a; font-family: var(--font-pixel); }
