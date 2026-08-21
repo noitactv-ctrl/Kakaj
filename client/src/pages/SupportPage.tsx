@@ -117,25 +117,26 @@ export default function SupportPage() {
   const openCount = (tickets ?? []).filter(t => t.status === "open").length;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 py-6">
+    <div className="pixel-page min-h-screen flex flex-col">
+      <div className="flex-1 max-w-3xl mx-auto w-full px-1 py-2">
 
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-xl font-black text-white tracking-tight">Support</h1>
-          <p className="text-xs text-white/40 mt-0.5">Get help with your orders</p>
+          <p className="pixel-text text-[8px] text-[#ffe177]">HELP DESK</p>
+          <h1 className="mt-3 text-xl leading-relaxed text-white">SUPPORT TICKETS</h1>
+          <p className="text-xs text-white/55 mt-2">Get help with a completed order.</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-white/5 rounded-lg p-1 mb-6 gap-1">
+        <div className="flex border-[3px] border-black bg-[#10215e] p-1 mb-6 gap-1">
           {(["submit", "history"] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`flex-1 py-2 text-xs font-bold tracking-wide rounded-md transition-all ${
                 tab === t
-                  ? "bg-primary text-white shadow"
-                  : "text-white/40 hover:text-white/70"
+                  ? "bg-[#d94343] text-white"
+                  : "text-white/55 hover:text-white hover:bg-[#17337d]"
               }`}
             >
               {t === "submit" ? "New Ticket" : `History${openCount > 0 ? ` (${openCount})` : ""}`}
@@ -147,7 +148,7 @@ export default function SupportPage() {
         {tab === "submit" && (
           <div className="space-y-4">
             {/* Instructions card */}
-            <div className="bg-white/[0.03] border border-white/8 rounded-xl p-4 space-y-3">
+            <div className="pixel-panel bg-[#10215e] p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
                 <h2 className="text-sm font-bold text-white">Before submitting</h2>
@@ -181,7 +182,7 @@ export default function SupportPage() {
                     value={orderId}
                     onChange={e => handleOrderIdChange(e.target.value)}
                     onBlur={validateOrderId}
-                    className={`w-full h-11 bg-white/[0.04] border rounded-lg px-3 text-sm text-white placeholder:text-white/25 outline-none transition-colors ${
+                    className={`w-full h-11 border-[3px] border-black bg-[#ffe1aa] px-3 text-sm text-[#1b130b] placeholder:text-[#735c44] outline-none transition-colors ${
                       orderIdError ? "border-red-500/60 focus:border-red-500" :
                       orderIdValid ? "border-emerald-500/50 focus:border-emerald-500" :
                       "border-white/10 focus:border-primary/50"
@@ -209,8 +210,8 @@ export default function SupportPage() {
                       onClick={() => setIssue(opt)}
                       className={`h-11 rounded-lg border text-sm font-semibold transition-all ${
                         issue === opt
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-white/10 bg-white/[0.04] text-white/50 hover:text-white hover:border-white/20"
+                          ? "border-black bg-[#d94343] text-white"
+                          : "border-black bg-[#17337d] text-white/70 hover:text-white"
                       }`}
                     >
                       {opt}
@@ -227,7 +228,7 @@ export default function SupportPage() {
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   rows={4}
-                  className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/25 outline-none focus:border-primary/50 transition-colors resize-none"
+                  className="w-full border-[3px] border-black bg-[#ffe1aa] px-3 py-2.5 text-sm text-[#1b130b] placeholder:text-[#735c44] outline-none resize-none"
                 />
               </div>
 
@@ -241,7 +242,7 @@ export default function SupportPage() {
                   placeholder="https://imgur.com/..."
                   value={imageUrl}
                   onChange={e => setImageUrl(e.target.value)}
-                  className="w-full h-11 bg-white/[0.04] border border-white/10 rounded-lg px-3 text-sm text-white placeholder:text-white/25 outline-none focus:border-primary/50 transition-colors"
+                  className="w-full h-11 border-[3px] border-black bg-[#ffe1aa] px-3 text-sm text-[#1b130b] placeholder:text-[#735c44] outline-none"
                 />
               </div>
 
@@ -249,7 +250,7 @@ export default function SupportPage() {
               <button
                 onClick={() => submitMutation.mutate()}
                 disabled={submitMutation.isPending}
-                className="w-full py-3 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                  className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[9px] text-white hover:bg-[#31973a] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
               >
                 {submitMutation.isPending
                   ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</>
@@ -284,7 +285,7 @@ export default function SupportPage() {
                     })
                   : null;
                 return (
-                <div key={ticket.id} className="bg-white/[0.03] border border-white/8 rounded-xl p-4 space-y-3">
+                <div key={ticket.id} className="pixel-panel bg-[#10215e] p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-0.5">
                       <p className="text-[10px] font-mono text-white/35">{ticket.orderId}</p>
@@ -326,7 +327,7 @@ export default function SupportPage() {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-white/8 py-6 px-4 text-center space-y-2">
+      <div className="border-t border-[#1e3f98] py-6 px-4 text-center space-y-2">
         <div className="flex items-center justify-center gap-5 text-xs font-semibold text-white/50 tracking-widest uppercase">
           <span>Reviews</span>
           <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noopener noreferrer"

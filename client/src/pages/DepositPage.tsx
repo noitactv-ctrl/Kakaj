@@ -240,77 +240,91 @@ export default function DepositPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-5">
-
-        {/* ── Hero ── */}
-        <div className="text-center pt-2 pb-2 space-y-1">
-          <h1 className="text-3xl sm:text-4xl font-black text-primary tracking-wide uppercase">foodplug</h1>
-          <p className="text-sm text-white/50">Top up your wallet to purchase premium cards.</p>
+    <div className="pixel-page min-h-screen flex flex-col">
+      <div className="flex-1 w-full px-1 py-2 space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="pixel-text text-[9px] text-[#ffe177]">WALLET / TOPUP</p>
+            <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">TOPUP</h1>
+          </div>
+          <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noreferrer" className="pixel-button px-3 py-2 text-[8px]">SUPPORT</a>
+        </div>
+        <div className="pixel-panel flex items-center justify-between bg-[#1f3f96] px-4 py-3">
+          <p className="pixel-text text-[8px] text-[#c5d6ff]">CURRENT BALANCE</p>
+          <p className="pixel-text text-[11px] text-[#ffe177]">${((user?.balance ?? 0) / 100).toFixed(2)}</p>
         </div>
 
         {manualResult ? (
           <ManualDepositPanel result={manualResult} onReset={() => { setManualResult(null); setSelectedOption(null); setAmountInput(""); }} />
         ) : (
-          <>
-            {/* ── Amount ── */}
+          <div className="pixel-panel space-y-5 bg-[#10215e] p-4 sm:p-5">
             <div className="space-y-2">
-              <p className="text-sm font-bold text-white">Amount to charge</p>
+              <p className="pixel-label">ENTER AMOUNT</p>
               <input
                 type="number"
                 step="0.01"
                 min="0.01"
-                placeholder="amount to charge in $"
+                placeholder="Enter amount in USD"
                 value={amountInput}
                 onChange={e => setAmountInput(e.target.value)}
-                className="w-full h-11 bg-[#1a1a1a] border border-white/10 rounded px-3 text-sm text-white outline-none focus:border-primary/50 transition-colors placeholder:text-white/30"
+                className="pixel-input h-12"
                 data-testid="input-amount"
               />
+              <p className="font-mono text-[10px] text-[#abbceb]">Pick a payment method below — your balance credits automatically.</p>
             </div>
 
-            {/* ── Payment processor ── */}
-            <div className="space-y-2">
-              <p className="text-sm font-bold text-white">Select payment processor</p>
-              <div className="space-y-2">
+            <div className="border-[3px] border-black bg-[#0a1645] p-3">
+              <p className="pixel-label">BONUS TIERS</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {BONUS_TIERS.slice(0, 5).map(tier => (
+                  <div key={tier.min} className={`border-[3px] border-black px-3 py-2 text-center ${activeTier?.min === tier.min ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
+                    <p className="font-mono text-[9px] text-white/75">${tier.min}{tier.max ? "+" : ""}</p>
+                    <p className={`pixel-text mt-1 text-[7px] ${activeTier?.min === tier.min ? "text-white" : "text-[#72df7c]"}`}>{tier.bonus}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="pixel-label">CHOOSE A PAYMENT METHOD</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {paymentOptions.map(opt => {
                   const isActive = selectedOption === opt.id;
                   return (
                     <button
                       key={opt.id}
                       onClick={() => setSelectedOption(opt.id)}
-                      className="w-full flex items-center justify-center gap-3 py-4 rounded border transition-all"
+                      className={`flex min-h-24 flex-col items-center justify-center gap-2 border-[3px] border-black px-2 py-3 transition-all ${isActive ? "bg-[#2555c5] shadow-[2px_2px_0_#ffe177]" : "bg-[#0b1849] hover:bg-[#17337d]"}`}
                       style={{
-                        borderColor: isActive ? opt.color : "rgba(255,255,255,0.1)",
-                        background: isActive ? `${opt.color}12` : "#1a1a1a",
+                        outline: isActive ? `2px solid ${opt.color}` : "none",
                       }}
                       data-testid={`btn-payment-${opt.id}`}
                     >
                       <opt.Icon className="h-6 w-6 flex-shrink-0" style={{ color: opt.color }} />
-                      <span className="text-sm font-medium text-white">{opt.label}</span>
+                      <span className="pixel-text text-[8px] text-white">{opt.label}</span>
+                      <span className="font-mono text-[9px] text-white/55">{opt.sub}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* ── Charge button ── */}
             <button
               onClick={handleContinue}
               disabled={!selectedOption || isPending || !amountInput || parsedAmount <= 0}
-              className="w-full py-3 rounded bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[9px] text-white transition-colors hover:bg-[#31973a] disabled:opacity-40"
               data-testid="btn-continue-deposit"
             >
-              {isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : "Charge"}
+              {isPending ? "PROCESSING..." : selected ? `TOPUP WITH ${selected.label.toUpperCase()}` : "SELECT A METHOD"}
             </button>
-          </>
+          </div>
         )}
 
-        {/* ── History ── */}
         {recentDeposits.length > 0 && (
-          <div className="space-y-2 pt-2">
+          <div className="pixel-panel space-y-3 bg-[#10215e] p-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-white/40">Deposit History</p>
-              <button onClick={() => refetchDeposits()} className="text-white/20 hover:text-white/50 transition-colors" data-testid="btn-refresh-deposits">
+              <p className="pixel-label">DEPOSIT HISTORY</p>
+              <button onClick={() => refetchDeposits()} className="text-[#ffe177] hover:text-white transition-colors" data-testid="btn-refresh-deposits">
                 <RefreshCw className="h-3 w-3" />
               </button>
             </div>
@@ -321,8 +335,7 @@ export default function DepositPage() {
         )}
       </div>
 
-      {/* ── Footer ── */}
-      <div className="border-t border-white/8 py-6 px-4 text-center space-y-2">
+      <div className="border-t border-[#1e3f98] py-6 px-4 text-center space-y-2">
         <div className="flex items-center justify-center gap-5 text-xs font-semibold text-white/50 tracking-widest uppercase">
           <span>Reviews</span>
           <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noopener noreferrer"

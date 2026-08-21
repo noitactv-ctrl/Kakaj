@@ -50,14 +50,14 @@ export default function ProfilePage() {
   if (isLoading || !user) return <div className="flex h-screen items-center justify-center bg-background"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="pixel-page space-y-6 pb-20">
       <div>
-        <p className="text-xs text-muted-foreground">Your account</p>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="pixel-text text-[8px] text-[#ffe177]">ACCOUNT / PLAYER PROFILE</p>
+        <h1 className="mt-3 text-xl leading-relaxed text-white">PROFILE</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full justify-start border-b border-border bg-transparent p-0 h-auto rounded-none gap-6">
+        <TabsList className="w-full justify-start border-b-[3px] border-[#e5be35] bg-transparent p-0 h-auto rounded-none gap-6">
           <TabsTrigger value="dashboard" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-0 py-3 text-sm font-medium">
             Dashboard
           </TabsTrigger>

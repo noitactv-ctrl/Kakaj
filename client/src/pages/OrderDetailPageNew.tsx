@@ -133,12 +133,12 @@ export default function OrderDetailPageNew() {
   };
 
   return (
-    <div className="min-h-screen bg-[#111] flex flex-col pb-20">
-      <div className="max-w-lg w-full mx-auto px-4 pt-6 flex flex-col flex-1">
+    <div className="pixel-page min-h-screen flex flex-col pb-20">
+      <div className="max-w-3xl w-full mx-auto px-1 pt-2 flex flex-col flex-1">
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => setLocation("/orders")}
-            className="flex items-center gap-1.5 text-white/45 hover:text-white transition-colors text-sm"
+            className="pixel-button flex w-fit items-center gap-1.5 px-3 py-2 text-[8px]"
             data-testid="btn-back"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -146,14 +146,14 @@ export default function OrderDetailPageNew() {
           </button>
         </div>
 
-        <div className="border-b border-white/10 flex gap-8 mb-6">
+        <div className="border-b-[3px] border-[#e5be35] flex gap-8 mb-6">
           {(["info", "products"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`pb-3 text-sm font-bold transition-colors border-b-2 -mb-px ${
                 activeTab === tab
-                  ? "text-primary border-primary"
+                  ? "text-[#ffe177] border-[#ffe177] pixel-text text-[8px]"
                   : "text-white/45 border-transparent hover:text-white/60"
               }`}
             >
@@ -193,13 +193,13 @@ export default function OrderDetailPageNew() {
                   <div className="space-y-2 pt-1">
                     <button
                       onClick={() => toggleStock(key)}
-                      className="w-full h-11 rounded-xl bg-[#3b5bdb] hover:bg-[#3451c7] text-white font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                      className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[8px] text-white hover:bg-[#31973a] transition-colors flex items-center justify-center gap-2"
                     >
                       {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       {isOpen ? `Hide ${label}` : `View ${label}`}
                     </button>
                     {isOpen && (
-                      <div className="bg-[#111]/5 border border-white/10 rounded-xl p-4 space-y-3">
+                      <div className="border-[3px] border-black bg-[#0b1644] p-4 space-y-3">
                         <p className="text-xs font-mono text-white whitespace-pre-wrap leading-relaxed break-all">
                           {order.deliveryContent}
                         </p>
@@ -239,7 +239,7 @@ export default function OrderDetailPageNew() {
                       <div className="space-y-2 pt-1">
                         <button
                           onClick={() => toggleStock(item.key)}
-                          className="w-full h-11 rounded-xl bg-[#3b5bdb] hover:bg-[#3451c7] text-white font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                          className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[8px] text-white hover:bg-[#31973a] transition-colors flex items-center justify-center gap-2"
                         >
                           {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           {isOpen
@@ -248,7 +248,7 @@ export default function OrderDetailPageNew() {
                         </button>
 
                         {isOpen && (
-                          <div className="bg-[#111]/5 border border-white/10 rounded-xl p-4 space-y-3">
+                          <div className="border-[3px] border-black bg-[#0b1644] p-4 space-y-3">
                             {stockContent.split(/\n\n+/).filter(Boolean).map((chunk, ci, arr) => (
                               <div key={ci}>
                                 <p className="text-xs font-mono text-white whitespace-pre-wrap leading-relaxed break-all">
@@ -270,7 +270,7 @@ export default function OrderDetailPageNew() {
                         )}
                       </div>
                     ) : (
-                      <div className="w-full h-11 rounded-xl bg-[#0d0d0d] border border-white/10 text-white/40 font-bold text-sm flex items-center justify-center">
+                        <div className="w-full border-[3px] border-black bg-[#0b1644] py-3 text-white/55 font-bold text-sm flex items-center justify-center">
                         {isFulfilled ? "No stock data" : "Pending Order"}
                       </div>
                     )}
@@ -289,8 +289,8 @@ export default function OrderDetailPageNew() {
 
 function InfoRow({ label, value }: { label: string; value: string | ReactNode }) {
   return (
-    <div>
-      <p className="text-xs text-white/45 mb-1">{label}</p>
+    <div className="border-[3px] border-black bg-[#10215e] px-4 py-3">
+      <p className="pixel-text text-[7px] text-[#c5d6ff] mb-2">{label}</p>
       {typeof value === "string" ? <p className="text-sm text-white">{value}</p> : value}
     </div>
   );

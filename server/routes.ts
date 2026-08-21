@@ -1353,6 +1353,7 @@ export async function registerRoutes(
 
     const baseId = req.body.baseId ? Number(req.body.baseId) : undefined;
     const priceCents = Math.round(parseFloat(req.body.price || "0") * 100);
+    const isFirstHand = req.body.isFirstHand === true;
 
     const createdCards: any[] = [];
 
@@ -1383,7 +1384,7 @@ export async function registerRoutes(
         country,
         extras: fullItem,
         price: priceCents,
-        isFirstHand: false,
+        isFirstHand,
         hrPercent: 80,
         ...(baseId ? { baseId } : {}),
       } as any);

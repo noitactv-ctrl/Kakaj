@@ -45,6 +45,14 @@
   .pixel-panel { border: 3px solid #070707; box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.75); }
   .pixel-button { border: 3px solid #090909; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.72); background: #ffe1aa; color: #17110a; font-family: var(--font-pixel); }
   .pixel-button:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.72); }
+  .pixel-page { max-width: 1100px; margin: 0 auto; }
+  .pixel-input { width: 100%; border: 3px solid #050505; border-radius: 0; background: #ffe1aa; color: #1b130b; padding: 0.75rem 0.9rem; font-family: var(--font-mono); font-size: 0.78rem; outline: none; box-shadow: 2px 2px 0 #050505; }
+  .pixel-input::placeholder { color: #735c44; }
+  .pixel-input:focus { background: #fff0c9; }
+  .pixel-label { font-family: var(--font-pixel); font-size: 0.56rem; color: #ffe177; }
+  .pixel-status-yes, .pixel-status-no { display: inline-flex; align-items: center; justify-content: center; border: 2px solid #050505; padding: 0.24rem 0.42rem; font-family: var(--font-pixel); font-size: 0.5rem; }
+  .pixel-status-yes { background: #43b94e; color: #fff; }
+  .pixel-status-no { background: #697184; color: #f7f2e9; }
 }
 
 @keyframes marquee {
@@ -60,6 +68,32 @@
 .glass { @apply bg-white/5 backdrop-blur-xl border border-white/[0.06] shadow-md; }
 .pro-card { @apply bg-[#101a4a] border border-[#314caa] rounded-none shadow-sm; }
 .item-row { @apply border border-[#273d88] bg-[#111b4d] rounded-none p-3 hover:bg-[#17245f] transition-colors; }
+
+.pixel-shell .rounded-lg,
+.pixel-shell .rounded-xl,
+.pixel-shell .rounded-2xl,
+.pixel-shell .rounded-full {
+  border-radius: 0 !important;
+}
+
+.pixel-shell .bg-\[\#111\],
+.pixel-shell .bg-\[\#0d0d0d\],
+.pixel-shell .bg-\[\#1a1a1a\] {
+  background-color: #10215e !important;
+}
+
+.pixel-shell .bg-card,
+.pixel-shell .bg-card\/40 {
+  background-color: #10215e !important;
+  border: 3px solid #050505 !important;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.7);
+}
+
+.pixel-shell input,
+.pixel-shell select,
+.pixel-shell textarea {
+  border-radius: 0;
+}
 
 @media (hover: hover) and (pointer: fine) {
   .pixel-shell,

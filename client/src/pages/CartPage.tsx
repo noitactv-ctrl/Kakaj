@@ -274,17 +274,17 @@ export default function CartPage() {
 
   if (items.length === 0 && !cashappModal) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 space-y-6 max-w-sm mx-auto text-center">
-        <div className="h-20 w-20 rounded-full bg-[#0d0d0d] flex items-center justify-center">
-          <ShoppingCart className="h-9 w-9 text-muted-foreground" />
+      <div className="pixel-page flex flex-col items-center justify-center py-24 space-y-6 max-w-sm mx-auto text-center">
+        <div className="grid h-20 w-20 place-items-center border-[3px] border-black bg-[#10215e]">
+          <ShoppingCart className="h-9 w-9 text-[#ffe177]" />
         </div>
         <div className="space-y-1">
-          <h2 className="text-lg font-bold text-white">Your cart is empty</h2>
-          <p className="text-sm text-muted-foreground">Add some products to get started.</p>
+          <h2 className="text-sm leading-relaxed text-white">YOUR CART IS EMPTY</h2>
+          <p className="text-sm text-white/55">Browse cards to get started.</p>
         </div>
         <Link href="/">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold" data-testid="button-browse-shop">
-            Browse Shop <ArrowRight className="h-4 w-4" />
+          <button className="pixel-button flex items-center gap-2 px-4 py-3 text-[8px]" data-testid="button-browse-shop">
+            BROWSE CARDS <ArrowRight className="h-4 w-4" />
           </button>
         </Link>
       </div>
@@ -303,16 +303,19 @@ export default function CartPage() {
         />
       )}
 
-      <div className="max-w-lg mx-auto w-full space-y-4 pb-20">
+      <div className="pixel-page max-w-4xl mx-auto w-full space-y-4 pb-20">
 
         {/* Products header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white">Products ({items.length})</h2>
-          <span className="text-[11px] text-white/40">Swipe/scroll to view each product</span>
+          <div>
+            <p className="pixel-text text-[8px] text-[#ffe177]">CHECKOUT</p>
+            <h2 className="mt-2 text-base leading-relaxed text-white">CART ({items.length})</h2>
+          </div>
+          <span className="font-mono text-[10px] text-white/45">Review your order</span>
         </div>
 
         {/* Product list */}
-        <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden divide-y divide-gray-100">
+        <div className="pixel-panel bg-[#10215e] overflow-hidden divide-y-2 divide-black">
           {items.map((item) => (
             <div key={`v-${item.variantId}`} className="flex items-center gap-3 px-3 py-3" data-testid={`card-cart-item-${item.variantId}`}>
               <div className="h-10 w-10 rounded-lg bg-[#111]/5 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -329,7 +332,7 @@ export default function CartPage() {
               </div>
               <button
                 onClick={() => removeItem(item.variantId)}
-                className="flex-shrink-0 px-2.5 py-1 rounded border border-red-500/40 text-red-400 text-[11px] font-semibold hover:bg-red-500/10 transition-colors"
+                className="flex-shrink-0 border-2 border-black bg-[#d94343] px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-[#b92b31] transition-colors"
                 data-testid={`button-remove-item-${item.variantId}`}
               >
                 Remove
@@ -363,13 +366,13 @@ export default function CartPage() {
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
-                className="flex-1 bg-[#111] border-white/10 text-white placeholder:text-white/40 text-xs h-10 focus-visible:ring-primary/30"
+                className="pixel-input flex-1 h-10"
                 data-testid="input-coupon"
               />
               <button
                 onClick={handleApplyCoupon}
                 disabled={validateDiscountMutation.isPending || !couponCode.trim()}
-                className="px-4 h-10 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                className="pixel-button h-10 px-4 text-[8px] disabled:opacity-50 flex items-center gap-1.5"
                 data-testid="button-apply-coupon"
               >
                 {validateDiscountMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Tag className="h-3.5 w-3.5" />}
@@ -380,8 +383,8 @@ export default function CartPage() {
         </div>
 
         {/* Checkout summary */}
-        <div className="bg-[#111] border border-white/10 rounded-xl p-4 space-y-0">
-          <h3 className="text-base font-bold text-white mb-3">User Checkout</h3>
+        <div className="pixel-panel bg-[#10215e] p-4 space-y-0">
+          <h3 className="pixel-text mb-3 text-[9px] text-[#ffe177]">ORDER SUMMARY</h3>
 
           <div className="space-y-0 divide-y divide-white/[0.04]">
             <div className="flex justify-between py-2.5 text-xs">
@@ -419,7 +422,7 @@ export default function CartPage() {
 
         {/* Payment processor */}
         <div>
-          <p className="text-xs font-semibold text-white/60 mb-2">Select Payment Processor</p>
+          <p className="pixel-label mb-2">SELECT PAYMENT PROCESSOR</p>
           <div className="space-y-1.5">
             {cashappEnabled && (
               <button
@@ -487,7 +490,7 @@ export default function CartPage() {
 
         {/* Proceed to Payment */}
         <button
-          className="w-full h-9 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50 uppercase tracking-widest flex items-center justify-center gap-2"
+          className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[9px] text-white hover:bg-[#31973a] transition-colors disabled:opacity-50 uppercase flex items-center justify-center gap-2"
           disabled={isPending}
           onClick={handleCheckout}
           data-testid="button-proceed-payment"

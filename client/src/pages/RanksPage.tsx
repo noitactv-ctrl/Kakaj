@@ -29,25 +29,25 @@ export default function RanksPage() {
     : 100;
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-20">
-      <div className="max-w-md sm:max-w-2xl lg:max-w-3xl mx-auto px-4 pt-6">
+    <div className="pixel-page min-h-screen pb-10">
+      <div className="max-w-5xl mx-auto px-1 pt-2">
 
         {/* ── Hero ── */}
-        <div className="text-center pt-2 pb-2 space-y-1">
-          <h1 className="text-3xl sm:text-4xl font-black text-primary tracking-wide uppercase">foodplug</h1>
-          <p className="text-sm text-white/50">Earn loyalty rewards as you build your card balance.</p>
+        <div className="pt-2 pb-5 space-y-1">
+          <p className="pixel-text text-[9px] text-[#ffe177]">REWARDS / MEMBER STATUS</p>
+          <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">LOYALTY</h1>
         </div>
 
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => setLocation("/profile")}
-            className="h-8 w-8 flex items-center justify-center rounded-full bg-[#0d0d0d] hover:bg-[#111]/5 transition-colors text-white/45 hover:text-white"
+            className="pixel-button h-8 w-8 flex items-center justify-center p-0"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-white">Ranks</h1>
-            <p className="text-[10px] text-white/40 uppercase tracking-widest">deposit more, save more</p>
+            <h2 className="pixel-text text-[9px] text-white">YOUR TIER</h2>
+            <p className="text-[10px] text-white/50 uppercase tracking-widest">Deposit more, save more</p>
           </div>
         </div>
 
@@ -58,20 +58,20 @@ export default function RanksPage() {
         ) : (
           <>
             {/* Current rank hero */}
-            <div className={`rounded-2xl border ${current.border} bg-[#0d0d0d] p-5 mb-6 shadow-lg ${current.glow}`}>
+            <div className={`pixel-panel ${current.border} bg-[#19367f] p-5 mb-5 shadow-lg ${current.glow}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">{current.emoji}</span>
+                  <span className="grid h-14 w-14 place-items-center border-[3px] border-black bg-[#10215e] text-3xl">{current.emoji}</span>
                   <div>
                     <p className={`text-lg font-bold ${current.color}`}>{current.label}</p>
-                    <p className="text-[10px] text-white/40 uppercase tracking-widest">your rank</p>
+                    <p className="pixel-text text-[7px] text-[#c5d6ff]">TIER {currentIdx + 1} OF {RANKS.length}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   {current.discount > 0 ? (
                     <>
                       <p className={`text-2xl font-bold ${current.color}`}>{current.discount}%</p>
-                      <p className="text-[10px] text-white/40">off every order</p>
+                      <p className="text-[10px] text-white/55">shop-wide discount</p>
                     </>
                   ) : (
                     <>
@@ -88,7 +88,7 @@ export default function RanksPage() {
                     <span>${(totalDeposited / 100).toFixed(0)} deposited</span>
                     <span>${(next.threshold / 100).toFixed(0)} for {next.label} {next.emoji}</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-[#0d0d0d] overflow-hidden">
+                  <div className="h-3 border-[2px] border-black bg-[#0a1645] overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{ width: `${progress}%`, backgroundColor: current.bar }}
@@ -104,24 +104,25 @@ export default function RanksPage() {
             </div>
 
             {/* All tiers */}
-            <div className="space-y-2">
-              <p className="text-[9px] text-white/30 uppercase tracking-widest mb-3">All Tiers</p>
+            <div className="space-y-3">
+              <p className="pixel-label">ALL TIERS</p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {RANKS.map((rank, i) => {
                 const isUnlocked = i <= currentIdx;
                 const isCurrent = i === currentIdx;
                 return (
                   <div
                     key={rank.key}
-                    className={`flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all ${
+                    className={`flex flex-col items-center justify-center gap-2 px-4 py-4 border-[3px] border-black transition-all ${
                       isCurrent
-                        ? `${rank.border} bg-[#0d0d0d]`
+                        ? "bg-[#1f439b] ring-2 ring-[#e5be35]"
                         : isUnlocked
-                        ? "border-white/10 bg-[#0d0d0d]"
-                        : "border-white/10 bg-transparent opacity-50"
+                        ? "bg-[#10215e]"
+                        : "bg-[#0b153d] opacity-50"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-lg w-7 text-center">{rank.emoji}</span>
+                      <span className="grid h-9 w-9 place-items-center border-2 border-black bg-[#0b153d] text-lg">{rank.emoji}</span>
                       <div>
                         <p className={`text-sm font-bold ${isUnlocked ? rank.color : "text-white/40"}`}>
                           {rank.label}
@@ -132,7 +133,7 @@ export default function RanksPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-center">
                       {rank.discount > 0 ? (
                         <span className={`text-sm font-bold ${isUnlocked ? rank.color : "text-white/30"}`}>{rank.discount}% off</span>
                       ) : (
@@ -142,6 +143,7 @@ export default function RanksPage() {
                   </div>
                 );
               })}
+              </div>
             </div>
 
             <p className="text-[10px] text-white/30 text-center mt-6 leading-relaxed">

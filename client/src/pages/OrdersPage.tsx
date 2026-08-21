@@ -3,7 +3,7 @@ import { useOrders } from "@/hooks/use-orders";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, CreditCard, Coins, ReceiptText } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
 
@@ -123,51 +123,51 @@ export default function OrdersPage() {
   ];
 
   return (
-    <div className="max-w-2xl lg:max-w-4xl mx-auto px-4 py-5 sm:py-6 space-y-4">
+    <div className="pixel-page max-w-5xl px-1 py-2 space-y-5">
 
       <div className="flex items-center justify-between">
-        <p className="text-sm font-bold text-white">
-          <span className="text-primary">{allOrders.length}</span> Orders Found
-        </p>
+        <div>
+          <h1 className="text-lg leading-relaxed text-white sm:text-xl">ORDER HISTORY</h1>
+          <p className="mt-2 font-mono text-[10px] text-white/45">{formatDateTime(now)}</p>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => refetch()}
             disabled={isRefetching}
-            className="flex items-center gap-1.5 border border-white/10 bg-[#111] rounded px-3 py-1.5 text-xs text-white/45 hover:text-white/70 transition-all disabled:opacity-50"
+            className="pixel-button flex items-center gap-1.5 px-3 py-2 text-[8px] disabled:opacity-50"
             data-testid="btn-refresh"
           >
             <RefreshCw className={`h-3 w-3 ${isRefetching ? "animate-spin" : ""}`} />
             Refresh
           </button>
           <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noopener noreferrer">
-            <button className="flex items-center gap-1.5 border border-white/10 bg-[#111] rounded px-3 py-1.5 text-xs text-white/45 hover:text-white/70 transition-all" data-testid="btn-support">
+            <button className="pixel-button flex items-center gap-1.5 px-3 py-2 text-[8px]" data-testid="btn-support">
               Support
             </button>
           </a>
         </div>
       </div>
 
-      {/* Deposits + Tier panel */}
-      <div className="border border-white/10 bg-[#0d0d0d] rounded-lg p-4 flex items-center justify-between">
+      <div className="pixel-panel bg-[#18367f] p-4 flex items-center justify-between">
         <div>
-          <p className="text-[10px] text-white/40 uppercase tracking-widest mb-1">Total Deposits</p>
-          <p className="text-2xl font-mono font-bold text-white">${(totalDepositsCents / 100).toFixed(2)}</p>
+          <p className="pixel-label mb-2">TOTAL DEPOSITS</p>
+          <p className="text-2xl font-mono font-bold text-[#ffe177]">${(totalDepositsCents / 100).toFixed(2)}</p>
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-white/40 uppercase tracking-widest mb-1">Tier</p>
-          <p className="text-sm font-bold text-white">{tier.label} <span className="text-white/45 font-normal">· {tier.discount}</span></p>
+          <p className="pixel-label mb-2">LOYALTY</p>
+          <p className="text-sm font-bold text-white">{tier.label} <span className="text-[#72df7c] font-mono">· {tier.discount}</span></p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-0 border-b border-white/10 overflow-x-auto">
+      <div className="flex items-center gap-0 border-b-[3px] border-[#e5be35] overflow-x-auto">
         {tabs.map(t => (
           <div key={t.key} className="flex items-center gap-1 mr-4">
             <button
               onClick={() => setTab(t.key)}
               className={`px-1 pb-2 text-xs transition-colors border-b-2 -mb-px ${
                 tab === t.key
-                  ? "text-white border-white"
+                  ? "text-[#ffe177] border-[#ffe177] pixel-text text-[8px]"
                   : "text-white/40 border-transparent hover:text-white/60"
               }`}
               data-testid={`tab-${t.key}`}
@@ -191,13 +191,21 @@ export default function OrdersPage() {
         placeholder="search orders..."
         value={search}
         onChange={e => setSearch(e.target.value)}
-        className="w-full bg-[#0d0d0d] border border-white/10 rounded py-2 px-3 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/10 transition-colors"
+        className="pixel-input max-w-sm"
         data-testid="input-search-orders"
       />
 
       {/* Order list */}
       {filteredOrders.length === 0 ? (
-        <p className="text-xs text-white/40 py-4">no orders found.</p>
+        <div className="pixel-panel bg-[#10215e] px-5 py-14 text-center">
+          <ReceiptText className="mx-auto h-8 w-8 text-[#ffe177]" />
+          <h2 className="mt-5 text-sm leading-relaxed text-white">NO ORDERS YET</h2>
+          <p className="mx-auto mt-3 max-w-md text-xs text-white/55">When you buy cards or top up, your activity will show up here.</p>
+          <div className="mt-5 flex justify-center gap-3">
+            <Link href="/cards"><span className="pixel-button inline-flex items-center gap-2 px-3 py-3 text-[8px]"><CreditCard className="h-3 w-3" />BROWSE CARDS</span></Link>
+            <Link href="/deposit"><span className="pixel-button inline-flex items-center gap-2 px-3 py-3 text-[8px]"><Coins className="h-3 w-3" />DEPOSIT</span></Link>
+          </div>
+        </div>
       ) : (
         <div className="space-y-2">
           {filteredOrders.map((order: any) => {
@@ -207,7 +215,7 @@ export default function OrdersPage() {
               <button
                 key={order.id}
                 onClick={() => setLocation(`/order/${order.orderId}`)}
-                className="w-full text-left border border-white/10 bg-[#0d0d0d] rounded-lg px-4 py-3 hover:bg-[#111]/5 hover:border-white/10 transition-all"
+                className="w-full text-left border-[3px] border-black bg-[#10215e] px-4 py-3 hover:bg-[#19377e] transition-all"
                 data-testid={`btn-order-${order.id}`}
               >
                 <div className="flex items-start justify-between gap-3">

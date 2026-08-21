@@ -86,11 +86,22 @@ function formatType(binData: any): string {
   return t || "";
 }
 
+function formatBrand(binData: any): string {
+  if (!binData) return "";
+  return (binData.scheme || binData.brand || "").toUpperCase();
+}
+
 function formatBank(binData: any): string {
   if (!binData) return "";
   const b = binData.bank;
   if (!b || b === "Unknown") return "";
   return b.length > 18 ? b.substring(0, 16) + "..." : b;
+}
+
+function extractState(extras: string): string {
+  if (!extras) return "";
+  const tokens = extras.split(/[|\t:;,\s]+/).map(token => token.trim().toUpperCase());
+  return tokens.find(token => US_STATES.has(token)) || "";
 }
 
 export default function CardsPage() {
@@ -210,7 +221,7 @@ export default function CardsPage() {
       <div className="pixel-panel bg-[#10215e] px-5 py-7 text-center space-y-3">
         <p className="pixel-text text-[8px] text-[#ffe177]">FOODPLUG / SECURE MARKET</p>
         <h1 className="text-xl leading-relaxed text-white sm:text-2xl">PREMIUM CARDS</h1>
-        <p className="text-sm text-white/65">Browse available card bases, filter by details, and purchase securely using your wallet.</p>
+        <p className="text-sm text-white/65">Browse named card bases, inspect details, and purchase securely using your wallet.</p>
       </div>
 
       {/* Bases + Search + controls */}
@@ -240,8 +251,8 @@ export default function CardsPage() {
             >
               <span className="truncate">
                 {selectedBase === null
-                  ? `All Bases · ${(bases ?? []).reduce((s: number, b: any) => s + (b.count ?? 0), 0)}`
-                  : (() => { const b = (bases ?? []).find((b: any) => b.id === selectedBase); return b ? `${b.name} · ${b.count ?? 0}` : "All Bases"; })()
+                  ? `All Names · ${(bases ?? []).reduce((s: number, b: any) => s + (b.count ?? 0), 0)}`
+                  : (() => { const b = (bases ?? []).find((b: any) => b.id === selectedBase); return b ? `${b.name} · ${b.count ?? 0}` : "All Names"; })()
                 }
               </span>
               <ChevronDown className={`h-3 w-3 text-white/30 ml-1 flex-shrink-0 transition-transform ${showBaseDropdown ? "rotate-180" : ""}`} />
@@ -253,7 +264,7 @@ export default function CardsPage() {
                   className={`w-full text-left px-3 py-2 text-[11px] flex justify-between transition-colors hover:bg-[#0d0d0d] ${selectedBase === null ? "font-semibold text-white" : "text-white/55"}`}
                   data-testid="btn-base-all"
                 >
-                  <span>All Bases</span>
+                  <span>All Names</span>
                   <span className="text-white/30 font-mono">{(bases ?? []).reduce((s: number, b: any) => s + (b.count ?? 0), 0)}</span>
                 </button>
                 {(bases ?? []).map((b: any) => (
@@ -377,9 +388,9 @@ export default function CardsPage() {
         ) : filteredCards.length === 0 ? (
           <div className="py-12 text-center text-xs text-white/35">No cards available</div>
         ) : (
-          <table className="w-full text-xs border-collapse" style={{ minWidth: "520px" }}>
+          <table className="w-full text-xs border-collapse" style={{ minWidth: "900px" }}>
             <thead>
-              <tr className="border-b border-white/10">
+              <tr className="border-b-[3px] border-black bg-[#1d3d93]">
                 <th className="w-8 px-2.5 py-2 text-left">
                   <input
                     type="checkbox"
@@ -389,14 +400,16 @@ export default function CardsPage() {
                     data-testid="checkbox-all"
                   />
                 </th>
-                <th className="px-2.5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-white/35">BIN</th>
-                <th className="px-2.5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-white/35">BASE</th>
-                <th className="px-2.5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-white/35">TYPE</th>
-                <th className="px-2.5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-white/35">BANK</th>
-                <th className="px-2.5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-white/35">ZIP</th>
-                <th className="px-2.5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-white/35">Country</th>
-                <th className="px-2.5 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-white/35">$</th>
-                <th className="px-2.5 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-white/35">BUY</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BIN</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BRAND</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">TYPE</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ISSUER</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">STATE</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ZIP</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">COUNTRY</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">NAME</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">FIRST HANDED</th>
+                <th className="px-2.5 py-3 text-right pixel-text text-[7px] text-[#ffe177]">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
@@ -424,8 +437,10 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
   const zip = extractZip(card.extras ?? "");
   const flag = countryFlag(card.binData?.countryCode ?? "");
   const ccCountry = countryName(card.binData?.countryCode ?? "");
+  const brand = formatBrand(card.binData);
   const cardType = formatType(card.binData);
   const bank = formatBank(card.binData);
+  const state = extractState(card.extras ?? "");
 
   const purchaseMutation = useMutation({
     mutationFn: async () => {
@@ -445,7 +460,7 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
 
   return (
     <tr
-      className={`border-b border-white/[0.06] transition-colors ${inCart ? "bg-primary/[0.04]" : "hover:bg-white/[0.02]"}`}
+      className={`border-b-[2px] border-black/70 transition-colors ${inCart ? "bg-[#21469f]" : "bg-[#122766] hover:bg-[#19357e]"}`}
       data-testid={`card-row-${card.id}`}
     >
       <td className="px-2.5 py-2">
@@ -460,34 +475,40 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
       <td className="px-2.5 py-2">
         <span className="font-bold font-mono text-xs text-white">{bin || "—"}</span>
       </td>
-      <td className="px-2.5 py-2 max-w-[100px]">
-        <span className="text-[10px] text-white/50 truncate block">{card.baseName || "—"}</span>
+      <td className="px-2.5 py-3">
+        <span className="inline-flex border border-black bg-[#d94343] px-1.5 py-0.5 text-[9px] font-bold text-white">{brand || "—"}</span>
       </td>
-      <td className="px-2.5 py-2">
-        <span className="text-[11px] font-mono text-white/55">{cardType || "—"}</span>
+      <td className="px-2.5 py-3">
+        <span className="text-[10px] font-mono font-bold text-[#f7ebd8]">{cardType || "—"}</span>
       </td>
-      <td className="px-2.5 py-2 max-w-[120px]">
-        <span className="text-[11px] text-white/55 truncate block">{bank || "—"}</span>
+      <td className="px-2.5 py-3 max-w-[130px]">
+        <span className="text-[10px] text-white/75 truncate block">{bank || "—"}</span>
       </td>
-      <td className="px-2.5 py-2">
-        <span className="text-[11px] font-mono text-white/55">{zip || "—"}</span>
+      <td className="px-2.5 py-3">
+        <span className="text-[10px] font-mono text-white/75">{state || "—"}</span>
       </td>
-      <td className="px-2.5 py-2">
-        <span className="text-base leading-none">{flag || "—"}</span>
+      <td className="px-2.5 py-3">
+        <span className="text-[10px] font-mono text-white/75">{zip || "—"}</span>
       </td>
-      <td className="px-2.5 py-2 text-right">
-        <span className="font-bold text-xs text-white">${(card.price / 100).toFixed(2)}</span>
+      <td className="px-2.5 py-3">
+        <span className="text-[10px] text-white/85">{flag} {ccCountry || "—"}</span>
       </td>
-      <td className="px-2.5 py-2 text-right">
+      <td className="px-2.5 py-3 max-w-[115px]">
+        <span className="text-[10px] font-bold text-[#ffe177] truncate block">{card.baseName || "—"}</span>
+      </td>
+      <td className="px-2.5 py-3">
+        <span className={card.isFirstHand ? "pixel-status-yes" : "pixel-status-no"}>{card.isFirstHand ? "YES" : "NO"}</span>
+      </td>
+      <td className="px-2.5 py-3 text-right whitespace-nowrap">
         <button
           onClick={() => purchaseMutation.mutate()}
           disabled={purchaseMutation.isPending}
-          className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-white/50 transition-colors disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-1 border-[2px] border-black bg-[#43b94e] px-2 py-1.5 text-[9px] font-bold text-white transition-colors hover:bg-[#31973a] disabled:opacity-50"
           data-testid={`btn-buy-card-${card.id}`}
         >
           {purchaseMutation.isPending
             ? <Loader2 className="h-3 w-3 animate-spin" />
-            : <ShoppingCart className="h-3 w-3" />
+            : <><ShoppingCart className="h-3 w-3" /> Buy ${(card.price / 100).toFixed(2)}</>
           }
         </button>
       </td>
