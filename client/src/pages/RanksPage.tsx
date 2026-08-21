@@ -35,7 +35,7 @@ export default function RanksPage() {
         {/* ── Hero ── */}
         <div className="pt-2 pb-5 space-y-1">
           <p className="pixel-text text-[9px] text-[#ffe177]">REWARDS / MEMBER STATUS</p>
-          <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">LOYALTY</h1>
+          <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">RANK</h1>
         </div>
 
         <div className="flex items-center gap-3 mb-6">

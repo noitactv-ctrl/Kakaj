@@ -154,7 +154,7 @@ export default function OrdersPage() {
           <p className="text-2xl font-mono font-bold text-[#ffe177]">${(totalDepositsCents / 100).toFixed(2)}</p>
         </div>
         <div className="text-right">
-          <p className="pixel-label mb-2">LOYALTY</p>
+          <p className="pixel-label mb-2">RANK</p>
           <p className="text-sm font-bold text-white">{tier.label} <span className="text-[#72df7c] font-mono">· {tier.discount}</span></p>
         </div>
       </div>
