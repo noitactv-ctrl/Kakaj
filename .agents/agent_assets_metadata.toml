@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "3cmX4iarJvV4zrqBZqYkT"
+uri = "file://foodplug-website-source.zip"
+type = "unspecified"
+title = "Foodplug Website Source"
+description = "Complete website source export (94 MB). Includes app code, configuration, package manifests, uploaded assets, and local setup instructions. Excludes secrets, database contents, dependencies, and generated files."
+logical_id = "6348d513-fb71-4ac6-95e2-b1d17e6034b3"
+content_hash = "sha256:1f617c75f54ce0caaee7f8a4f68e454adb1aba375f7bb3f08ecaacb7d482889c"
+size = 97544610
+mtime_ms = 1787345161556
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:073b3de8-719c-476e-8b3b-2edacc668a2c/6348d513-fb71-4ac6-95e2-b1d17e6034b3/c65a1a13-fdb9-4264-98a9-a6d1b7b102d2"
+storage_version_token = "1787345173972149"
+content_type = "application/octet-stream"
