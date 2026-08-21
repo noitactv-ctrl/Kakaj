@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Coins, Crown, Gamepad2, HeartHandshake, Menu, ShoppingCart,
-  Ticket, X, CreditCard, ReceiptText, LogOut, ShieldCheck,
+  Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -67,14 +67,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navContent = (
     <>
-      <div className="px-3 pt-4 pb-3 space-y-4">
+      <div className="px-3 pt-[18px] pb-3 space-y-[22px]">
         <Link href="/cards">
-          <div className="pixel-button flex h-16 items-center justify-center !bg-[#ee292b] !text-white">
+          <div className="pixel-button flex h-[66px] items-center justify-center !bg-[#ee292b] !text-white">
             <p className="pixel-text text-[15px] leading-none">FOODPLUG</p>
           </div>
         </Link>
         <Link href="/profile">
-          <div className="flex h-7 items-center gap-1.5 border-[3px] border-[#0a1021] bg-[#5f90ef] px-2 text-white shadow-[2px_2px_0_#0a1021]">
+          <div className="flex h-[26px] items-center gap-1.5 border-[3px] border-[#0a1021] bg-[#5f90ef] px-2 text-white shadow-[2px_2px_0_#0a1021]">
             <Coins className="h-3.5 w-3.5 shrink-0 text-[#ffe14f]" />
             <span className="pixel-text truncate text-[9px] leading-none">{user?.username ?? "GUEST"}</span>
           </div>
@@ -152,9 +152,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         onClick={() => setNavOpen(false)}
       />
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-[calc(100vw-16px)] max-w-[316px] flex-col bg-[#5f90ef] text-[#16100c] transition-transform lg:hidden ${navOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <button className="absolute right-2 top-2 z-10 p-2 text-[#111]" onClick={() => setNavOpen(false)} aria-label="Close menu">
-          <X className="h-5 w-5" />
-        </button>
         {navContent}
       </aside>
 
