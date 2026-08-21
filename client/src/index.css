@@ -42,6 +42,15 @@
   .btn-buy { @apply bg-[#e62628] hover:bg-[#c91d20] text-white font-bold text-xs transition-all hover:scale-[0.98] active:scale-[0.95]; }
   .mono { font-family: var(--font-mono); }
   .pixel-text { font-family: var(--font-pixel); }
+  .pixel-logo-text {
+    color: #fff;
+    font-family: var(--font-pixel);
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: -0.08em;
+    line-height: 1;
+    text-shadow: 4px 4px 0 #080808;
+  }
   .pixel-panel { border: 3px solid #070707; box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.75); }
   .pixel-button { border: 3px solid #090909; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.72); background: #ffe1aa; color: #17110a; font-family: var(--font-pixel); }
   .pixel-button:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.72); }
