@@ -37,10 +37,10 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
         style={{
           borderRadius: 8,
           border: isTop1
-            ? "1.5px solid hsl(330 80% 60%)"
+            ? "1.5px solid hsl(25 58% 52%)"
             : "1.5px solid rgba(255,255,255,0.1)",
           boxShadow: isTop1
-            ? "0 0 16px hsla(330,80%,55%,0.2), 0 2px 8px rgba(0,0,0,0.7)"
+            ? "0 0 16px hsla(25,58%,46%,0.25), 0 2px 8px rgba(0,0,0,0.7)"
             : "0 2px 8px rgba(0,0,0,0.6)",
         }}
         data-testid={`card-product-${product.id}`}
@@ -74,11 +74,11 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
               <path d="M234,-10 C238,50 232,110 242,160 S244,220 234,310"/>
               <path d="M270,-10 C274,50 268,110 278,160 S280,220 270,310"/>
             </g>
-            {/* Bottom radial glow — pink */}
+            {/* Bottom radial glow — copper */}
             <defs>
               <radialGradient id="cg2" cx="50%" cy="100%" r="65%">
-                <stop offset="0%" stopColor="hsl(330,75%,45%)" stopOpacity="0.55"/>
-                <stop offset="100%" stopColor="hsl(330,75%,45%)" stopOpacity="0"/>
+                <stop offset="0%" stopColor="hsl(25,58%,42%)" stopOpacity="0.62"/>
+                <stop offset="100%" stopColor="hsl(25,58%,42%)" stopOpacity="0"/>
               </radialGradient>
             </defs>
             <rect x="0" y="0" width="300" height="300" fill="url(#cg2)"/>
@@ -91,9 +91,9 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
           {(isTop1 || isTop2) && (
             <span className="absolute top-1.5 left-1.5 z-20 text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
               style={{
-                background: isTop1 ? "hsl(330 80% 52%)" : "hsla(330,80%,60%,0.15)",
+                background: isTop1 ? "hsl(25 58% 45%)" : "hsla(25,58%,50%,0.15)",
                 color: "#fff",
-                border: isTop1 ? "none" : "1px solid hsla(330,80%,60%,0.4)",
+                border: isTop1 ? "none" : "1px solid hsla(25,58%,50%,0.4)",
               }}>
               {isTop1 ? "⚡ #1" : "🔥 #2"}
             </span>
@@ -114,13 +114,13 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
           </span>
 
           {/* Branding */}
-          <span className="relative z-10 mt-2 text-[9px] font-bold tracking-wide" style={{ color: "hsl(330 80% 62%)" }}>
+          <span className="relative z-10 mt-2 text-[9px] font-bold tracking-wide" style={{ color: "hsl(25 65% 60%)" }}>
             foodplug<span style={{ color: "rgba(255,255,255,0.45)" }}>.lol</span>
           </span>
 
           {/* Bottom separator line */}
           <div className="absolute bottom-0 left-0 right-0 h-[2px]"
-            style={{ background: "hsl(330 80% 55%)" }}/>
+            style={{ background: "hsl(25 62% 50%)" }}/>
         </div>
 
         {/* ── Product name strip ── */}
@@ -133,7 +133,7 @@ function ProductCard({ product, rank }: { product: any; rank: number }) {
         {/* ── Purchase button ── */}
         <div
           className="w-full text-center text-[0.7rem] font-black uppercase tracking-wider text-white py-2"
-          style={{ background: "hsl(330 80% 42%)" }}
+          style={{ background: "hsl(25 58% 38%)" }}
         >
           Purchase | {lowestPrice > 0 ? `$${(lowestPrice / 100).toFixed(2)}` : "Free"}
         </div>
@@ -181,7 +181,7 @@ export default function ShopPage() {
   }, [sortedProducts, search, activeCategory]);
 
   if (isLoading) {
-    return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-[hsl(330_80%_60%)]" /></div>;
+    return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-[hsl(25_58%_50%)]" /></div>;
   }
 
   if (isError) {
@@ -206,7 +206,7 @@ export default function ShopPage() {
       <div className="text-center pt-8 pb-6 space-y-1">
         <h1
           className="text-3xl sm:text-4xl font-black tracking-wide uppercase"
-          style={{ color: "hsl(330 80% 60%)", textShadow: "0 0 30px hsla(330,80%,60%,0.4)" }}
+          style={{ color: "hsl(25 65% 58%)", textShadow: "0 0 30px hsla(25,60%,45%,0.35)" }}
         >
           foodplug
         </h1>

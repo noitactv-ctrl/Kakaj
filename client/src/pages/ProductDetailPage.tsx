@@ -85,14 +85,14 @@ export default function ProductDetailPage() {
         className="w-full max-w-sm rounded-xl overflow-hidden shadow-2xl"
         style={{
           background: "#0d0d18",
-          border: "1.5px solid hsla(330,80%,60%,0.3)",
-          boxShadow: "0 0 40px hsla(330,80%,60%,0.15)",
+          border: "1.5px solid hsla(25,58%,50%,0.3)",
+          boxShadow: "0 0 40px hsla(25,58%,42%,0.18)",
         }}
       >
         {/* Modal header */}
         <div
           className="flex items-center justify-between px-5 py-3.5"
-          style={{ borderBottom: "1px solid hsla(330,80%,60%,0.15)" }}
+          style={{ borderBottom: "1px solid hsla(25,58%,50%,0.15)" }}
         >
           <span className="text-sm font-bold text-white">Add To Cart</span>
           <button
@@ -107,7 +107,7 @@ export default function ProductDetailPage() {
         {/* Blue accent bar */}
         <div
           className="h-[3px]"
-          style={{ background: "linear-gradient(90deg, hsl(330 80% 60%), hsl(330 80% 60%), hsl(330 80% 60%))" }}
+          style={{ background: "linear-gradient(90deg, hsl(25 58% 48%), hsl(25 62% 55%), hsl(25 58% 48%))" }}
         />
 
         <div className="px-5 py-4 space-y-4">
@@ -131,7 +131,7 @@ export default function ProductDetailPage() {
                   <span
                     key={tag}
                     className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                    style={{ background: "hsl(330 80% 60%)", color: "#fff" }}
+                    style={{ background: "hsl(25 58% 48%)", color: "#fff" }}
                   >
                     {tag}
                   </span>
@@ -150,7 +150,7 @@ export default function ProductDetailPage() {
                 className="w-full h-10 rounded appearance-none pl-3 pr-8 text-xs text-white/90 outline-none cursor-pointer"
                 style={{
                   background: "#0a0a14",
-                  border: "1px solid hsla(330,80%,60%,0.25)",
+                  border: "1px solid hsla(25,58%,50%,0.25)",
                 }}
                 data-testid="select-variant"
               >
@@ -176,7 +176,7 @@ export default function ProductDetailPage() {
             <p className="text-[11px] font-semibold text-white/40 uppercase tracking-widest">Amount to add</p>
             <div
               className="flex items-center rounded overflow-hidden"
-              style={{ border: "1px solid hsla(330,80%,60%,0.25)", background: "#0a0a14" }}
+              style={{ border: "1px solid hsla(25,58%,50%,0.25)", background: "#0a0a14" }}
             >
               <input
                 type="number"
@@ -192,7 +192,7 @@ export default function ProductDetailPage() {
               />
               <div
                 className="flex items-center gap-1 px-3 h-10 shrink-0"
-                style={{ borderLeft: "1px solid hsla(330,80%,60%,0.15)" }}
+                style={{ borderLeft: "1px solid hsla(25,58%,50%,0.15)" }}
               >
                 <span className="text-xs text-white/40">$</span>
                 <span className="text-sm font-bold text-white/90">
@@ -213,7 +213,7 @@ export default function ProductDetailPage() {
               onClick={() => purchaseMutation.mutate()}
               disabled={!selectedVariantId || purchaseMutation.isPending}
               className="w-full h-10 rounded text-sm font-bold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 active:scale-[0.98]"
-              style={{ background: "linear-gradient(90deg, hsl(330 80% 60%), hsl(330 80% 60%))" }}
+              style={{ background: "linear-gradient(90deg, hsl(25 58% 48%), hsl(25 62% 55%))" }}
               data-testid="button-purchase"
             >
               {purchaseMutation.isPending
@@ -223,7 +223,7 @@ export default function ProductDetailPage() {
             <button
               onClick={() => setLocation("/orders")}
               className="w-full h-10 rounded text-sm font-bold text-white/80 flex items-center justify-center gap-2 transition-all hover:text-white hover:border-primary/50 active:scale-[0.98]"
-              style={{ border: "1px solid hsla(330,80%,60%,0.3)", background: "transparent" }}
+              style={{ border: "1px solid hsla(25,58%,50%,0.3)", background: "transparent" }}
             >
               <Eye className="h-4 w-4" /> View Cart
             </button>

@@ -59,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Announcement banner ── */}
       {activeAnnouncement && (
-        <div className="w-full overflow-hidden z-50" style={{ height: 32, background: "linear-gradient(90deg,#be185d,#ec4899,#be185d)" }}>
+        <div className="w-full overflow-hidden z-50" style={{ height: 32, background: "linear-gradient(90deg,#5a2d19,#9a5930,#5a2d19)" }}>
           <div className="flex items-center h-full whitespace-nowrap animate-[marquee_18s_linear_infinite]">
             {[...Array(4)].map((_, i) => (
               <span key={i} className="text-[11px] font-bold tracking-widest text-white uppercase px-12">
@@ -102,7 +102,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {cartCount > 0 && (
                   <span
                     className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-black text-white px-0.5"
-                    style={{ background: "hsl(330 80% 60%)" }}
+                    style={{ background: "hsl(25 58% 48%)" }}
                   >
                     {cartCount > 99 ? "99+" : cartCount}
                   </span>

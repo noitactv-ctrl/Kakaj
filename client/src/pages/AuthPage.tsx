@@ -106,7 +106,7 @@ function BlueButton({ children, disabled, type = "submit", onClick, className = 
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`w-full bg-[#ec4899] hover:bg-[#db2777] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm py-3 rounded transition-colors flex items-center justify-center gap-2 ${className}`}
+      className={`w-full bg-[#8b4d2c] hover:bg-[#713c20] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm py-3 rounded transition-colors flex items-center justify-center gap-2 ${className}`}
     >
       {children}
     </button>
@@ -274,7 +274,7 @@ function AuthFooter() {
       <div className="flex items-center justify-center gap-5 text-xs font-semibold text-white/50 tracking-widest uppercase">
         <span>Reviews</span>
         <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noopener noreferrer"
-          className="flex items-center justify-center h-5 w-5 rounded-full bg-[#ec4899]">
+          className="flex items-center justify-center h-5 w-5 rounded-full bg-[#8b4d2c]">
           <Send className="h-2.5 w-2.5 text-white fill-white" />
         </a>
         <span>TOS</span>
