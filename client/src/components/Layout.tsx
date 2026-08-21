@@ -67,10 +67,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navContent = (
     <>
-      <div className="px-3 pt-[18px] pb-3 space-y-[22px]">
+      <div className="px-3 pt-4 pb-3 space-y-4">
         <Link href="/cards">
-          <div className="pixel-button flex h-[66px] items-center justify-center !bg-[#ee292b] !text-white">
-            <p className="pixel-text text-[15px] font-bold leading-none">NYCHQ</p>
+          <div className="pixel-button sidebar-brand-button flex h-[52px] items-center justify-center !bg-[#ee292b] !text-white">
+            <p className="pixel-text text-[13px] font-bold leading-none">NYCHQ</p>
           </div>
         </Link>
         <Link href="/profile">
