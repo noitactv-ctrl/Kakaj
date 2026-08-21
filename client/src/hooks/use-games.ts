@@ -71,5 +71,24 @@ export function useGames() {
     onError: (err) => toast({ title: "Spin unavailable", description: err.message, variant: "destructive" }),
   });
 
-  return { playDice, playMines, spinWheel };
+  const playPlinko = useMutation({
+    mutationFn: async (betAmount: number) => {
+      const res = await fetch(api.games.plinko.path, {
+        method: api.games.plinko.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ betAmount }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Game failed");
+      }
+      return api.games.plinko.responses[200].parse(await res.json());
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData([api.auth.me.path], (old: any) => ({ ...old, balance: data.newBalance }));
+    },
+    onError: (err) => toast({ title: "Plinko unavailable", description: err.message, variant: "destructive" }),
+  });
+
+  return { playDice, playMines, playPlinko, spinWheel };
 }

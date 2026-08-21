@@ -7,7 +7,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
 
-type TabType = "all" | "cards" | "ach" | "logs";
+type TabType = "all" | "cards" | "ach";
 
 function getTier(totalDepositsCents: number): { label: string; discount: string } {
   const dollars = totalDepositsCents / 100;
@@ -40,10 +40,6 @@ function isCardOrder(order: any): boolean {
   );
 }
 
-function isLogOrder(order: any): boolean {
-  return !isCardOrder(order) && !isAchOrder(order);
-}
-
 function statusBadge(status: string) {
   const map: Record<string, { label: string; cls: string }> = {
     fulfilled: { label: "FULFILLED", cls: "bg-green-900/40 text-green-400" },
@@ -73,11 +69,6 @@ export default function OrdersPage() {
     enabled: !!user,
   });
 
-  const { data: features } = useQuery<any>({
-    queryKey: ["/api/settings/features"],
-    enabled: !!user,
-  });
-
   const totalDepositsCents = useMemo(() => {
     if (!transactions) return 0;
     return transactions
@@ -96,9 +87,7 @@ export default function OrdersPage() {
 
   const cardOrders = useMemo(() => allOrders.filter(isCardOrder), [allOrders]);
   const achOrders = useMemo(() => allOrders.filter(isAchOrder), [allOrders]);
-  const logOrders = useMemo(() => allOrders.filter(isLogOrder), [allOrders]);
-
-  const tabOrders = tab === "cards" ? cardOrders : tab === "ach" ? achOrders : tab === "logs" ? logOrders : allOrders;
+  const tabOrders = tab === "cards" ? cardOrders : tab === "ach" ? achOrders : allOrders;
 
   const filteredOrders = useMemo(() => {
     if (!search.trim()) return tabOrders;
@@ -127,14 +116,10 @@ export default function OrdersPage() {
 
   const now = new Date();
 
-  const showCards = features?.checker === true || features?.cards === true;
-  const showLogs = features?.logs === true;
-
   const tabs: { key: TabType; label: string; count: number; href?: string }[] = [
     { key: "all", label: "all", count: allOrders.length },
-    ...(showCards ? [{ key: "cards" as TabType, label: "cards", count: cardOrders.length, href: "/cards" }] : []),
+    { key: "cards", label: "cards", count: cardOrders.length, href: "/cards" },
     ...(achOrders.length > 0 ? [{ key: "ach" as TabType, label: "ach", count: achOrders.length }] : []),
-    ...(showLogs ? [{ key: "logs" as TabType, label: "logs", count: logOrders.length, href: "/shop" }] : []),
   ];
 
   return (
@@ -230,7 +215,7 @@ export default function OrdersPage() {
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] font-mono text-white/40 truncate">#{order.orderId}</p>
                       <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${isCard ? "bg-blue-900/30 text-blue-400" : isAchOrder(order) ? "bg-cyan-900/30 text-cyan-400" : "bg-purple-900/30 text-purple-400"}`}>
-                        {isCard ? "card" : isAchOrder(order) ? "ach" : "log"}
+                        {isCard ? "card" : isAchOrder(order) ? "ach" : "order"}
                       </span>
                     </div>
                     <p className="text-xs text-white/60">

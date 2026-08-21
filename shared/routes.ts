@@ -200,6 +200,22 @@ export const api = {
         }),
       },
     },
+    plinko: {
+      method: 'POST' as const,
+      path: '/api/games/plinko',
+      input: z.object({
+        betAmount: z.number().min(1),
+      }),
+      responses: {
+        200: z.object({
+          slot: z.number(),
+          multiplier: z.number(),
+          payout: z.number(),
+          newBalance: z.number(),
+        }),
+        400: errorSchemas.validation,
+      },
+    },
     spin: {
       method: 'POST' as const,
       path: '/api/games/spin',

@@ -444,6 +444,44 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.games.plinko.path, gameLimiter, async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const user = req.user as any;
+      const bet = Number(req.body.betAmount);
+      if (!Number.isFinite(bet) || !Number.isInteger(bet) || bet <= 0) {
+        return res.status(400).json({ message: "Invalid bet amount." });
+      }
+      if (bet > 100000) {
+        return res.status(400).json({ message: "Bet amount exceeds maximum allowed." });
+      }
+
+      const freshUser = await storage.getUser(user.id);
+      if (!freshUser || freshUser.balance < bet) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      // The outer slots are less likely and pay more; the centre gives a lower return.
+      const multipliers = [5, 2.2, 1.4, 0.7, 0.3, 0.7, 1.4, 2.2, 5];
+      let slot = 0;
+      for (let row = 0; row < 8; row++) slot += Math.random() < 0.5 ? 0 : 1;
+      const multiplier = multipliers[slot];
+      const payout = Math.floor(bet * multiplier);
+
+      await storage.updateUserBalance(user.id, -bet);
+      await storage.createTransaction(user.id, -bet, "loss", "Plinko game bet");
+      if (payout > 0) {
+        await storage.updateUserBalance(user.id, payout);
+        await storage.createTransaction(user.id, payout, "win", `Plinko x${multiplier} payout`);
+      }
+
+      const updatedUser = await storage.getUser(user.id);
+      res.json({ slot, multiplier, payout, newBalance: updatedUser?.balance ?? 0 });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   app.post(api.games.spin.path, gameLimiter, async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     const user = req.user as any;
@@ -2085,6 +2123,7 @@ export async function registerRoutes(
       name: "Netflix Premium (1 Month)",
       description: "4K UHD, 4 Screens. Private account.",
       image: "https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg",
+      category: "",
       active: true
     });
 

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Search, ShoppingCart, ChevronDown, X, Loader2, SlidersHorizontal } from "lucide-react";
-import { useLocation, Redirect } from "wouter";
+import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 function countryFlag(code: string): string {
@@ -109,17 +109,10 @@ export default function CardsPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const { data: features } = useQuery<{ cards: boolean }>({
-    queryKey: ["/api/settings/features"],
-    staleTime: 30000,
-  });
-
   const { data: bases } = useQuery<any[]>({
     queryKey: ["/api/card-bases"],
     refetchInterval: 30000,
   });
-
-  if (features && features.cards === false) return <Redirect to="/" />;
 
   const { data: cards, isLoading } = useQuery<any[]>({
     queryKey: ["/api/cards", selectedBase],
@@ -214,13 +207,14 @@ export default function CardsPage() {
     <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto">
 
       {/* ── Hero ── */}
-      <div className="text-center pt-8 pb-4 space-y-1">
-        <h1 className="text-3xl sm:text-4xl font-black text-primary tracking-wide uppercase">foodplug</h1>
-        <p className="text-sm text-white/50">Providing high quality logs since 2026.</p>
+      <div className="pixel-panel bg-[#10215e] px-5 py-7 text-center space-y-3">
+        <p className="pixel-text text-[8px] text-[#ffe177]">FOODPLUG / SECURE MARKET</p>
+        <h1 className="text-xl leading-relaxed text-white sm:text-2xl">PREMIUM CARDS</h1>
+        <p className="text-sm text-white/65">Browse available card bases, filter by details, and purchase securely using your wallet.</p>
       </div>
 
       {/* Bases + Search + controls */}
-      <div className="px-3 pt-3 pb-2 space-y-2.5 bg-background sticky top-[52px] z-30 border-b border-white/[0.05]">
+      <div className="mt-5 pixel-panel px-3 pt-3 pb-3 space-y-2.5 bg-[#0e1c50] sticky top-[68px] z-30">
 
         {/* Search bar */}
         <div className="relative">
@@ -230,7 +224,7 @@ export default function CardsPage() {
             placeholder="Search by card type, category, keywords..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full h-10 bg-[#111] border border-white/10 rounded-2xl pl-9 pr-3 text-xs text-white/90 placeholder:text-white/35 outline-none focus:border-white/20 transition-colors"
+            className="w-full h-10 bg-[#070b1e] border-[2px] border-black rounded-none pl-9 pr-3 text-xs text-white/90 placeholder:text-white/35 outline-none focus:border-[#ffe177] transition-colors"
             data-testid="input-search"
           />
         </div>
@@ -241,7 +235,7 @@ export default function CardsPage() {
           <div className="relative flex-1">
             <button
               onClick={() => setShowBaseDropdown(d => !d)}
-              className="w-full flex items-center justify-between bg-[#0d0d0d] border border-white/10 rounded-lg px-2.5 h-8 text-[11px] text-white/60 hover:text-white/80 transition-colors"
+              className="w-full flex items-center justify-between bg-[#ffe1aa] border-[3px] border-black rounded-none px-2.5 h-9 text-[11px] font-semibold text-[#22150d] hover:bg-[#fff0c9] transition-colors"
               data-testid="btn-base-dropdown"
             >
               <span className="truncate">
@@ -280,10 +274,10 @@ export default function CardsPage() {
           {/* Filters button */}
           <button
             onClick={() => setShowFilters(f => !f)}
-            className={`flex items-center gap-1.5 px-3 h-8 rounded-lg border text-[11px] font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 h-9 rounded-none border-[3px] border-black text-[11px] font-medium transition-colors ${
               showFilters || activeFilters > 0
-                ? "bg-white/10 border-white/20 text-white"
-                : "bg-[#0d0d0d] border-white/10 text-white/50 hover:text-white/70"
+                  ? "bg-[#ee292b] text-white"
+                  : "bg-[#ffe1aa] text-[#22150d] hover:bg-[#fff0c9]"
             }`}
             data-testid="btn-toggle-filters"
           >
@@ -353,11 +347,10 @@ export default function CardsPage() {
         <button
           onClick={purchaseCart}
           disabled={cartCardIds.size === 0 || !!cartPurchasing}
-          className="w-full flex items-center justify-center gap-1.5 h-8 rounded-lg border text-[11px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-1.5 h-10 rounded-none border-[3px] border-black text-[11px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            background: cartCardIds.size > 0 ? "hsl(112 45% 42% / 0.08)" : "rgba(255,255,255,0.03)",
-            borderColor: cartCardIds.size > 0 ? "hsl(112 45% 42% / 0.3)" : "rgba(255,255,255,0.08)",
-            color: cartCardIds.size > 0 ? "hsl(112 45% 42%)" : "rgba(255,255,255,0.25)",
+             background: cartCardIds.size > 0 ? "#44b94e" : "#141d49",
+             color: cartCardIds.size > 0 ? "#fff" : "rgba(255,255,255,0.4)",
           }}
           data-testid="btn-add-selected"
         >
@@ -376,7 +369,7 @@ export default function CardsPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto bg-[#0a0a0a]">
+      <div className="pixel-panel mt-5 overflow-x-auto bg-[#0b1744]">
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-4 w-4 animate-spin text-white/30" />

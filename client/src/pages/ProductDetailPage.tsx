@@ -123,11 +123,11 @@ export default function ProductDetailPage() {
           )}
 
           {/* Tags */}
-          {product.tags?.length > 0 && (
+          {(product as any).tags?.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-[11px] font-semibold text-white/40 uppercase tracking-widest">Tags</p>
               <div className="flex flex-wrap gap-1.5">
-                {product.tags.map((tag: string) => (
+                {(product as any).tags.map((tag: string) => (
                   <span
                     key={tag}
                     className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"

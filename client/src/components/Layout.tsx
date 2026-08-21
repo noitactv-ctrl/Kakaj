@@ -1,181 +1,182 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { ShoppingCart, X, User } from "lucide-react";
-import { useState, useEffect } from "react";
+import {
+  Coins, Crown, Gamepad2, HeartHandshake, Menu, ShoppingCart,
+  Ticket, X, CreditCard, ReceiptText, LogOut, ShieldCheck,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCart } from "@/hooks/use-cart";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof Coins;
+  external?: boolean;
+};
+
+const navigation: { label: string; items: NavItem[] }[] = [
+  {
+    label: "MAIN",
+    items: [
+      { href: "/deposit", label: "Topup", icon: Coins },
+      { href: "/orders", label: "Orders", icon: ReceiptText },
+      { href: "/ranks", label: "Loyalty", icon: Crown },
+    ],
+  },
+  {
+    label: "GAMES",
+    items: [{ href: "/plinko", label: "Plinko", icon: Gamepad2 }],
+  },
+  {
+    label: "CHANNEL",
+    items: [{ href: "https://t.me/+9_iBYCRURfgwNGUx", label: "Telegram Channel", icon: HeartHandshake, external: true }],
+  },
+  {
+    label: "SUPPORT",
+    items: [{ href: "/support", label: "Tickets", icon: Ticket }],
+  },
+  {
+    label: "FEATURED",
+    items: [{ href: "/cards", label: "Cards", icon: CreditCard }],
+  },
+];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [navOpen, setNavOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
+  const cartItems = useCart(s => s.items);
+  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const balance = user ? (user.balance / 100).toFixed(2) : "0.00";
+  const { data: announcements } = useQuery<{ id: number; text: string; active: boolean }[]>({
+    queryKey: ["/api/announcements"],
+    staleTime: 60000,
+  });
+  const activeAnnouncement = announcements?.find(item => item.active);
 
-  // Close on route change
-  useEffect(() => {
-    setNavOpen(false);
-    setAccountOpen(false);
-  }, [location]);
-
-  // Lock body scroll when drawer is open
+  useEffect(() => setNavOpen(false), [location]);
   useEffect(() => {
     document.body.style.overflow = navOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [navOpen]);
 
-  const balanceDollars = user ? (user.balance / 100).toFixed(2) : "0.00";
-  const cartItems = useCart(s => s.items);
-  const cartCount = cartItems.reduce((acc, i) => acc + i.quantity, 0);
+  if (location === "/auth") return <>{children}</>;
 
-  const { data: features } = useQuery<{ checker: boolean; reseller: boolean; ranks: boolean; logs: boolean; cards: boolean }>({
-    queryKey: ["/api/settings/features"],
-    staleTime: 30000,
-  });
+  const isActive = (href: string) => location === href || (href === "/cards" && location === "/");
 
-  const { data: announcements } = useQuery<{ id: number; text: string; active: boolean }[]>({
-    queryKey: ["/api/announcements"],
-    staleTime: 60000,
-  });
-  const activeAnnouncement = announcements?.find(a => a.active);
+  const navContent = (
+    <>
+      <div className="px-3 py-4 border-b-[3px] border-[#0b1538]">
+        <Link href="/cards">
+          <p className="pixel-text text-[11px] leading-relaxed text-[#ffe177] cursor-pointer">FOODPLUG</p>
+        </Link>
+        <p className="mt-1 text-[8px] tracking-[0.22em] text-[#dbe7ff]/70 uppercase">Card Market</p>
+      </div>
 
-  const navLinks = [
-    ...(features?.logs !== false ? [{ href: "/shop", label: "Shop" }] : []),
-    ...(features?.cards !== false ? [{ href: "/cards", label: "Cards" }] : []),
-    { href: "/deposit", label: "Deposit" },
-    { href: "/orders", label: "Orders" },
-    { href: "/support", label: "Support" },
-    ...(features?.ranks !== false ? [{ href: "/ranks", label: "Ranks" }] : []),
-    ...(features?.checker !== false ? [{ href: "/checker", label: "Checker" }] : []),
-    ...(features?.reseller !== false ? [{ href: "/become-reseller", label: "Become Seller" }] : []),
-    ...(user?.role === "admin" ? [{ href: "/admin", label: "Admin" }] : []),
-    ...((user as any)?.isWorker && user?.role !== "admin" ? [{ href: "/worker", label: "Worker" }] : []),
-  ];
-
-  const isAuthPage = location === "/auth";
-  if (isAuthPage) return <>{children}</>;
-
-  return (
-    <div className="min-h-screen bg-background">
-
-      {/* ── Announcement banner ── */}
-      {activeAnnouncement && (
-        <div className="w-full overflow-hidden z-50" style={{ height: 32, background: "linear-gradient(90deg,#5a2d19,#9a5930,#5a2d19)" }}>
-          <div className="flex items-center h-full whitespace-nowrap animate-[marquee_18s_linear_infinite]">
-            {[...Array(4)].map((_, i) => (
-              <span key={i} className="text-[11px] font-bold tracking-widest text-white uppercase px-12">
-                {activeAnnouncement.text}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Top bar ── */}
-      <header className="flex items-center justify-between px-4 h-[52px] border-b border-white/8 bg-background sticky top-0 z-30">
-        {/* Hamburger */}
-        <button
-          onClick={() => { setNavOpen(o => !o); setAccountOpen(false); }}
-          className="flex flex-col gap-[5px] p-1 shrink-0"
-          data-testid="btn-menu"
-          aria-label="Toggle navigation"
-        >
-          <span className="block w-5 h-[2px] bg-white/70 rounded transition-all" />
-          <span className="block w-5 h-[2px] bg-white/70 rounded transition-all" />
-          <span className="block w-5 h-[2px] bg-white/70 rounded transition-all" />
-        </button>
-
-        {/* Right side: balance + cart */}
-        {user ? (
-          <div className="flex items-center gap-2">
-            <Link href="/deposit">
-              <button className="text-xs font-mono font-bold text-primary border border-primary/30 bg-primary/10 px-3 py-1 rounded hover:bg-primary/15 transition-colors" data-testid="btn-balance">
-                ${balanceDollars}
-              </button>
-            </Link>
-            <Link href="/cart">
-              <button
-                className="relative flex items-center justify-center w-8 h-8 rounded border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
-                data-testid="btn-cart"
-                aria-label="Cart"
-              >
-                <ShoppingCart className="h-3.5 w-3.5 text-white/70" />
-                {cartCount > 0 && (
-                  <span
-                    className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-black text-white px-0.5"
-                    style={{ background: "hsl(25 58% 48%)" }}
+      <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-3">
+        {navigation.map(group => (
+          <section key={group.label}>
+            <p className="pixel-text mb-2 px-1 text-[8px] text-[#ffe177]">{group.label}</p>
+            <div className="space-y-2">
+              {group.items.map(item => {
+                const content = (
+                  <div
+                    className={`pixel-button flex items-center gap-2 px-2.5 py-2 text-[9px] leading-none transition-colors ${
+                      !item.external && isActive(item.href) ? "!bg-[#ee292b] !text-white" : ""
+                    }`}
                   >
-                    {cartCount > 99 ? "99+" : cartCount}
-                  </span>
-                )}
-              </button>
-            </Link>
+                    <item.icon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                );
+                return item.external ? (
+                  <a key={item.href} href={item.href} target="_blank" rel="noreferrer">{content}</a>
+                ) : (
+                  <Link key={item.href} href={item.href}>{content}</Link>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </nav>
+
+      <div className="p-2.5 border-t-[3px] border-dashed border-[#08122f] space-y-2">
+        <Link href="/cart">
+          <div className={`pixel-button flex items-center gap-2 px-2.5 py-2 text-[9px] ${isActive("/cart") ? "!bg-[#ee292b] !text-white" : ""}`}>
+            <ShoppingCart className="h-3 w-3" />
+            <span>Cart{cartCount ? ` (${cartCount})` : ""}</span>
           </div>
-        ) : <div className="w-14" />}
-      </header>
-
-      {/* ── Backdrop ── */}
-      <div
-        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 ${navOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-        onClick={() => setNavOpen(false)}
-      />
-
-      {/* ── Side drawer ── */}
-      <aside
-        className={`fixed top-0 left-0 z-50 h-full w-52 bg-[#0a0a0a] border-r border-white/8 flex flex-col shadow-2xl transition-transform duration-200 ease-out ${navOpen ? "translate-x-0" : "-translate-x-full"}`}
-      >
-        {/* Drawer header */}
-        <div className="flex items-center justify-between px-4 h-[52px] border-b border-white/8 shrink-0">
-          <span className="text-primary font-black tracking-[0.18em] uppercase text-xs">foodplug</span>
-          <button onClick={() => setNavOpen(false)} className="text-white/40 hover:text-white/80 transition-colors p-1">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Nav links */}
-        <nav className="flex-1 overflow-y-auto py-2">
-          {navLinks.map(({ href, label }) => {
-            const isActive = location === href || (href === "/shop" && location === "/");
-            return (
-              <Link key={href} href={href}>
-                <div
-                  className={`flex items-center px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors border-l-2 ${
-                    isActive
-                      ? "text-primary border-primary bg-primary/5"
-                      : "text-white/60 border-transparent hover:text-white hover:bg-white/4"
-                  }`}
-                >
-                  {label}
-                </div>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Account section at bottom */}
+        </Link>
         {user && (
-          <div className="border-t border-white/8 shrink-0">
+          <>
             <Link href="/profile">
-              <div className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/60 hover:text-white hover:bg-white/4 transition-colors cursor-pointer">
-                <User className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate text-xs">{user.username}</span>
-                <span className="ml-auto text-xs font-mono text-primary">${balanceDollars}</span>
+              <div className="px-2 text-[9px] text-[#f6dbac]/80 hover:text-white truncate">
+                {user.username} · ${balance}
               </div>
             </Link>
             <button
-              onClick={() => { logout(); setNavOpen(false); }}
-              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-medium text-red-400/80 hover:text-red-300 hover:bg-red-950/20 transition-colors border-t border-white/5"
+              onClick={() => logout()}
+              className="pixel-button flex w-full items-center gap-2 px-2.5 py-2 text-[9px] !bg-[#43b94e] !text-white"
             >
-              Sign out
+              <LogOut className="h-3 w-3" />
+              <span>Log out</span>
             </button>
-          </div>
+          </>
         )}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="pixel-shell min-h-screen bg-[#030303] text-[#fff4dc]">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[170px] flex-col bg-[#5f90ef] text-[#16100c] lg:flex">
+        {navContent}
       </aside>
 
-      {/* ── Page content ── */}
-      <main className="min-h-[calc(100vh-52px)]">
-        {children}
-      </main>
+      <div
+        className={`fixed inset-0 z-40 bg-black/70 transition-opacity lg:hidden ${navOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        onClick={() => setNavOpen(false)}
+      />
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col bg-[#5f90ef] text-[#16100c] transition-transform lg:hidden ${navOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <button className="absolute right-2 top-2 z-10 p-2 text-[#111]" onClick={() => setNavOpen(false)} aria-label="Close menu">
+          <X className="h-5 w-5" />
+        </button>
+        {navContent}
+      </aside>
 
+      <main className="min-h-screen lg:pl-[170px]">
+        <div className="border-b-[3px] border-[#183c9d] bg-[#245cdb] px-4 py-2 text-center">
+          <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noreferrer" className="pixel-text text-[8px] text-white underline underline-offset-4">
+            {activeAnnouncement?.text || "JOIN OUR TELEGRAM"}
+          </a>
+        </div>
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/10 bg-[#050505]/95 px-4 backdrop-blur lg:px-8">
+          <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="hidden items-center gap-6 text-[10px] uppercase tracking-wide text-white/70 lg:flex">
+            <Link href="/cards">Cards</Link>
+            <Link href="/orders">Orders</Link>
+            <Link href="/plinko">Plinko</Link>
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            {user?.role === "admin" && (
+              <Link href="/admin" className="hidden text-[10px] text-[#ffe177] sm:block">Admin</Link>
+            )}
+            <Link href="/deposit" className="pixel-button px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
+              ${balance}
+            </Link>
+            <Link href="/cart" className="relative text-[#ffe177]" aria-label="Cart">
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#ee292b] px-1 text-[8px] text-white">{cartCount}</span>}
+            </Link>
+          </div>
+        </header>
+        <div className="min-h-[calc(100vh-88px)] px-3 py-5 sm:px-5 lg:px-10 lg:py-8">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
