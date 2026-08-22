@@ -7,6 +7,7 @@ import {
 } from "@shared/schema";
 import { eq, and, sql, desc, lt } from "drizzle-orm";
 import { pool } from "./db";
+import { calculateDepositCredit } from "@shared/deposit";
 
 export interface IStorage {
   // Users
@@ -844,8 +845,9 @@ export class DatabaseStorage implements IStorage {
         const feePct = parseFloat(await this.getSetting(feeKey, "0")) || 0;
         feeRate = feePct / 100;
       }
-      const creditAmount = Math.round(grossAmount * (1 - feeRate));
-      const feeAmount = grossAmount - creditAmount;
+      const credit = calculateDepositCredit(grossAmount, feeRate * 100);
+      const creditAmount = credit.creditCents;
+      const feeAmount = credit.feeCents;
       await db.update(users)
         .set({ balance: sql`balance + ${creditAmount}` })
         .where(eq(users.id, order.userId));
@@ -853,11 +855,20 @@ export class DatabaseStorage implements IStorage {
       const feeNote = feeAmount > 0 ? ` (${feePct}% fee: -$${(feeAmount/100).toFixed(2)})` : "";
       await db.insert(transactions).values({
         userId: order.userId,
-        amount: creditAmount,
+        amount: grossAmount - feeAmount,
         type: "deposit",
         description: `${order.paymentMethod || "Manual"} deposit confirmed (${order.orderId})${feeNote}`,
         paymentMethod: order.paymentMethod || "CashApp",
       });
+      if (credit.bonusCents > 0) {
+        await db.insert(transactions).values({
+          userId: order.userId,
+          amount: credit.bonusCents,
+          type: "deposit_bonus",
+          description: `Deposit bonus (+${credit.bonusPercent}%)`,
+          paymentMethod: order.paymentMethod || "CashApp",
+        });
+      }
       const [updated] = await db.update(orders)
         .set({ status: "fulfilled", paidAmount: grossAmount, total: grossAmount })
         .where(eq(orders.id, orderId))

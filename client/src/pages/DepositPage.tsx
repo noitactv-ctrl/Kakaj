@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Link } from "wouter";
+import { calculateDepositCredit, DEPOSIT_BONUS_TIERS } from "@shared/deposit";
 
 type Method = "crypto" | "cashapp";
 
@@ -24,15 +25,6 @@ type Deposit = {
 };
 
 type ManualResult = { note: string; handle: string; amount: number; method: Method };
-
-const BONUS_TIERS = [
-  { min: 100,  max: 249,  bonus: "+10%", example: "$100 → $110"     },
-  { min: 250,  max: 499,  bonus: "+13%", example: "$250 → $282.50"  },
-  { min: 500,  max: 999,  bonus: "+16%", example: "$500 → $580"     },
-  { min: 1000, max: 2499, bonus: "+20%", example: "$1,000 → $1,200" },
-  { min: 2500, max: 4999, bonus: "+25%", example: "$2,500 → $3,125" },
-  { min: 5000, max: null, bonus: "+30%", example: "$5,000 → $6,500" },
-];
 
 function methodColor(type: string) {
   if (type === "cashapp") return "#00D632";
@@ -179,7 +171,12 @@ export default function DepositPage() {
 
   const selectedMinimum = minimumForMethod(selectedOption);
   const parsedAmount = parseFloat(amountInput) || 0;
-  const activeTier = BONUS_TIERS.find(t => parsedAmount >= t.min && (t.max === null || parsedAmount <= t.max));
+  const amountCents = Math.max(0, Math.round(parsedAmount * 100));
+  const selectedFeePercent = selectedOption === "cashapp" ? (manualMethods?.cashapp?.fee ?? 0) : 0;
+  const depositCredit = calculateDepositCredit(amountCents, selectedFeePercent);
+  const activeTier = DEPOSIT_BONUS_TIERS.find(tier =>
+    amountCents >= tier.minCents && (tier.maxCents === null || amountCents <= tier.maxCents)
+  );
 
   useEffect(() => {
     if (!selectedOption || !amountInput) return;
@@ -314,16 +311,30 @@ export default function DepositPage() {
                 className="pixel-input h-12"
                 data-testid="input-amount"
               />
-              <p className="font-mono text-[10px] text-[#abbceb]">Pick a payment method below — your balance credits automatically.</p>
+              {selectedOption ? (
+                <p className="font-mono text-[10px] leading-relaxed text-[#abbceb]">
+                  {selectedOption === "crypto"
+                    ? `Minimum $${selectedMinimum.toFixed(2)} for BTC (Bitcoin). You must send the exact crypto amount shown (not USD). Wrong amount = no credit.`
+                    : `Minimum $${selectedMinimum.toFixed(2)} for ${selected?.label ?? "this method"}.`}
+                </p>
+              ) : (
+                <p className="font-mono text-[10px] text-[#abbceb]">Pick a payment method below — your balance credits automatically.</p>
+              )}
+              {selectedOption && amountCents >= Math.round(selectedMinimum * 100) && (
+                <div className="flex items-center justify-between border-[3px] border-black bg-[#0a1645] px-3 py-3">
+                  <span className="text-[10px] font-bold text-white">You receive</span>
+                  <span className="font-mono text-sm font-bold text-[#ffe177]">${(depositCredit.creditCents / 100).toFixed(2)}</span>
+                </div>
+              )}
             </div>
 
             <div className="border-[3px] border-black bg-[#0a1645] p-3">
               <p className="pixel-label">BONUS TIERS</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {BONUS_TIERS.slice(0, 5).map(tier => (
-                  <div key={tier.min} className={`border-[3px] border-black px-2 py-1.5 text-center ${activeTier?.min === tier.min ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
-                    <p className="font-mono text-[9px] text-white/75">${tier.min}{tier.max ? "+" : ""}</p>
-                    <p className={`pixel-text mt-1 text-[7px] ${activeTier?.min === tier.min ? "text-white" : "text-[#72df7c]"}`}>{tier.bonus}</p>
+              <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
+                {DEPOSIT_BONUS_TIERS.map(tier => (
+                  <div key={tier.minCents} className={`border-[3px] border-black px-2 py-1.5 text-center ${activeTier?.minCents === tier.minCents ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
+                    <p className="font-mono text-[9px] text-white/75">${tier.minCents / 100}+</p>
+                    <p className={`pixel-text mt-1 text-[7px] ${activeTier?.minCents === tier.minCents ? "text-white" : "text-[#72df7c]"}`}>+{tier.bonusPercent}%</p>
                   </div>
                 ))}
               </div>

@@ -12,6 +12,7 @@ import { cryptoPayments, orders, orderItems, verifications, variants, userIps, u
 import { db } from "./db";
 import { eq, and, ne, desc, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
+import { calculateDepositCredit } from "@shared/deposit";
 
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
@@ -1599,8 +1600,10 @@ export async function registerRoutes(
       // amount arrives in cents from the frontend (e.g. 500 = $5.00)
       const amountUsd = parseFloat(amount) / 100;
 
-      if (!amountUsd || amountUsd < 1) {
-        return res.status(400).json({ message: "Minimum deposit is $1" });
+      const configuredCryptoMin = parseFloat(await storage.getSetting("min_deposit_crypto", "0")) || 0;
+      const cryptoMin = Math.max(1, configuredCryptoMin);
+      if (!amountUsd || amountUsd < cryptoMin) {
+        return res.status(400).json({ message: `Minimum deposit is $${cryptoMin.toFixed(2)}` });
       }
       if (amountUsd > 1000000000) {
         return res.status(400).json({ message: "Maximum deposit is $1,000,000,000" });
@@ -1765,8 +1768,9 @@ export async function registerRoutes(
         "NOWPayments"
       );
     } else {
-      await storage.updateUserBalance(payment.userId, payment.amount);
-      await storage.updateProtectedBalance(payment.userId, payment.amount);
+      const credit = calculateDepositCredit(payment.amount);
+      await storage.updateUserBalance(payment.userId, credit.creditCents);
+      await storage.updateProtectedBalance(payment.userId, credit.creditCents);
       await storage.createTransactionWithMethod(
         payment.userId,
         payment.amount,
@@ -1774,6 +1778,15 @@ export async function registerRoutes(
         `Crypto deposit ($${(payment.amount / 100).toFixed(2)})`,
         "NOWPayments"
       );
+      if (credit.bonusCents > 0) {
+        await storage.createTransactionWithMethod(
+          payment.userId,
+          credit.bonusCents,
+          "deposit_bonus",
+          `Deposit bonus (+${credit.bonusPercent}%)`,
+          "NYCHQ"
+        );
+      }
     }
   }
 
@@ -1973,6 +1986,11 @@ export async function registerRoutes(
       // Deposit-only mode: user specifies how much they want to deposit
       if (productItems.length === 0 && cardIdList.length === 0) {
         const depositAmount = amount ? Math.round(parseFloat(String(amount)) * 100) : 0;
+        const configuredMin = parseFloat(await storage.getSetting("min_deposit_cashapp", "0")) || 0;
+        const cashappMin = Math.max(0.01, configuredMin);
+        if (!depositAmount || depositAmount < Math.round(cashappMin * 100)) {
+          return res.status(400).json({ message: `Minimum deposit is $${cashappMin.toFixed(2)}` });
+        }
         const publicOrderId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         const [order] = await db.insert(orders).values({
           userId,
