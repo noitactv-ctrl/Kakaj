@@ -15,6 +15,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserBalance(userId: number, amountCents: number): Promise<User>;
+  settlePlinkoGame(userId: number, betCents: number, payoutCents: number): Promise<User | undefined>;
   updateProtectedBalance(userId: number, amountCents: number): Promise<User>;
   setProtectedBalance(userId: number, value: number): Promise<User>;
   updateLastDailySpin(userId: number): Promise<void>;
@@ -151,6 +152,42 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async settlePlinkoGame(userId: number, betCents: number, payoutCents: number): Promise<User | undefined> {
+    return db.transaction(async (tx) => {
+      const [debitedUser] = await tx
+        .update(users)
+        .set({ balance: sql`${users.balance} - ${betCents}` })
+        .where(and(eq(users.id, userId), sql`${users.balance} >= ${betCents}`))
+        .returning();
+
+      if (!debitedUser) return undefined;
+
+      await tx.insert(transactions).values({
+        userId,
+        amount: -betCents,
+        type: "loss",
+        description: "Plinko game bet",
+      });
+
+      if (payoutCents <= 0) return debitedUser;
+
+      const [settledUser] = await tx
+        .update(users)
+        .set({ balance: sql`${users.balance} + ${payoutCents}` })
+        .where(eq(users.id, userId))
+        .returning();
+
+      await tx.insert(transactions).values({
+        userId,
+        amount: payoutCents,
+        type: "win",
+        description: "Plinko game payout",
+      });
+
+      return settledUser;
+    });
   }
 
   async updateProtectedBalance(userId: number, amountCents: number): Promise<User> {

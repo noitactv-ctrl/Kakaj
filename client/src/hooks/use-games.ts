@@ -86,6 +86,7 @@ export function useGames() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.me.path], (old: any) => ({ ...old, balance: data.newBalance }));
+      queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
     },
     onError: (err) => toast({ title: "Plinko unavailable", description: err.message, variant: "destructive" }),
   });

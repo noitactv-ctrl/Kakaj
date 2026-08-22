@@ -24,14 +24,12 @@ import { useToast } from "@/hooks/use-toast";
 
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { id: "products",  label: "Products",  Icon: Package },
   { id: "cards", label: "Cards",      Icon: CreditCard },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
   { id: "users",    label: "Users",      Icon: Users },
   { id: "support",  label: "Support",    Icon: MessageSquare },
-  { id: "codes",    label: "Codes",      Icon: Gift },
   { id: "integrations", label: "Settings", Icon: Settings },
 ];
 
@@ -133,13 +131,11 @@ export default function AdminPage() {
         {/* Scrollable content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
           {activeSection === "dashboard"    && <DashboardSection />}
-          {activeSection === "products"     && <ProductsSection />}
           {activeSection === "cards"        && <AdminCardsSection />}
           {activeSection === "orders"       && <OrdersSection />}
           {activeSection === "cashapp"      && <CashAppSection />}
           {activeSection === "users"        && <UsersSection />}
           {activeSection === "support"      && <SupportSection />}
-          {activeSection === "codes"        && <CodesSection />}
           {activeSection === "deposits"     && <DepositsSection />}
           
           {activeSection === "integrations" && <IntegrationsSection />}

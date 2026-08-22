@@ -15,13 +15,9 @@ import AdminPage from "@/pages/AdminPage";
 import NotFound from "@/pages/not-found";
 import DepositPage from "@/pages/DepositPage";
 import OrdersPage from "@/pages/OrdersPage";
-import MyCodePage from "@/pages/MyCodePage";
 import CartPage from "@/pages/CartPage";
 import RanksPage from "@/pages/RanksPage";
-import WorkerDashboardPage from "@/pages/WorkerDashboardPage";
 import CardsPage from "@/pages/CardsPage";
-import CheckerPage from "@/pages/CheckerPage";
-import BecomeResellerPage from "@/pages/BecomeSellerPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SupportPage from "@/pages/SupportPage";
 import PlinkoGamePage from "@/pages/PlinkoGamePage";
@@ -54,13 +50,9 @@ function Router() {
         <Route path="/shop"><Redirect to="/cards" /></Route>
         <Route path="/order/:id" component={OrderDetailPageNew} />
         <Route path="/orders" component={OrdersPage} />
-        <Route path="/my-code" component={MyCodePage} />
         <Route path="/cart" component={CartPage} />
         <Route path="/ranks" component={RanksPage} />
-        <Route path="/worker" component={WorkerDashboardPage} />
         <Route path="/cards" component={CardsRedirect} />
-        <Route path="/checker" component={CheckerPage} />
-        <Route path="/become-reseller" component={BecomeResellerPage} />
         <Route path="/profile" component={ProfilePage} />
         <Route path="/support" component={SupportPage} />
         <Route path="/plinko" component={PlinkoGamePage} />

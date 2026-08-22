@@ -13,9 +13,11 @@ export default function PlinkoGamePage() {
   const [landedSlot, setLandedSlot] = useState<number | null>(null);
   const [lastPayout, setLastPayout] = useState<number | null>(null);
 
-  const balance = (user?.balance ?? 0) / 100;
-  const betCents = Math.round(Number(bet) * 100);
-  const validBet = Number.isFinite(betCents) && betCents > 0 && betCents <= Math.floor(balance * 100);
+  const balanceCents = user?.balance ?? 0;
+  const balance = balanceCents / 100;
+  const parsedBet = bet.trim();
+  const betCents = /^\d+(?:\.\d{1,2})?$/.test(parsedBet) ? Math.round(Number(parsedBet) * 100) : 0;
+  const validBet = Number.isInteger(betCents) && betCents > 0 && betCents <= balanceCents;
   const resultText = useMemo(() => {
     if (landedSlot === null || lastPayout === null) return "Pick a bet and drop the ball.";
     const multiplier = multipliers[landedSlot];
@@ -30,10 +32,8 @@ export default function PlinkoGamePage() {
     setLastPayout(null);
     playPlinko.mutate(betCents, {
       onSuccess: ({ slot, payout }) => {
-        setTimeout(() => {
-          setLandedSlot(slot);
-          setLastPayout(payout);
-        }, 180);
+        setLandedSlot(slot);
+        setLastPayout(payout);
       },
     });
   };
@@ -108,7 +108,7 @@ export default function PlinkoGamePage() {
               <button key={amount} onClick={() => setBet(amount.toFixed(2))} className="pixel-button py-2 text-[8px]">${amount}</button>
             ))}
           </div>
-          <p className="mt-3 font-mono text-xs text-white/55">Balance: <span className="text-[#ffe177]">${balance.toFixed(2)}</span></p>
+          <p className="mt-3 font-mono text-xs text-white/55">Balance: <span className="font-bold text-[#ffe177]">${balance.toFixed(2)}</span></p>
 
           <button
             onClick={play}
@@ -118,7 +118,7 @@ export default function PlinkoGamePage() {
             {playPlinko.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trophy className="h-3 w-3" />}
             {playPlinko.isPending ? "DROPPING..." : "DROP BALL"}
           </button>
-          {!validBet && bet && <p className="mt-2 text-[10px] text-[#ff9d9d]">Enter a stake within your available balance.</p>}
+          {!validBet && bet && <p className="mt-2 text-[10px] text-[#ff9d9d]">Enter a valid amount within your available balance.</p>}
 
           <div className="mt-5 border-t border-white/15 pt-4">
             <p className="pixel-text text-[8px] text-[#ffe177]">RESULT</p>

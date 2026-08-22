@@ -456,11 +456,6 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Bet amount exceeds maximum allowed." });
       }
 
-      const freshUser = await storage.getUser(user.id);
-      if (!freshUser || freshUser.balance < bet) {
-        return res.status(400).json({ message: "Insufficient balance" });
-      }
-
       // The outer slots are less likely and pay more; the centre gives a lower return.
       const multipliers = [5, 2.2, 1.4, 0.7, 0.3, 0.7, 1.4, 2.2, 5];
       let slot = 0;
@@ -468,15 +463,11 @@ export async function registerRoutes(
       const multiplier = multipliers[slot];
       const payout = Math.floor(bet * multiplier);
 
-      await storage.updateUserBalance(user.id, -bet);
-      await storage.createTransaction(user.id, -bet, "loss", "Plinko game bet");
-      if (payout > 0) {
-        await storage.updateUserBalance(user.id, payout);
-        await storage.createTransaction(user.id, payout, "win", `Plinko x${multiplier} payout`);
+      const settledUser = await storage.settlePlinkoGame(user.id, bet, payout);
+      if (!settledUser) {
+        return res.status(400).json({ message: "Insufficient balance" });
       }
-
-      const updatedUser = await storage.getUser(user.id);
-      res.json({ slot, multiplier, payout, newBalance: updatedUser?.balance ?? 0 });
+      res.json({ slot, multiplier, payout, newBalance: settledUser.balance });
     } catch (e: any) {
       res.status(500).json({ message: e.message });
     }
