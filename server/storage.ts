@@ -16,6 +16,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUserBalance(userId: number, amountCents: number): Promise<User>;
   settlePlinkoGame(userId: number, betCents: number, payoutCents: number): Promise<User | undefined>;
+  settlePlinkoGames(userId: number, games: { betCents: number; payoutCents: number }[]): Promise<User | undefined>;
   updateProtectedBalance(userId: number, amountCents: number): Promise<User>;
   setProtectedBalance(userId: number, value: number): Promise<User>;
   updateLastDailySpin(userId: number): Promise<void>;
@@ -155,39 +156,57 @@ export class DatabaseStorage implements IStorage {
   }
 
   async settlePlinkoGame(userId: number, betCents: number, payoutCents: number): Promise<User | undefined> {
-    return db.transaction(async (tx) => {
-      const [debitedUser] = await tx
-        .update(users)
-        .set({ balance: sql`${users.balance} - ${betCents}` })
-        .where(and(eq(users.id, userId), sql`${users.balance} >= ${betCents}`))
-        .returning();
+    return this.settlePlinkoGames(userId, [{ betCents, payoutCents }]);
+  }
 
-      if (!debitedUser) return undefined;
+  async settlePlinkoGames(userId: number, games: { betCents: number; payoutCents: number }[]): Promise<User | undefined> {
+    if (games.length === 0) return undefined;
 
-      await tx.insert(transactions).values({
-        userId,
-        amount: -betCents,
-        type: "loss",
-        description: "Plinko game bet",
+    try {
+      return await db.transaction(async (tx) => {
+        let settledUser: User | undefined;
+
+        for (const game of games) {
+          const [debitedUser] = await tx
+            .update(users)
+            .set({ balance: sql`${users.balance} - ${game.betCents}` })
+            .where(and(eq(users.id, userId), sql`${users.balance} >= ${game.betCents}`))
+            .returning();
+
+          if (!debitedUser) throw new Error("INSUFFICIENT_PLINKO_BALANCE");
+
+          await tx.insert(transactions).values({
+            userId,
+            amount: -game.betCents,
+            type: "loss",
+            description: "Plinko game bet",
+          });
+
+          settledUser = debitedUser;
+          if (game.payoutCents <= 0) continue;
+
+          const [winner] = await tx
+            .update(users)
+            .set({ balance: sql`${users.balance} + ${game.payoutCents}` })
+            .where(eq(users.id, userId))
+            .returning();
+
+          await tx.insert(transactions).values({
+            userId,
+            amount: game.payoutCents,
+            type: "win",
+            description: "Plinko game payout",
+          });
+
+          settledUser = winner;
+        }
+
+        return settledUser;
       });
-
-      if (payoutCents <= 0) return debitedUser;
-
-      const [settledUser] = await tx
-        .update(users)
-        .set({ balance: sql`${users.balance} + ${payoutCents}` })
-        .where(eq(users.id, userId))
-        .returning();
-
-      await tx.insert(transactions).values({
-        userId,
-        amount: payoutCents,
-        type: "win",
-        description: "Plinko game payout",
-      });
-
-      return settledUser;
-    });
+    } catch (error: any) {
+      if (error?.message === "INSUFFICIENT_PLINKO_BALANCE") return undefined;
+      throw error;
+    }
   }
 
   async updateProtectedBalance(userId: number, amountCents: number): Promise<User> {

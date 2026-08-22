@@ -222,6 +222,7 @@ export const api = {
       path: '/api/games/plinko',
       input: z.object({
         betAmount: z.number().min(1),
+        count: z.number().int().min(1).max(20).optional(),
       }),
       responses: {
         200: z.object({
@@ -230,6 +231,12 @@ export const api = {
           payout: z.number(),
           newBalance: z.number(),
           path: z.array(z.number().int().min(0).max(1)).length(16),
+          results: z.array(z.object({
+            slot: z.number(),
+            multiplier: z.number(),
+            payout: z.number(),
+            path: z.array(z.number().int().min(0).max(1)).length(16),
+          })).min(1),
         }),
         400: errorSchemas.validation,
       },

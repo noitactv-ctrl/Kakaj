@@ -7,15 +7,18 @@ import { useAuth } from "@/hooks/use-auth";
 const BOARD_ROWS = 16;
 const PEG_STEP = 5.8;
 const multipliers = [20, 10, 5, 2, 1, 0.6, 0.35, 0.2, 0.1, 0.2, 0.35, 0.6, 1, 2, 5, 10, 20];
-type DropResult = { slot: number; multiplier: number; payout: number; newBalance: number; path: number[] };
+type DropResult = { slot: number; multiplier: number; payout: number; newBalance?: number; path: number[] };
 
 export default function PlinkoGamePage() {
   const { user } = useAuth();
   const { playPlinko } = useGames();
   const [bet, setBet] = useState("1.00");
+  const [dropCount, setDropCount] = useState<1 | 10 | 20>(1);
   const [landedSlot, setLandedSlot] = useState<number | null>(null);
   const [lastPayout, setLastPayout] = useState<number | null>(null);
-  const [dropResult, setDropResult] = useState<DropResult | null>(null);
+  const [dropResults, setDropResults] = useState<DropResult[]>([]);
+  const [activeDropIndex, setActiveDropIndex] = useState(0);
+  const [batchPayoutTotal, setBatchPayoutTotal] = useState(0);
   const [ballPosition, setBallPosition] = useState({ x: 50, top: 5 });
   const [recentDrops, setRecentDrops] = useState<DropResult[]>([]);
   const [isSettled, setIsSettled] = useState(false);
@@ -24,25 +27,34 @@ export default function PlinkoGamePage() {
   const balance = balanceCents / 100;
   const parsedBet = bet.trim();
   const betCents = /^\d+(?:\.\d{1,2})?$/.test(parsedBet) ? Math.round(Number(parsedBet) * 100) : 0;
-  const validBet = Number.isInteger(betCents) && betCents > 0 && betCents <= balanceCents;
-  const isDropping = playPlinko.isPending || (dropResult !== null && !isSettled);
+  const totalBetCents = betCents * dropCount;
+  const validBet = Number.isInteger(betCents) && betCents > 0 && totalBetCents <= balanceCents;
+  const activeDrop = dropResults[activeDropIndex] ?? null;
+  const isDropping = playPlinko.isPending || (activeDrop !== null && !isSettled);
   const resultText = useMemo(() => {
-    if (isDropping) return "The ball is bouncing through the board...";
+    if (isDropping) {
+      return dropResults.length > 1
+        ? `Drop ${activeDropIndex + 1} of ${dropResults.length} is bouncing through the board...`
+        : "The ball is bouncing through the board...";
+    }
     if (landedSlot === null || lastPayout === null) return "Pick a bet and drop the ball.";
+    if (dropResults.length > 1) {
+      return `Completed ${dropResults.length} drops · total payout $${(batchPayoutTotal / 100).toFixed(2)}`;
+    }
     const multiplier = multipliers[landedSlot];
     return lastPayout > 0
       ? `Landed x${multiplier} · won $${(lastPayout / 100).toFixed(2)}`
       : `Landed x${multiplier} · no payout`;
-  }, [isDropping, landedSlot, lastPayout]);
+  }, [isDropping, dropResults.length, activeDropIndex, landedSlot, lastPayout, batchPayoutTotal]);
 
   useEffect(() => {
-    if (!dropResult) return;
+    if (!activeDrop) return;
 
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
     let rightSteps = 0;
 
-    dropResult.path.forEach((direction, index) => {
+    activeDrop.path.forEach((direction, index) => {
       const row = index + 1;
       if (direction === 1) rightSteps += 1;
       const x = 50 + (rightSteps - row / 2) * PEG_STEP;
@@ -57,29 +69,56 @@ export default function PlinkoGamePage() {
 
     timers.push(setTimeout(() => {
       if (cancelled) return;
-      setBallPosition({ x: 50 + (dropResult.slot - 8) * PEG_STEP, top: 89 });
-      setLandedSlot(dropResult.slot);
-      setLastPayout(dropResult.payout);
-      setIsSettled(true);
-      setRecentDrops(previous => [dropResult, ...previous].slice(0, 6));
-    }, dropResult.path.length * 75 + 160));
+      setBallPosition({ x: 50 + (activeDrop.slot - 8) * PEG_STEP, top: 89 });
+      setLandedSlot(activeDrop.slot);
+      setLastPayout(activeDrop.payout);
+      setRecentDrops(previous => [activeDrop, ...previous].slice(0, 6));
+
+      if (activeDropIndex < dropResults.length - 1) {
+        setIsSettled(false);
+        timers.push(setTimeout(() => {
+          if (cancelled) return;
+          setActiveDropIndex(index => index + 1);
+          setBallPosition({ x: 50, top: 5 });
+        }, 260));
+      } else {
+        setIsSettled(true);
+      }
+    }, activeDrop.path.length * 75 + 160));
 
     return () => {
       cancelled = true;
       timers.forEach(clearTimeout);
     };
-  }, [dropResult]);
+  }, [activeDrop, activeDropIndex, dropResults.length]);
 
   const play = () => {
     if (!validBet || isDropping) return;
     setLandedSlot(null);
     setLastPayout(null);
-    setDropResult(null);
+    setDropResults([]);
+    setActiveDropIndex(0);
+    setBatchPayoutTotal(0);
     setIsSettled(false);
     setBallPosition({ x: 50, top: 5 });
-    playPlinko.mutate(betCents, {
-      onSuccess: data => setDropResult(data),
+    playPlinko.mutate({ betAmount: betCents, count: dropCount }, {
+      onSuccess: data => {
+        const results = data.results?.length ? data.results : [data];
+        setDropResults(results);
+        setActiveDropIndex(0);
+        setBatchPayoutTotal(results.reduce((total, result) => total + result.payout, 0));
+      },
     });
+  };
+
+  const resetBoard = () => {
+    setLandedSlot(null);
+    setLastPayout(null);
+    setDropResults([]);
+    setActiveDropIndex(0);
+    setBatchPayoutTotal(0);
+    setIsSettled(false);
+    setBallPosition({ x: 50, top: 5 });
   };
 
   return (
@@ -92,7 +131,7 @@ export default function PlinkoGamePage() {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
         <section className="pixel-panel bg-[#0e205f] p-3 sm:p-5">
-          <div className="relative min-h-[470px] overflow-hidden border-[3px] border-black bg-[#122d88] px-2 pt-10 sm:min-h-[500px]">
+          <div className="plinko-board relative min-h-[470px] overflow-hidden border-[3px] border-black bg-[#122d88] px-2 pt-10 sm:min-h-[500px]">
             <div className="absolute inset-x-0 top-0 h-9 border-b-[3px] border-black bg-[#77a3ff] px-3 py-2">
               <p className="pixel-text text-[8px] text-[#11131f]">PLINKO BOARD · {BOARD_ROWS} ROWS</p>
             </div>
@@ -171,6 +210,19 @@ export default function PlinkoGamePage() {
               <button key={amount} onClick={() => setBet(amount.toFixed(2))} className="pixel-button py-2 text-[8px]">${amount}</button>
             ))}
           </div>
+           <label className="mt-4 block text-[10px] font-bold uppercase tracking-widest text-white/50">Drops per click</label>
+           <div className="mt-2 grid grid-cols-3 gap-2">
+             {([1, 10, 20] as const).map(count => (
+               <button
+                 key={count}
+                 onClick={() => setDropCount(count)}
+                 className={`pixel-button py-2 text-[8px] ${dropCount === count ? "!bg-[#ee292b] !text-white" : ""}`}
+                 disabled={isDropping}
+               >
+                 {count === 1 ? "1 DROP" : `DROP ${count}`}
+               </button>
+             ))}
+           </div>
           <p className="mt-3 font-mono text-xs text-white/55">Balance: <span className="font-bold text-[#ffe177]">${balance.toFixed(2)}</span></p>
 
           <button
@@ -179,15 +231,15 @@ export default function PlinkoGamePage() {
             className="pixel-button mt-5 flex w-full items-center justify-center gap-2 py-3 text-[9px] !bg-[#ee292b] !text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isDropping ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trophy className="h-3 w-3" />}
-            {isDropping ? "DROPPING..." : "DROP BALL"}
+             {isDropping ? "DROPPING..." : dropCount === 1 ? "DROP BALL" : `DROP ${dropCount} BALLS`}
           </button>
-          {!validBet && bet && <p className="mt-2 text-[10px] text-[#ff9d9d]">Enter a valid amount within your available balance.</p>}
+           {!validBet && bet && <p className="mt-2 text-[10px] text-[#ff9d9d]">Enter a valid amount within your balance for {dropCount} drop{dropCount === 1 ? "" : "s"}.</p>}
 
           <div className="mt-5 border-t border-white/15 pt-4">
             <p className="pixel-text text-[8px] text-[#ffe177]">RESULT</p>
             <p className="mt-3 min-h-9 text-xs leading-relaxed text-white/75">{resultText}</p>
             {landedSlot !== null && (
-              <button onClick={() => { setLandedSlot(null); setLastPayout(null); setDropResult(null); setIsSettled(false); setBallPosition({ x: 50, top: 5 }); }} className="mt-2 inline-flex items-center gap-1 text-[10px] text-[#ffe177] hover:text-white">
+              <button onClick={resetBoard} className="mt-2 inline-flex items-center gap-1 text-[10px] text-[#ffe177] hover:text-white">
                 <RotateCcw className="h-3 w-3" /> Reset board
               </button>
             )}

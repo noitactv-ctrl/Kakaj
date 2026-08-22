@@ -455,26 +455,35 @@ export async function registerRoutes(
       if (bet > 100000) {
         return res.status(400).json({ message: "Bet amount exceeds maximum allowed." });
       }
+      const count = req.body.count === undefined ? 1 : Number(req.body.count);
+      if (!Number.isInteger(count) || count < 1 || count > 20) {
+        return res.status(400).json({ message: "Drop count must be between 1 and 20." });
+      }
 
       // Sixteen bounces produce seventeen slots. The path is returned so the
       // client can animate the exact server-resolved result rather than inventing
       // a visual outcome locally.
       const multipliers = [20, 10, 5, 2, 1, 0.6, 0.35, 0.2, 0.1, 0.2, 0.35, 0.6, 1, 2, 5, 10, 20];
-      const path: number[] = [];
-      let slot = 0;
-      for (let row = 0; row < 16; row++) {
-        const direction = Math.random() < 0.5 ? 0 : 1;
-        path.push(direction);
-        slot += direction;
-      }
-      const multiplier = multipliers[slot];
-      const payout = Math.floor(bet * multiplier);
+      const results = Array.from({ length: count }, () => {
+        const path: number[] = [];
+        let slot = 0;
+        for (let row = 0; row < 16; row++) {
+          const direction = Math.random() < 0.5 ? 0 : 1;
+          path.push(direction);
+          slot += direction;
+        }
+        const multiplier = multipliers[slot];
+        return { slot, multiplier, payout: Math.floor(bet * multiplier), path };
+      });
 
-      const settledUser = await storage.settlePlinkoGame(user.id, bet, payout);
+      const settledUser = await storage.settlePlinkoGames(
+        user.id,
+        results.map(result => ({ betCents: bet, payoutCents: result.payout })),
+      );
       if (!settledUser) {
         return res.status(400).json({ message: "Insufficient balance" });
       }
-      res.json({ slot, multiplier, payout, newBalance: settledUser.balance, path });
+      res.json({ ...results[0], newBalance: settledUser.balance, results });
     } catch (e: any) {
       res.status(500).json({ message: e.message });
     }

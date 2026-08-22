@@ -72,11 +72,11 @@ export function useGames() {
   });
 
   const playPlinko = useMutation({
-    mutationFn: async (betAmount: number) => {
+    mutationFn: async (data: { betAmount: number; count?: number }) => {
       const res = await fetch(api.games.plinko.path, {
         method: api.games.plinko.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ betAmount }),
+        body: JSON.stringify(data),
       });
       if (!res.ok) {
         const err = await res.json();

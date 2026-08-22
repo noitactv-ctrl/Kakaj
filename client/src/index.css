@@ -121,11 +121,11 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .pixel-shell,
+  .pixel-shell { cursor: crosshair; }
+  .pixel-shell .plinko-board { cursor: crosshair; }
   .pixel-shell a,
   .pixel-shell button,
-  .pixel-shell input,
   .pixel-shell select {
-    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M4 3 5 25l6-6 5 9 4-2-5-9 8-1L4 3Z' fill='%23fff' stroke='%23050918' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M5.5 4.5 7 21.5l4.6-4.5 5.2 8.7' fill='none' stroke='%238ec5ff' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 4 3, auto;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M13 28c-1.1 0-2-.9-2-2V16.5l-2.2 2.1c-.8.8-2.1.8-2.9 0-.8-.8-.8-2.1 0-2.9l7.4-7.3V4.2c0-1.2.9-2.2 2.1-2.2s2.1 1 2.1 2.2v6.1l1.2-1.1c.8-.8 2.1-.8 2.9 0 .8.8.8 2.1 0 2.9l-2.5 2.4v2.2l1.8-1.7c.8-.8 2.1-.8 2.9 0 .8.8.8 2.1 0 2.9l-3.2 3.1c-.8.8-1.9 1.2-3 1.2h-2.1v3.6c0 1.1-.9 2-2 2Z' fill='%23fff' stroke='%23050918' stroke-width='2.5' stroke-linejoin='round'/%3E%3Cpath d='M15.4 4.5v10.2M19.6 10.5v7.1M23.2 14.7v3.8' fill='none' stroke='%238ec5ff' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") 7 3, pointer;
   }
 }
