@@ -118,7 +118,7 @@ export default function PlinkoGamePage() {
               style={{ left: `${ballPosition.x}%`, top: `${ballPosition.top}%` }}
             />
 
-            <div className="absolute inset-x-2 bottom-3 grid grid-cols-17 gap-0.5">
+            <div className="absolute inset-x-2 bottom-3 grid grid-cols-[repeat(17,minmax(0,1fr))] gap-0.5">
               {multipliers.map((multiplier, index) => (
                 <div
                   key={index}
