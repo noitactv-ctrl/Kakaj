@@ -76,12 +76,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <p className="pixel-logo-text">NYCHQ</p>
           </div>
         </Link>
-        <Link href="/profile">
-          <div className="flex h-[26px] items-center gap-1.5 border-[3px] border-[#0a1021] bg-[#5f90ef] px-2 text-white shadow-[2px_2px_0_#0a1021]">
-            <Coins className="h-3.5 w-3.5 shrink-0 text-[#ffe14f]" />
-            <span className="pixel-text truncate text-[9px] leading-none">{user?.username ?? "GUEST"}</span>
-          </div>
-        </Link>
+        <div className="flex h-[26px] items-center gap-1.5 border-[3px] border-[#0a1021] bg-[#5f90ef] px-2 text-white shadow-[2px_2px_0_#0a1021]">
+          <Coins className="h-3.5 w-3.5 shrink-0 text-[#ffe14f]" />
+          <span className="pixel-text truncate text-[9px] leading-none">{user?.username ?? "GUEST"}</span>
+        </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4">

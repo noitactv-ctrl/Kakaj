@@ -1554,8 +1554,8 @@ export async function registerRoutes(
       const invoice = await createNowPaymentsInvoice({
         amount: amountUsd,
         orderId: `order-${order.id}`,
-        successUrl: `${origin}/profile?tab=orders`,
-        cancelUrl: `${origin}/profile?tab=orders`,
+        successUrl: `${origin}/orders`,
+        cancelUrl: `${origin}/orders`,
         ipnCallbackUrl: `${origin}/api/webhooks/nowpayments`,
       });
 

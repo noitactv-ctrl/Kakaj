@@ -18,7 +18,6 @@ import OrdersPage from "@/pages/OrdersPage";
 import CartPage from "@/pages/CartPage";
 import RanksPage from "@/pages/RanksPage";
 import CardsPage from "@/pages/CardsPage";
-import ProfilePage from "@/pages/ProfilePage";
 import SupportPage from "@/pages/SupportPage";
 import PlinkoGamePage from "@/pages/PlinkoGamePage";
 
@@ -53,7 +52,6 @@ function Router() {
         <Route path="/cart" component={CartPage} />
         <Route path="/ranks" component={RanksPage} />
         <Route path="/cards" component={CardsRedirect} />
-        <Route path="/profile" component={ProfilePage} />
         <Route path="/support" component={SupportPage} />
         <Route path="/plinko" component={PlinkoGamePage} />
         <Route path="/admin">

@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const RANKS = [
   { key: "newbie",  label: "Newbie",  emoji: "🌱", color: "text-white/45",   bar: "#ffffff40", border: "border-white/10",     glow: "",                     discount: 0,  threshold: 0,      next: 10000  },
@@ -17,7 +16,6 @@ function getRankIdx(totalDeposited: number) {
 }
 
 export default function RanksPage() {
-  const [, setLocation] = useLocation();
   const { data: rankData, isLoading } = useQuery<any>({ queryKey: ["/api/user/rank"] });
 
   const totalDeposited = rankData?.totalDeposited ?? 0;
@@ -38,13 +36,7 @@ export default function RanksPage() {
           <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">RANK</h1>
         </div>
 
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={() => setLocation("/profile")}
-            className="pixel-button h-8 w-8 flex items-center justify-center p-0"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+        <div className="mb-6">
           <div>
             <h2 className="pixel-text text-[9px] text-white">YOUR TIER</h2>
             <p className="text-[10px] text-white/50 uppercase tracking-widest">Deposit more, save more</p>
