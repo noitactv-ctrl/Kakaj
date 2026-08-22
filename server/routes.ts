@@ -472,8 +472,9 @@ export async function registerRoutes(
         { slots: multipliers.map((value, index) => value === 1 ? index : -1).filter(index => index >= 0), weight: 190909 },
         { slots: multipliers.map((value, index) => value === 2 ? index : -1).filter(index => index >= 0), weight: 95455 },
         { slots: multipliers.map((value, index) => value === 5 ? index : -1).filter(index => index >= 0), weight: 47727 },
-        { slots: multipliers.map((value, index) => value === 20 ? index : -1).filter(index => index >= 0), weight: 15909 },
-        { slots: multipliers.map((value, index) => ![1, 2, 5, 20].includes(value) ? index : -1).filter(index => index >= 0), weight: 650000 },
+        { slots: multipliers.map((value, index) => value === 10 ? index : -1).filter(index => index >= 0), weight: 100000 },
+        { slots: multipliers.map((value, index) => value === 20 ? index : -1).filter(index => index >= 0), weight: 10000 },
+        { slots: multipliers.map((value, index) => ![1, 2, 5, 10, 20].includes(value) ? index : -1).filter(index => index >= 0), weight: 555909 },
       ];
       const results = Array.from({ length: count }, () => {
         const roll = randomInt(0, 1_000_000);
