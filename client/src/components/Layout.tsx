@@ -64,7 +64,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   if (location === "/auth") return <>{children}</>;
 
-  const isActive = (href: string) => location === href || (href === "/cards" && location === "/");
+  const isActive = (href: string) =>
+    location === href || (href === "/deposit" && location === "/");
 
   const navContent = (
     <>
@@ -176,7 +177,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
         </header>
-        <div className="min-h-[calc(100vh-84px)] px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
+        <div className="min-h-[calc(100vh-84px)] px-3 py-3 sm:px-4 lg:px-6 lg:py-4">
           {children}
         </div>
       </main>

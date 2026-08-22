@@ -241,15 +241,15 @@ export default function DepositPage() {
 
   return (
     <div className="pixel-page min-h-screen flex flex-col">
-      <div className="flex-1 w-full px-1 py-2 space-y-5">
+      <div className="mx-auto flex-1 w-full max-w-3xl px-1 py-1 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="pixel-text text-[9px] text-[#ffe177]">WALLET / TOPUP</p>
-            <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">TOPUP</h1>
+            <h1 className="mt-2 text-xl leading-relaxed text-white sm:text-2xl">TOPUP</h1>
           </div>
           <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noreferrer" className="pixel-button px-3 py-2 text-[8px]">SUPPORT</a>
         </div>
-        <div className="pixel-panel flex items-center justify-between bg-[#1f3f96] px-4 py-3">
+        <div className="pixel-panel flex items-center justify-between bg-[#1f3f96] px-3 py-2.5">
           <p className="pixel-text text-[8px] text-[#c5d6ff]">CURRENT BALANCE</p>
           <p className="pixel-text text-[11px] text-[#ffe177]">${((user?.balance ?? 0) / 100).toFixed(2)}</p>
         </div>
@@ -257,7 +257,7 @@ export default function DepositPage() {
         {manualResult ? (
           <ManualDepositPanel result={manualResult} onReset={() => { setManualResult(null); setSelectedOption(null); setAmountInput(""); }} />
         ) : (
-          <div className="pixel-panel space-y-5 bg-[#10215e] p-4 sm:p-5">
+          <div className="pixel-panel space-y-3 bg-[#10215e] p-3 sm:p-4">
             <div className="space-y-2">
               <p className="pixel-label">ENTER AMOUNT</p>
               <input
@@ -275,9 +275,9 @@ export default function DepositPage() {
 
             <div className="border-[3px] border-black bg-[#0a1645] p-3">
               <p className="pixel-label">BONUS TIERS</p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {BONUS_TIERS.slice(0, 5).map(tier => (
-                  <div key={tier.min} className={`border-[3px] border-black px-3 py-2 text-center ${activeTier?.min === tier.min ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
+                  <div key={tier.min} className={`border-[3px] border-black px-2 py-1.5 text-center ${activeTier?.min === tier.min ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
                     <p className="font-mono text-[9px] text-white/75">${tier.min}{tier.max ? "+" : ""}</p>
                     <p className={`pixel-text mt-1 text-[7px] ${activeTier?.min === tier.min ? "text-white" : "text-[#72df7c]"}`}>{tier.bonus}</p>
                   </div>
@@ -285,7 +285,7 @@ export default function DepositPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <p className="pixel-label">CHOOSE A PAYMENT METHOD</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {paymentOptions.map(opt => {
@@ -294,13 +294,13 @@ export default function DepositPage() {
                     <button
                       key={opt.id}
                       onClick={() => setSelectedOption(opt.id)}
-                      className={`flex min-h-24 flex-col items-center justify-center gap-2 border-[3px] border-black px-2 py-3 transition-all ${isActive ? "bg-[#2555c5] shadow-[2px_2px_0_#ffe177]" : "bg-[#0b1849] hover:bg-[#17337d]"}`}
+                      className={`flex min-h-20 flex-col items-center justify-center gap-1.5 border-[3px] border-black px-2 py-2 transition-all ${isActive ? "bg-[#2555c5] shadow-[2px_2px_0_#ffe177]" : "bg-[#0b1849] hover:bg-[#17337d]"}`}
                       style={{
                         outline: isActive ? `2px solid ${opt.color}` : "none",
                       }}
                       data-testid={`btn-payment-${opt.id}`}
                     >
-                      <opt.Icon className="h-6 w-6 flex-shrink-0" style={{ color: opt.color }} />
+                      <opt.Icon className="h-5 w-5 flex-shrink-0" style={{ color: opt.color }} />
                       <span className="pixel-text text-[8px] text-white">{opt.label}</span>
                       <span className="font-mono text-[9px] text-white/55">{opt.sub}</span>
                     </button>
@@ -321,7 +321,7 @@ export default function DepositPage() {
         )}
 
         {recentDeposits.length > 0 && (
-          <div className="pixel-panel space-y-3 bg-[#10215e] p-4">
+          <div className="pixel-panel space-y-2 bg-[#10215e] p-3">
             <div className="flex items-center justify-between">
               <p className="pixel-label">DEPOSIT HISTORY</p>
               <button onClick={() => refetchDeposits()} className="text-[#ffe177] hover:text-white transition-colors" data-testid="btn-refresh-deposits">
