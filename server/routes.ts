@@ -1472,6 +1472,14 @@ export async function registerRoutes(
       if (!matchedOrder) {
         return res.status(400).json({ message: "Order ID not found. Please check your Orders page and enter a valid Order ID." });
       }
+      const [purchasedItem] = await db
+        .select({ id: orderItems.id })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, matchedOrder.id))
+        .limit(1);
+      if (!purchasedItem) {
+        return res.status(400).json({ message: "Support tickets are only available for purchased items, not deposit orders." });
+      }
 
       const ticket = await storage.createSupportTicket({ ...req.body, userId });
       res.status(201).json(ticket);

@@ -9,13 +9,12 @@ import { Link } from "wouter";
 
 type TabType = "all" | "cards" | "ach";
 
-function getTier(totalDepositsCents: number): { label: string; discount: string } {
-  const dollars = totalDepositsCents / 100;
-  if (dollars >= 500) return { label: "Gold", discount: "15% off" };
-  if (dollars >= 200) return { label: "Silver", discount: "10% off" };
-  if (dollars >= 50) return { label: "Bronze", discount: "5% off" };
-  return { label: "Starter", discount: "0% off" };
-}
+const rankLabels: Record<string, string> = {
+  newbie: "Newbie",
+  regular: "Regular",
+  vip: "VIP",
+  nyc: "NYC",
+};
 
 function formatDateTime(date: Date): string {
   return date.toLocaleString("en-US", {
@@ -64,19 +63,16 @@ export default function OrdersPage() {
   const [tab, setTab] = useState<TabType>("all");
   const [search, setSearch] = useState("");
 
-  const { data: transactions } = useQuery<any[]>({
-    queryKey: ["/api/wallet/transactions"],
+  const { data: rankData } = useQuery<{ rank: string; discountPct: number; totalDeposited: number }>({
+    queryKey: ["/api/user/rank"],
     enabled: !!user,
   });
 
-  const totalDepositsCents = useMemo(() => {
-    if (!transactions) return 0;
-    return transactions
-      .filter((t: any) => t.type === "deposit" || t.type === "manual_deposit")
-      .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
-  }, [transactions]);
-
-  const tier = getTier(totalDepositsCents);
+  const totalDepositsCents = rankData?.totalDeposited ?? 0;
+  const tier = {
+    label: rankLabels[rankData?.rank ?? "newbie"] ?? "Newbie",
+    discount: `${rankData?.discountPct ?? 0}% off`,
+  };
   const allOrders = orders ?? [];
 
   const totalSpentCents = useMemo(() => {
@@ -140,11 +136,11 @@ export default function OrdersPage() {
             <RefreshCw className={`h-3 w-3 ${isRefetching ? "animate-spin" : ""}`} />
             Refresh
           </button>
-          <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noopener noreferrer">
-            <button className="pixel-button flex items-center gap-1.5 px-3 py-2 text-[8px]" data-testid="btn-support">
+          <Link href="/support">
+            <span className="pixel-button flex items-center gap-1.5 px-3 py-2 text-[8px]" data-testid="btn-support">
               Support
-            </button>
-          </a>
+            </span>
+          </Link>
         </div>
       </div>
 

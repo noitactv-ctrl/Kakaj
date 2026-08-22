@@ -129,7 +129,8 @@ export default function CardsPage() {
       const res = await fetch(url, { credentials: "include" });
       return res.json();
     },
-    refetchInterval: 20000,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 
   const filteredCards = useMemo(() => {

@@ -21,6 +21,7 @@ type Order = {
   status: string;
   total: number;
   createdAt: string;
+  items?: { itemType?: string; cardId?: number | null; variantId?: number | null }[];
 };
 
 function StatusBadge({ status }: { status: Ticket["status"] }) {
@@ -80,6 +81,10 @@ export default function SupportPage() {
     const match = orders.find(o => o.orderId === trimmed);
     if (!match) {
       setOrderIdError("Order ID not found. Check your Orders page for the correct ID.");
+      return false;
+    }
+    if (!match.items?.some(item => item.itemType === "card" || item.cardId != null || item.variantId != null)) {
+      setOrderIdError("Support tickets are only available for purchased items, not deposit orders.");
       return false;
     }
     setOrderIdValid(true);

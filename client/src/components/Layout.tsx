@@ -30,7 +30,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
   },
   {
     label: "CHANNEL",
-    items: [{ href: "https://t.me/+9_iBYCRURfgwNGUx", label: "Telegram Channel", icon: HeartHandshake, external: true }],
+    items: [{ href: "https://t.me/+jUsKLmOgpV42NGJh", label: "Telegram Channel", icon: HeartHandshake, external: true }],
   },
   {
     label: "SUPPORT",
@@ -160,7 +160,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="min-h-screen lg:pl-[260px]">
         <div className="border-b-[3px] border-[#183c9d] bg-[#245cdb] px-4 py-2 text-center">
-          <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noreferrer" className="pixel-text text-[8px] text-white underline underline-offset-4">
+          <a href="https://t.me/+jUsKLmOgpV42NGJh" target="_blank" rel="noreferrer" className="pixel-text text-[8px] text-white underline underline-offset-4">
             {activeAnnouncement?.text || "JOIN OUR TELEGRAM"}
           </a>
         </div>

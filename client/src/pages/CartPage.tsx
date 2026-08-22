@@ -178,6 +178,22 @@ export default function CartPage() {
   const processorFee = Math.round(finalTotal * processorFeePercent / 100);
   const dueTotal = finalTotal + processorFee;
   const selectedCardIds = [...cardItems.map(card => card.id), ...(bulkBundle?.cardIds ?? [])];
+  const refreshPurchaseData = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/card-bases"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+  };
+  const handleCheckoutError = (e: any) => {
+    const message = e.message || "Could not create order.";
+    if (/card.*(?:sold|available|not found)/i.test(message)) {
+      clearCart();
+      refreshPurchaseData();
+      toast({ title: "CART UPDATED", description: "One or more cards were no longer available. Your cart was cleared with the latest inventory.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Checkout failed", description: message, variant: "destructive" });
+  };
 
   const cashappOrderMutation = useMutation({
     mutationFn: async () => {
@@ -196,6 +212,7 @@ export default function CartPage() {
     },
     onSuccess: (data) => {
       clearCart();
+      refreshPurchaseData();
       setCashappModal({
         orderId: data.order?.orderId || data.orderId || "N/A",
         total: data.order?.total ?? dueTotal,
@@ -203,9 +220,7 @@ export default function CartPage() {
         cashappTag: data.cashappTag || "",
       });
     },
-    onError: (e: any) => {
-      toast({ title: "Checkout failed", description: e.message || "Could not create order.", variant: "destructive" });
-    },
+    onError: handleCheckoutError,
   });
 
   const balanceOrderMutation = useMutation({
@@ -225,12 +240,11 @@ export default function CartPage() {
     },
     onSuccess: () => {
       clearCart();
+      refreshPurchaseData();
       toast({ title: "Order placed!", description: "Your order has been placed and will be fulfilled soon." });
       setLocation("/orders");
     },
-    onError: (e: any) => {
-      toast({ title: "Checkout failed", description: e.message || "Could not create order.", variant: "destructive" });
-    },
+    onError: handleCheckoutError,
   });
 
   const cryptoOrderMutation = useMutation({
@@ -250,13 +264,12 @@ export default function CartPage() {
     },
     onSuccess: (data) => {
       clearCart();
+      refreshPurchaseData();
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       }
     },
-    onError: (e: any) => {
-      toast({ title: "Checkout failed", description: e.message || "Could not create order.", variant: "destructive" });
-    },
+    onError: handleCheckoutError,
   });
 
   const isPending = cashappOrderMutation.isPending || balanceOrderMutation.isPending || cryptoOrderMutation.isPending;

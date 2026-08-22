@@ -8,6 +8,7 @@ import {
   RefreshCw, ExternalLink
 } from "lucide-react";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
+import { Link } from "wouter";
 
 type Method = "crypto" | "cashapp";
 
@@ -247,7 +248,7 @@ export default function DepositPage() {
             <p className="pixel-text text-[9px] text-[#ffe177]">WALLET / TOPUP</p>
             <h1 className="mt-2 text-xl leading-relaxed text-white sm:text-2xl">TOPUP</h1>
           </div>
-          <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noreferrer" className="pixel-button px-3 py-2 text-[8px]">SUPPORT</a>
+          <Link href="/support" className="pixel-button px-3 py-2 text-[8px]">SUPPORT</Link>
         </div>
         <div className="pixel-panel flex items-center justify-between bg-[#1f3f96] px-3 py-2.5">
           <p className="pixel-text text-[8px] text-[#c5d6ff]">CURRENT BALANCE</p>
