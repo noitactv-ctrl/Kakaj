@@ -1,7 +1,8 @@
 import Stripe from "stripe";
+import { getRuntimeSetting } from "./settings";
 
-function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY;
+async function getStripe(): Promise<Stripe> {
+  const key = await getRuntimeSetting("stripe_secret_key");
   if (!key) throw new Error("STRIPE_SECRET_KEY is not configured");
   return new Stripe(key);
 }
@@ -13,7 +14,7 @@ export async function createStripeCheckoutSession(params: {
   successUrl: string;
   cancelUrl: string;
 }): Promise<{ id: string; url: string }> {
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: [params.paymentMethodType],
@@ -34,9 +35,9 @@ export async function createStripeCheckoutSession(params: {
   return { id: session.id, url: session.url! };
 }
 
-export function constructStripeEvent(payload: Buffer, signature: string): Stripe.Event {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+export async function constructStripeEvent(payload: Buffer, signature: string): Promise<Stripe.Event> {
+  const secret = await getRuntimeSetting("stripe_webhook_secret");
   if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
-  const stripe = getStripe();
+  const stripe = await getStripe();
   return stripe.webhooks.constructEvent(payload, signature, secret);
 }

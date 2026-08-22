@@ -9,6 +9,7 @@ import { users } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { pollPendingCryptoPayments } from "./crypto-poller";
 import { startTelegramBot } from "./telegram";
+import { ensureApiSettingsSchema, migrateLegacySecretSettings } from "./settings";
 
 const app = express();
 const httpServer = createServer(app);
@@ -84,6 +85,8 @@ app.use((req, res, next) => {
     ) WITH (OIDS=FALSE)
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`);
+  await ensureApiSettingsSchema();
+  await migrateLegacySecretSettings();
 
   await registerRoutes(httpServer, app);
 
@@ -183,8 +186,8 @@ app.use((req, res, next) => {
   pollPendingCryptoPayments();
   setInterval(pollPendingCryptoPayments, 30 * 1000);
 
-  // Start Telegram bot (no-op if TELEGRAM_BOT_TOKEN is not set)
-  startTelegramBot();
+  // Start Telegram bot (no-op when no configured token is available)
+  startTelegramBot().catch((error) => console.error("[telegram] startup failed:", error?.message || error));
 
 
   const port = parseInt(process.env.PORT || "5000", 10);

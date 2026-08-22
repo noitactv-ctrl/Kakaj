@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Star, Package, Wallet, Pin, Gift, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Star, Package, Wallet, Pin, Gift, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2, KeyRound } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -2047,10 +2047,6 @@ function FeeSettingCard({ method, label, color }: { method: string; label: strin
 function IntegrationsSection() {
   const { toast } = useToast();
 
-  const { data: integrationStatus, isLoading: statusLoading } = useQuery<Record<string, boolean>>({
-    queryKey: ["/api/admin/integrations/status"],
-  });
-
   const { data: paymentMethods, isLoading: methodsLoading } = useQuery<Record<string, boolean>>({
     queryKey: ["/api/admin/payment-methods"],
   });
@@ -2177,45 +2173,276 @@ function IntegrationsSection() {
         <MinDepositCard method="crypto" label="Crypto" color="#F7931A" />
       </div>
 
-      {/* Telegram Bot Token Status */}
-      <div>
-        <p className="text-xs font-semibold text-muted-foreground mb-3">Telegram Bot Token</p>
-        {statusLoading ? (
-          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-        ) : (
-          <Card className="bg-[#111] border-white/10" data-testid="card-integration-TELEGRAM_BOT_TOKEN">
-            <CardContent className="p-4 flex items-start justify-between gap-4">
-              <div className="space-y-1 min-w-0">
-                <p className="font-mono text-sm text-white">TELEGRAM_BOT_TOKEN</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">Required for Telegram Stars payments. Create a bot via @BotFather and enable Stars in Payments.</p>
-              </div>
-              <div className="shrink-0 mt-0.5">
-                {integrationStatus?.TELEGRAM_BOT_TOKEN ? (
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30">✓ Set</Badge>
-                ) : (
-                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">⚠ Not set</Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      <Card className="bg-[#111] border-primary/20">
-        <CardContent className="p-4 space-y-2">
-          <p className="text-xs font-semibold text-primary">How to set the Telegram token</p>
-          <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-            <li>Message <span className="text-white font-medium">@BotFather</span> on Telegram and create a new bot</li>
-            <li>Go to <span className="text-white font-medium">My Bots → Your Bot → Payments</span> and enable Stars</li>
-            <li>Add the token as a secret named <span className="text-white font-mono">TELEGRAM_BOT_TOKEN</span> in Replit's Secrets panel (🔒)</li>
-            <li>Restart the server — webhook registers automatically</li>
-          </ol>
-        </CardContent>
-      </Card>
+      <ApiSecretsSettings />
 
       {/* Feature Visibility Toggles */}
       <FeatureTogglesCard />
     </div>
+  );
+}
+
+type ApiSetting = {
+  key: string;
+  label: string;
+  description: string;
+  kind: "url" | "secret" | "text";
+  required: boolean;
+  configured: boolean;
+  enabled: boolean;
+  source: "database" | "environment" | "default" | "none";
+  value?: string;
+  maskedValue?: string;
+  custom: boolean;
+};
+
+function ApiSecretsSettings() {
+  const { toast } = useToast();
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [showCustom, setShowCustom] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customKind, setCustomKind] = useState<"url" | "secret" | "text">("secret");
+  const [customValue, setCustomValue] = useState("");
+
+  const { data, isLoading } = useQuery<{ settings: ApiSetting[]; encryptionConfigured: boolean }>({
+    queryKey: ["/api/admin/api-settings"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin/api-settings");
+      if (!response.ok) throw new Error("Unable to load API settings");
+      return response.json();
+    },
+  });
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["/api/admin/api-settings"] });
+
+  const saveMutation = useMutation({
+    mutationFn: async ({ setting, value }: { setting: ApiSetting; value: string }) => {
+      if (setting.kind === "secret" && !value.trim()) {
+        throw new Error("Enter a new secret value, or use Clear to remove the saved override.");
+      }
+      const response = await apiRequest("PUT", `/api/admin/api-settings/${setting.key}`, {
+        value,
+        kind: setting.kind,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Unable to save setting");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { setting }) => {
+      setDrafts((current) => ({ ...current, [setting.key]: "" }));
+      refresh();
+      toast({ title: `${setting.label} saved` });
+    },
+    onError: (error: Error) => toast({ title: "Unable to save setting", description: error.message, variant: "destructive" }),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ setting, enabled }: { setting: ApiSetting; enabled: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/api-settings/${setting.key}`, { enabled });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Unable to update setting");
+      }
+      return response.json();
+    },
+    onSuccess: () => refresh(),
+    onError: (error: Error) => toast({ title: "Unable to update setting", description: error.message, variant: "destructive" }),
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: async (setting: ApiSetting) => {
+      const response = await apiRequest("DELETE", `/api/admin/api-settings/${setting.key}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Unable to clear setting");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      refresh();
+      toast({ title: "Saved override cleared" });
+    },
+    onError: (error: Error) => toast({ title: "Unable to clear setting", description: error.message, variant: "destructive" }),
+  });
+
+  const addCustomMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/api-settings", {
+        name: customName,
+        label: customName,
+        kind: customKind,
+        value: customValue,
+        enabled: true,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Unable to add setting");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setCustomName("");
+      setCustomValue("");
+      setCustomKind("secret");
+      setShowCustom(false);
+      refresh();
+      toast({ title: "Custom setting added" });
+    },
+    onError: (error: Error) => toast({ title: "Unable to add setting", description: error.message, variant: "destructive" }),
+  });
+
+  const groups = [
+    { title: "NOWPayments", keys: ["nowpayments_api_url", "nowpayments_api_key", "nowpayments_ipn_secret"] },
+    { title: "Telegram", keys: ["telegram_bot_token", "telegram_group_id"] },
+    { title: "Stripe", keys: ["stripe_secret_key", "stripe_webhook_secret"] },
+    { title: "SMTP", keys: ["smtp_host", "smtp_port", "smtp_email", "smtp_password"] },
+    { title: "Additional", keys: ["forebit_account_id"] },
+  ];
+  const settings = data?.settings ?? [];
+  const settingByKey = new Map(settings.map((setting) => [setting.key, setting]));
+
+  const renderSetting = (setting: ApiSetting) => {
+    const draft = drafts[setting.key] ?? "";
+    const value = setting.kind === "secret" ? draft : (drafts[setting.key] ?? setting.value ?? "");
+    const sourceLabel = setting.source === "environment"
+      ? "Host fallback"
+      : setting.source === "database"
+        ? "Saved here"
+        : setting.source === "default"
+          ? "Default"
+          : "Not configured";
+
+    return (
+      <Card key={setting.key} className="bg-[#111] border-white/10" data-testid={`card-api-setting-${setting.key}`}>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-bold text-sm text-white">{setting.label}</p>
+                <Badge className={setting.configured && setting.enabled
+                  ? "bg-green-500/20 text-green-400 border-green-500/30"
+                  : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"}>
+                  {setting.configured && setting.enabled ? "Configured" : setting.enabled ? "Not set" : "Disabled"}
+                </Badge>
+                <span className="text-[10px] text-white/35 font-mono">{sourceLabel}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{setting.description}</p>
+            </div>
+            <Switch
+              checked={setting.enabled}
+              disabled={toggleMutation.isPending}
+              onCheckedChange={(enabled) => toggleMutation.mutate({ setting, enabled })}
+              data-testid={`switch-api-setting-${setting.key}`}
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              type={setting.kind === "secret" ? "password" : "text"}
+              value={value}
+              onChange={(event) => setDrafts((current) => ({ ...current, [setting.key]: event.target.value }))}
+              placeholder={setting.kind === "secret"
+                ? setting.configured ? "Saved securely — enter a replacement" : "Enter secret"
+                : setting.kind === "url" ? "https://api.example.com/v1" : "Enter value"}
+              className="flex-1 bg-[#0d0d0d] border-white/10 text-white font-mono"
+              data-testid={`input-api-setting-${setting.key}`}
+            />
+            <Button
+              size="sm"
+              onClick={() => saveMutation.mutate({ setting, value })}
+              disabled={saveMutation.isPending || !setting.enabled}
+              data-testid={`button-save-api-setting-${setting.key}`}
+            >
+              {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+            </Button>
+            {setting.source === "database" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-white/10 text-white/65 hover:text-white"
+                onClick={() => clearMutation.mutate(setting)}
+                disabled={clearMutation.isPending}
+                data-testid={`button-clear-api-setting-${setting.key}`}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          {setting.kind === "secret" && setting.maskedValue && (
+            <p className="text-[10px] text-white/35 font-mono">Stored value: {setting.maskedValue}</p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><KeyRound className="h-3.5 w-3.5 text-primary" /> API & Secrets</p>
+          <p className="text-xs text-white/45 mt-1">Secrets are encrypted on the server and never sent back to this page.</p>
+        </div>
+        <Button size="sm" variant="outline" className="gap-1.5 border-white/10 text-xs" onClick={() => setShowCustom(!showCustom)}>
+          <Plus className="h-3.5 w-3.5" /> Custom setting
+        </Button>
+      </div>
+
+      {!data?.encryptionConfigured && (
+        <Card className="bg-red-950/20 border-red-500/30">
+          <CardContent className="p-4 text-xs text-red-200">
+            Secret storage is locked until the server has a <span className="font-mono">SETTINGS_ENCRYPTION_KEY</span> or <span className="font-mono">SESSION_SECRET</span>. Add one to the host before saving secrets.
+          </CardContent>
+        </Card>
+      )}
+
+      {showCustom && (
+        <Card className="bg-[#111] border-primary/30">
+          <CardContent className="p-4 space-y-3">
+            <p className="text-sm font-bold text-white">Add custom API setting</p>
+            <div className="grid gap-2 sm:grid-cols-[1fr_130px]">
+              <Input value={customName} onChange={(event) => setCustomName(event.target.value)} placeholder="Example API key" className="bg-[#0d0d0d] border-white/10" data-testid="input-custom-api-name" />
+              <Select value={customKind} onValueChange={(value: "url" | "secret" | "text") => setCustomKind(value)}>
+                <SelectTrigger className="bg-[#0d0d0d] border-white/10" data-testid="select-custom-api-kind"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="secret">Secret</SelectItem>
+                  <SelectItem value="url">API URL</SelectItem>
+                  <SelectItem value="text">Text</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input type={customKind === "secret" ? "password" : "text"} value={customValue} onChange={(event) => setCustomValue(event.target.value)} placeholder={customKind === "url" ? "https://api.example.com" : "Value"} className="flex-1 bg-[#0d0d0d] border-white/10 font-mono" data-testid="input-custom-api-value" />
+              <Button size="sm" disabled={addCustomMutation.isPending || !customName.trim() || !customValue.trim()} onClick={() => addCustomMutation.mutate()} data-testid="button-add-custom-api-setting">
+                {addCustomMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isLoading ? (
+        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+      ) : (
+        <div className="space-y-5">
+          {groups.map((group) => {
+            const groupSettings = group.keys.map((key) => settingByKey.get(key)).filter(Boolean) as ApiSetting[];
+            return groupSettings.length > 0 ? (
+              <div key={group.title} className="space-y-2">
+                <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">{group.title}</p>
+                <div className="space-y-2">{groupSettings.map(renderSetting)}</div>
+              </div>
+            ) : null;
+          })}
+          {settings.filter((setting) => setting.custom).length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Custom</p>
+              <div className="space-y-2">{settings.filter((setting) => setting.custom).map(renderSetting)}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

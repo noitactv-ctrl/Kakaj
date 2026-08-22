@@ -441,4 +441,9 @@ export type CryptoAddress = typeof cryptoAddresses.$inferSelect;
 export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
+  isSecret: boolean("is_secret").default(false).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  kind: text("kind").default("text").notNull(),
+  label: text("label"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

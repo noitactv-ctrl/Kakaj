@@ -1,9 +1,8 @@
 import { Bot, Context } from "grammy";
 import { pool } from "./db";
 import { log } from "./index";
+import { getRuntimeSetting } from "./settings";
 
-const BOT_TOKEN    = process.env.TELEGRAM_BOT_TOKEN;
-const GROUP_ID     = process.env.Telegram_group_id;
 const GROUP_INVITE = "https://t.me/+jUsKLmOgpV42NGJh";
 const DAILY_REWARD_CENTS  = 25;  // $0.25
 const REFERRAL_BONUS_CENTS = 10; // $0.10
@@ -124,13 +123,18 @@ async function awardDaily(user: any) {
   );
 }
 
-export function startTelegramBot() {
-  if (!BOT_TOKEN) {
+let activeBot: Bot | null = null;
+
+export async function startTelegramBot() {
+  const botToken = await getRuntimeSetting("telegram_bot_token");
+  const groupId = await getRuntimeSetting("telegram_group_id");
+  if (!botToken) {
     log("TELEGRAM_BOT_TOKEN not set — bot disabled", "telegram");
     return null;
   }
 
-  const bot = new Bot(BOT_TOKEN);
+  const bot = new Bot(botToken);
+  activeBot = bot;
 
   // Ensure schema on startup
   ensureSchema().catch(err =>
@@ -139,13 +143,13 @@ export function startTelegramBot() {
 
   /* ── Group-membership gate ─────────────────────────────────────────────── */
   bot.use(async (ctx, next) => {
-    if (!GROUP_ID) return next();
+    if (!groupId) return next();
 
     const userId = ctx.from?.id;
     if (!userId) return next();
 
     try {
-      const member = await ctx.api.getChatMember(GROUP_ID, userId);
+      const member = await ctx.api.getChatMember(groupId, userId);
       const allowed = ["creator", "administrator", "member", "restricted"].includes(member.status);
       if (!allowed) {
         await ctx.reply(`🔒 You must join the foodplug group before using bot commands.\n\n👉 ${GROUP_INVITE}`);
@@ -371,4 +375,12 @@ export function startTelegramBot() {
   });
 
   return bot;
+}
+
+export async function restartTelegramBot(): Promise<void> {
+  if (activeBot) {
+    await activeBot.stop();
+    activeBot = null;
+  }
+  await startTelegramBot();
 }

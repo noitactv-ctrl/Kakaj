@@ -8,6 +8,7 @@ import {
 import { eq, and, sql, desc, lt } from "drizzle-orm";
 import { pool } from "./db";
 import { calculateDepositCredit } from "@shared/deposit";
+import { decryptSettingValue, encryptSettingValue, isKnownSecretKey } from "./settings";
 
 export interface IStorage {
   // Users
@@ -1378,14 +1379,20 @@ export class DatabaseStorage implements IStorage {
 
   async getSetting(key: string, defaultValue: string = ""): Promise<string> {
     const [row] = await db.select().from(siteSettings).where(eq(siteSettings.key, key));
-    return row?.value ?? defaultValue;
+    if (!row) return defaultValue;
+    return row.isSecret ? decryptSettingValue(row.value) : row.value;
   }
 
   async setSetting(key: string, value: string): Promise<void> {
+    const isSecret = isKnownSecretKey(key);
+    const storedValue = isSecret ? encryptSettingValue(value) : value;
     await db
       .insert(siteSettings)
-      .values({ key, value })
-      .onConflictDoUpdate({ target: siteSettings.key, set: { value } });
+      .values({ key, value: storedValue, isSecret, kind: isSecret ? "secret" : "text", updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: siteSettings.key,
+        set: { value: storedValue, isSecret, kind: isSecret ? "secret" : "text", updatedAt: new Date() },
+      });
   }
 
   async getPaymentMethodsConfig(): Promise<Record<string, boolean>> {

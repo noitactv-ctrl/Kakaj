@@ -4,6 +4,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { getNowPaymentsInvoice, mapNowPaymentsStatus } from "./nowpayments";
 import { storage } from "./storage";
 import { log } from "./index";
+import { getRuntimeSetting } from "./settings";
 
 async function processCompletion(payment: typeof cryptoPayments.$inferSelect) {
   if (payment.purpose === "order" && payment.orderId) {
@@ -29,7 +30,7 @@ async function processCompletion(payment: typeof cryptoPayments.$inferSelect) {
 }
 
 export async function pollPendingCryptoPayments() {
-  if (!process.env.NOWPAYMENTS_API_KEY) return;
+  if (!(await getRuntimeSetting("nowpayments_api_key"))) return;
 
   try {
     const pending = await db

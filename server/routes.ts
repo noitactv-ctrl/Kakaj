@@ -13,6 +13,16 @@ import { db } from "./db";
 import { eq, and, ne, desc, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { calculateDepositCredit } from "@shared/deposit";
+import {
+  deleteApiSetting,
+  getApiSettingDefinition,
+  getRuntimeSetting,
+  listApiSettings,
+  normalizeCustomSettingKey,
+  saveApiSetting,
+  setApiSettingEnabled,
+} from "./settings";
+import { restartTelegramBot } from "./telegram";
 
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
@@ -1705,9 +1715,9 @@ export async function registerRoutes(
       console.log("NOWPayments IPN received:", JSON.stringify(req.body, null, 2));
       const body = req.body || {};
       const sig = req.headers["x-nowpayments-sig"] as string || "";
-      const ipnSecret = process.env.NOWPAYMENTS_IPN_SECRET;
+      const ipnSecret = await getRuntimeSetting("nowpayments_ipn_secret");
 
-      if (ipnSecret && (!sig || !verifyNowPaymentsWebhook(body, sig))) {
+      if (!ipnSecret || !sig || !(await verifyNowPaymentsWebhook(body, sig))) {
         console.warn("NOWPayments IPN: missing or invalid signature");
         return res.status(200).json({ received: true });
       }
@@ -1822,9 +1832,127 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
       return res.status(401).json({ message: "Unauthorized" });
     }
+    const [telegramToken, nowPaymentsKey, nowPaymentsSecret, stripeKey] = await Promise.all([
+      getRuntimeSetting("telegram_bot_token"),
+      getRuntimeSetting("nowpayments_api_key"),
+      getRuntimeSetting("nowpayments_ipn_secret"),
+      getRuntimeSetting("stripe_secret_key"),
+    ]);
     res.json({
-      TELEGRAM_BOT_TOKEN: !!process.env.TELEGRAM_BOT_TOKEN,
+      TELEGRAM_BOT_TOKEN: !!telegramToken,
+      NOWPAYMENTS_API_KEY: !!nowPaymentsKey,
+      NOWPAYMENTS_IPN_SECRET: !!nowPaymentsSecret,
+      STRIPE_SECRET_KEY: !!stripeKey,
     });
+  });
+
+  // ── API URLs and server-side secrets ──────────────────────────────────────
+  app.get("/api/admin/api-settings", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      res.json({
+        settings: await listApiSettings(),
+        encryptionConfigured: Boolean(process.env.SETTINGS_ENCRYPTION_KEY || process.env.SESSION_SECRET),
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error?.message || "Unable to load API settings." });
+    }
+  });
+
+  app.post("/api/admin/api-settings", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const { name, kind, value, enabled, label } = req.body;
+      if (typeof name !== "string" || typeof kind !== "string" || !["url", "secret", "text"].includes(kind)) {
+        return res.status(400).json({ message: "Name and a valid setting type are required." });
+      }
+      const key = normalizeCustomSettingKey(name);
+      await saveApiSetting({
+        key,
+        kind: kind as "url" | "secret" | "text",
+        value: typeof value === "string" ? value : "",
+        enabled: typeof enabled === "boolean" ? enabled : true,
+        label: typeof label === "string" ? label.trim() : name.trim(),
+      });
+      res.status(201).json({ ok: true, key });
+    } catch (error: any) {
+      res.status(400).json({ message: error?.message || "Unable to save API setting." });
+    }
+  });
+
+  app.put("/api/admin/api-settings/:key", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const key = String(req.params.key);
+      const definition = getApiSettingDefinition(key);
+      if (!definition && !key.startsWith("custom_")) {
+        return res.status(404).json({ message: "Setting not found." });
+      }
+      const { value, enabled, kind, label } = req.body;
+      if (value !== undefined && typeof value !== "string") {
+        return res.status(400).json({ message: "Setting value must be text." });
+      }
+      if (!definition && !["url", "secret", "text"].includes(kind)) {
+        return res.status(400).json({ message: "A valid setting type is required." });
+      }
+      await saveApiSetting({
+        key,
+        kind: definition?.kind ?? kind,
+        value,
+        enabled: typeof enabled === "boolean" ? enabled : undefined,
+        label: typeof label === "string" ? label.trim() : undefined,
+      });
+      if (key === "telegram_bot_token" || key === "telegram_group_id") {
+        restartTelegramBot().catch((error) => console.error("[telegram] settings refresh failed:", error?.message || error));
+      }
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(400).json({ message: error?.message || "Unable to save API setting." });
+    }
+  });
+
+  app.patch("/api/admin/api-settings/:key", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const key = String(req.params.key);
+      if (typeof req.body.enabled !== "boolean") {
+        return res.status(400).json({ message: "Enabled must be true or false." });
+      }
+      await setApiSettingEnabled(key, req.body.enabled);
+      if (key === "telegram_bot_token" || key === "telegram_group_id") {
+        restartTelegramBot().catch((error) => console.error("[telegram] settings refresh failed:", error?.message || error));
+      }
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(400).json({ message: error?.message || "Unable to update API setting." });
+    }
+  });
+
+  app.delete("/api/admin/api-settings/:key", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const key = String(req.params.key);
+      if (!getApiSettingDefinition(key) && !key.startsWith("custom_")) {
+        return res.status(404).json({ message: "Setting not found." });
+      }
+      await deleteApiSetting(key);
+      if (key === "telegram_bot_token" || key === "telegram_group_id") {
+        restartTelegramBot().catch((error) => console.error("[telegram] settings refresh failed:", error?.message || error));
+      }
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(400).json({ message: error?.message || "Unable to clear API setting." });
+    }
   });
 
   // ── Admin: CashApp tag setting ────────────────────────────────────────────
@@ -2199,10 +2327,10 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Insufficient balance — need $0.50" });
     }
 
-    const smtpEmail = await storage.getSetting("smtp_email", "");
-    const smtpPassword = await storage.getSetting("smtp_password", "");
-    const smtpHost = await storage.getSetting("smtp_host", "smtp.gmail.com");
-    const smtpPort = parseInt(await storage.getSetting("smtp_port", "587"));
+      const smtpEmail = await getRuntimeSetting("smtp_email", "");
+      const smtpPassword = await getRuntimeSetting("smtp_password", "");
+      const smtpHost = await getRuntimeSetting("smtp_host", "smtp.gmail.com");
+      const smtpPort = parseInt((await getRuntimeSetting("smtp_port", "587")) || "587");
 
     if (!smtpEmail || !smtpPassword) {
       return res.status(500).json({ message: "SMTP not configured — contact admin" });
@@ -2356,11 +2484,11 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const smtp_host = await storage.getSetting("smtp_host", "smtp.gmail.com");
-    const smtp_port = await storage.getSetting("smtp_port", "587");
-    const smtp_email = await storage.getSetting("smtp_email", "");
+    const smtp_host = await getRuntimeSetting("smtp_host", "smtp.gmail.com");
+    const smtp_port = await getRuntimeSetting("smtp_port", "587");
+    const smtp_email = await getRuntimeSetting("smtp_email", "");
     // Never return the password
-    const has_password = (await storage.getSetting("smtp_password", "")).length > 0;
+    const has_password = Boolean(await getRuntimeSetting("smtp_password", ""));
     res.json({ smtp_host, smtp_port, smtp_email, has_password });
   });
 
@@ -2369,10 +2497,10 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Unauthorized" });
     }
     const { smtp_host, smtp_port, smtp_email, smtp_password } = req.body;
-    if (smtp_host) await storage.setSetting("smtp_host", String(smtp_host).trim());
-    if (smtp_port) await storage.setSetting("smtp_port", String(smtp_port).trim());
-    if (smtp_email) await storage.setSetting("smtp_email", String(smtp_email).trim());
-    if (smtp_password) await storage.setSetting("smtp_password", String(smtp_password));
+    if (smtp_host) await saveApiSetting({ key: "smtp_host", kind: "text", value: String(smtp_host) });
+    if (smtp_port) await saveApiSetting({ key: "smtp_port", kind: "text", value: String(smtp_port) });
+    if (smtp_email) await saveApiSetting({ key: "smtp_email", kind: "text", value: String(smtp_email) });
+    if (smtp_password) await saveApiSetting({ key: "smtp_password", kind: "secret", value: String(smtp_password) });
     res.json({ message: "SMTP settings saved" });
   });
 
@@ -2469,7 +2597,7 @@ export async function registerRoutes(
       return res.status(400).json({ message: `Insufficient balance. Need $${(totalCost / 100).toFixed(2)}, have $${((dbUser?.balance ?? 0) / 100).toFixed(2)}` });
     }
 
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    const stripeKey = await getRuntimeSetting("stripe_secret_key");
     if (!stripeKey) return res.status(500).json({ message: "Card checker not configured. Contact admin." });
 
     await db.update(users).set({ balance: sql`balance - ${totalCost}` }).where(eq(users.id, userId));
@@ -2549,7 +2677,7 @@ export async function registerRoutes(
     else if (dateRaw.length === 6) { expMonth = parseInt(dateRaw.slice(0, 2)); expYear = parseInt(dateRaw.slice(2)); }
     else return res.status(400).json({ message: "Could not parse card expiry date" });
 
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    const stripeKey = await getRuntimeSetting("stripe_secret_key");
     if (!stripeKey) return res.status(500).json({ message: "Live check not configured. Contact admin." });
 
     await db.update(users).set({ balance: sql`balance - ${fee}` }).where(eq(users.id, userId));

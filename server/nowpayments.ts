@@ -1,11 +1,14 @@
 import { createHmac } from "crypto";
+import { getRuntimeSetting } from "./settings";
 
-const NOWPAYMENTS_API_BASE = "https://api.nowpayments.io/v1";
-
-function getApiKey(): string {
-  const key = process.env.NOWPAYMENTS_API_KEY;
+async function getApiKey(): Promise<string> {
+  const key = await getRuntimeSetting("nowpayments_api_key");
   if (!key) throw new Error("NOWPAYMENTS_API_KEY is not configured");
   return key;
+}
+
+async function getApiBase(): Promise<string> {
+  return (await getRuntimeSetting("nowpayments_api_url", "https://api.nowpayments.io/v1"))!;
 }
 
 export interface NowPaymentsInvoice {
@@ -24,7 +27,7 @@ export async function createNowPaymentsInvoice(params: {
   cancelUrl?: string;
   ipnCallbackUrl?: string;
 }): Promise<NowPaymentsInvoice> {
-  const apiKey = getApiKey();
+  const [apiKey, apiBase] = await Promise.all([getApiKey(), getApiBase()]);
 
   const body: Record<string, any> = {
     price_amount: params.amount,
@@ -37,7 +40,7 @@ export async function createNowPaymentsInvoice(params: {
   if (params.cancelUrl)      body.cancel_url      = params.cancelUrl;
   if (params.ipnCallbackUrl) body.ipn_callback_url = params.ipnCallbackUrl;
 
-  const response = await fetch(`${NOWPAYMENTS_API_BASE}/invoice`, {
+  const response = await fetch(`${apiBase}/invoice`, {
     method: "POST",
     headers: {
       "x-api-key": apiKey,
@@ -48,13 +51,11 @@ export async function createNowPaymentsInvoice(params: {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("NOWPayments API error:", response.status, errorText);
-    throw new Error(`NOWPayments API error: ${response.status} - ${errorText}`);
+    console.error("NOWPayments API error:", response.status);
+    throw new Error(`NOWPayments API error: ${response.status}`);
   }
 
   const data = await response.json();
-  console.log("NOWPayments create invoice response:", JSON.stringify(data, null, 2));
-
   const invoiceId = String(data.id);
   const invoiceUrl = data.invoice_url || data.url || "";
 
@@ -65,26 +66,24 @@ export async function createNowPaymentsInvoice(params: {
 }
 
 export async function getNowPaymentsInvoice(invoiceId: string): Promise<NowPaymentsInvoice> {
-  const apiKey = getApiKey();
+  const [apiKey, apiBase] = await Promise.all([getApiKey(), getApiBase()]);
 
-  const response = await fetch(`${NOWPAYMENTS_API_BASE}/invoice/${invoiceId}`, {
+  const response = await fetch(`${apiBase}/invoice/${invoiceId}`, {
     method: "GET",
     headers: { "x-api-key": apiKey },
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`NOWPayments API error: ${response.status} - ${errorText}`);
+    throw new Error(`NOWPayments API error: ${response.status}`);
   }
 
   const data = await response.json();
-  console.log("NOWPayments get invoice response:", JSON.stringify(data, null, 2));
   return data;
 }
 
 /** Verify the IPN webhook signature (HMAC-SHA512 of sorted JSON body) */
-export function verifyNowPaymentsWebhook(body: Record<string, any>, signature: string): boolean {
-  const secret = process.env.NOWPAYMENTS_IPN_SECRET;
+export async function verifyNowPaymentsWebhook(body: Record<string, any>, signature: string): Promise<boolean> {
+  const secret = await getRuntimeSetting("nowpayments_ipn_secret");
   if (!secret) return false; // Fail closed — require secret to be configured
 
   try {
