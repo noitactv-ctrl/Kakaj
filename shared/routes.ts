@@ -136,6 +136,9 @@ export const api = {
           variantId: z.number(),
           quantity: z.number().min(1),
         })),
+        cardIds: z.array(z.number()).optional(),
+        bulkCardIds: z.array(z.number()).optional(),
+        discountCodeId: z.number().nullable().optional(),
       }),
       responses: {
         201: z.custom<typeof orders.$inferSelect>(),

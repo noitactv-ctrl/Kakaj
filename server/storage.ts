@@ -406,9 +406,19 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(stockItems.orderId, orderId), eq(stockItems.isReserved, true), eq(stockItems.isSold, false)));
   }
 
-  async createOrder(userId: number, items: { variantId: number; quantity: number; sellerId?: number }[], cardIds: number[] = [], discountCodeId?: number | null): Promise<Order> {
+  async createOrder(userId: number, items: { variantId: number; quantity: number; sellerId?: number }[], cardIds: number[] = [], discountCodeId?: number | null, bulkCardIds: number[] = []): Promise<Order> {
     // ── Step 1: Calculate totals and validate BEFORE touching any stock ──
     let rawTotal = 0;
+    const uniqueCardIds = new Set(cardIds);
+    const bulkCardSet = new Set(bulkCardIds);
+    const isBulkBundle = bulkCardIds.length > 0;
+    if (uniqueCardIds.size !== cardIds.length) throw new Error("A card can only be selected once");
+    if (isBulkBundle) {
+      if (bulkCardSet.size !== 20 || cardIds.length !== 20 || cardIds.some(id => !bulkCardSet.has(id))) {
+        throw new Error("Bulk bundles must contain exactly 20 unique cards");
+      }
+      if (items.length > 0 || discountCodeId) throw new Error("Bulk bundles cannot be combined with other items or coupons");
+    }
     const variantMap: Record<number, typeof variants.$inferSelect> = {};
 
     for (const item of items) {
@@ -425,15 +435,16 @@ export class DatabaseStorage implements IStorage {
       if (!card) throw new Error("Card not found");
       if (card.isSold) throw new Error("Card already sold");
       cardMap[cardId] = card;
-      rawTotal += card.price;
-      cardPurchases.push({ cardId, price: card.price });
+      const purchasePrice = isBulkBundle ? Math.round(card.price / 2) : card.price;
+      rawTotal += purchasePrice;
+      cardPurchases.push({ cardId, price: purchasePrice });
     }
 
     // Apply discount code
     let total = rawTotal;
     let discountApplied = false;
     let activeDiscount: typeof discountCodes.$inferSelect | null = null;
-    if (discountCodeId) {
+    if (discountCodeId && !isBulkBundle) {
       const [dc] = await db.select().from(discountCodes).where(eq(discountCodes.id, discountCodeId));
       if (dc && dc.isActive && !(dc.maxUses !== null && dc.usedCount >= dc.maxUses) && !(dc.expiresAt && new Date(dc.expiresAt) < new Date())) {
         const discountAmount = dc.type === "percent"
@@ -451,7 +462,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(transactions.userId, userId), sql`amount > 0`, sql`type IN ('deposit', 'manual_deposit')`));
     const totalDeposited = Number(rankResult[0]?.total ?? 0);
     const rankDiscountPct = totalDeposited >= 100000 ? 10 : totalDeposited >= 50000 ? 5 : totalDeposited >= 10000 ? 2 : 0;
-    if (rankDiscountPct > 0) {
+    if (rankDiscountPct > 0 && !isBulkBundle) {
       total = Math.max(0, Math.round(total * (1 - rankDiscountPct / 100)));
     }
 
@@ -550,9 +561,20 @@ export class DatabaseStorage implements IStorage {
     return order;
   }
 
-  async createPendingOrder(userId: number, items: { variantId: number; quantity: number }[], cardIds: number[] = [], discountCodeId?: number | null): Promise<Order> {
+  async createPendingOrder(userId: number, items: { variantId: number; quantity: number }[], cardIds: number[] = [], discountCodeId?: number | null, bulkCardIds: number[] = []): Promise<Order> {
     let total = 0;
     const heldItems: { variantId: number; stockItemId: number; price: number; quantity: number }[] = [];
+    const cardPurchases: { cardId: number; price: number }[] = [];
+    const uniqueCardIds = new Set(cardIds);
+    const bulkCardSet = new Set(bulkCardIds);
+    const isBulkBundle = bulkCardIds.length > 0;
+    if (uniqueCardIds.size !== cardIds.length) throw new Error("A card can only be selected once");
+    if (isBulkBundle) {
+      if (bulkCardSet.size !== 20 || cardIds.length !== 20 || cardIds.some(id => !bulkCardSet.has(id))) {
+        throw new Error("Bulk bundles must contain exactly 20 unique cards");
+      }
+      if (items.length > 0 || discountCodeId) throw new Error("Bulk bundles cannot be combined with other items or coupons");
+    }
 
     // Calculate total and check stock availability first
     for (const item of items) {
@@ -568,9 +590,17 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    for (const cardId of cardIds) {
+      const [card] = await db.select().from(cards).where(eq(cards.id, cardId));
+      if (!card || card.isSold) throw new Error("Card not found or already sold");
+      const purchasePrice = isBulkBundle ? Math.round(card.price / 2) : card.price;
+      total += purchasePrice;
+      cardPurchases.push({ cardId, price: purchasePrice });
+    }
+
     const rawTotal = total;
     let activeDiscount: typeof discountCodes.$inferSelect | null = null;
-    if (discountCodeId) {
+    if (discountCodeId && !isBulkBundle) {
       const [dc] = await db.select().from(discountCodes).where(eq(discountCodes.id, discountCodeId));
       if (dc && dc.isActive && !(dc.maxUses !== null && dc.usedCount >= dc.maxUses) && !(dc.expiresAt && new Date(dc.expiresAt) < new Date())) {
         const discountAmount = dc.type === "percent"
@@ -587,7 +617,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(transactions.userId, userId), sql`amount > 0`, sql`type IN ('deposit', 'manual_deposit')`));
     const totalDeposited = Number(rankResult[0]?.total ?? 0);
     const rankDiscountPct = totalDeposited >= 100000 ? 10 : totalDeposited >= 50000 ? 5 : totalDeposited >= 10000 ? 2 : 0;
-    if (rankDiscountPct > 0) {
+    if (rankDiscountPct > 0 && !isBulkBundle) {
       total = Math.max(0, Math.round(total * (1 - rankDiscountPct / 100)));
     }
 
@@ -638,6 +668,18 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
+    for (const cardPurchase of cardPurchases) {
+      await db.insert(orderItems).values({
+        orderId: order.id,
+        variantId: null,
+        stockItemId: null,
+        cardId: cardPurchase.cardId,
+        itemType: "card",
+        price: cardPurchase.price,
+        quantity: 1,
+      });
+    }
+
     return order;
   }
 
@@ -650,6 +692,18 @@ export class DatabaseStorage implements IStorage {
     const deliveryParts: Record<string, string[]> = {};
 
     for (const item of items) {
+      if (item.cardId) {
+        const [card] = await db.select().from(cards).where(eq(cards.id, item.cardId));
+        if (!card || card.isSold) throw new Error("A card in this order is no longer available");
+        const [claimedCard] = await db.update(cards)
+          .set({ isSold: true, userId: order.userId })
+          .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
+          .returning();
+        if (!claimedCard) throw new Error("A card in this order is no longer available");
+        if (!deliveryParts.cards) deliveryParts.cards = [];
+        deliveryParts.cards.push([card.cardNumber, card.expiry, card.cvv, card.country, card.extras].filter(Boolean).join("|"));
+        continue;
+      }
       if (!item.variantId) continue;
       const key = String(item.variantId);
       if (!deliveryParts[key]) deliveryParts[key] = [];
@@ -694,6 +748,18 @@ export class DatabaseStorage implements IStorage {
     const deliveryParts: Record<string, string[]> = {};
 
     for (const item of items) {
+      if (item.cardId) {
+        const [card] = await db.select().from(cards).where(eq(cards.id, item.cardId));
+        if (!card || card.isSold) throw new Error("A card in this order is no longer available");
+        const [claimedCard] = await db.update(cards)
+          .set({ isSold: true, userId: order.userId })
+          .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
+          .returning();
+        if (!claimedCard) throw new Error("A card in this order is no longer available");
+        if (!deliveryParts.cards) deliveryParts.cards = [];
+        deliveryParts.cards.push([card.cardNumber, card.expiry, card.cvv, card.country, card.extras].filter(Boolean).join("|"));
+        continue;
+      }
       if (!item.variantId) continue;
       const key = String(item.variantId);
       if (!deliveryParts[key]) deliveryParts[key] = [];

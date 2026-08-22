@@ -99,7 +99,7 @@ function CashAppModal({ orderId, total, paymentNote, cashappTag, onClose }: {
 }
 
 export default function CartPage() {
-  const { items, removeItem, total, clearCart } = useCart();
+  const { items, bulkBundle, removeItem, total, clearCart } = useCart();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -108,14 +108,17 @@ export default function CartPage() {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cashapp");
   const [cashappModal, setCashappModal] = useState<{ orderId: string; total: number; paymentNote: string; cashappTag: string } | null>(null);
 
-  const cartTotal = total();
+  const productTotal = total();
+  const bundleSubtotal = bulkBundle?.originalTotal ?? 0;
+  const bundleDiscount = bulkBundle ? bulkBundle.originalTotal - bulkBundle.discountedTotal : 0;
+  const cartTotal = productTotal + bundleSubtotal;
   const discountAmount = appliedDiscount?.discountAmount ?? 0;
-  const discountedTotal = Math.max(0, cartTotal - discountAmount);
+  const discountedTotal = Math.max(0, cartTotal - bundleDiscount - discountAmount);
   const userBalance = user?.balance || 0;
 
   const { data: rankData } = useQuery<any>({ queryKey: ["/api/user/rank"], enabled: !!user });
   const rankDiscountPct = rankData?.discountPct ?? 0;
-  const rankDiscountAmount = rankDiscountPct > 0 ? Math.round(discountedTotal * rankDiscountPct / 100) : 0;
+  const rankDiscountAmount = !bulkBundle && rankDiscountPct > 0 ? Math.round(discountedTotal * rankDiscountPct / 100) : 0;
   const finalTotal = Math.max(0, discountedTotal - rankDiscountAmount);
 
   const hasEnoughBalance = userBalance >= finalTotal;
@@ -148,7 +151,7 @@ export default function CartPage() {
   // Clear discount if cart changes
   useEffect(() => {
     if (appliedDiscount) setAppliedDiscount(null);
-  }, [cartTotal]);
+  }, [cartTotal, bulkBundle]);
 
   const validateDiscountMutation = useMutation({
     mutationFn: async (code: string) => {
@@ -179,7 +182,9 @@ export default function CartPage() {
       const cartItems = items.map(i => ({ variantId: i.variantId, quantity: i.quantity }));
       const res = await apiRequest("POST", "/api/orders/cashapp", {
         items: cartItems,
-        discountCodeId: appliedDiscount?.id ?? null,
+        cardIds: bulkBundle?.cardIds ?? [],
+        bulkCardIds: bulkBundle?.cardIds ?? [],
+        discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -206,7 +211,9 @@ export default function CartPage() {
       const cartItems = items.map(i => ({ variantId: i.variantId, quantity: i.quantity }));
       const res = await apiRequest("POST", api.orders.create.path, {
         items: cartItems,
-        discountCodeId: appliedDiscount?.id ?? null,
+        cardIds: bulkBundle?.cardIds ?? [],
+        bulkCardIds: bulkBundle?.cardIds ?? [],
+        discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -229,7 +236,9 @@ export default function CartPage() {
       const cartItems = items.map(i => ({ variantId: i.variantId, quantity: i.quantity }));
       const res = await apiRequest("POST", "/api/orders/crypto", {
         items: cartItems,
-        discountCodeId: appliedDiscount?.id ?? null,
+        cardIds: bulkBundle?.cardIds ?? [],
+        bulkCardIds: bulkBundle?.cardIds ?? [],
+        discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -266,13 +275,17 @@ export default function CartPage() {
   };
 
   const handleApplyCoupon = () => {
+    if (bulkBundle) {
+      toast({ title: "BULK BUNDLE LOCKED", description: "The 50% bundle price cannot be combined with a coupon.", variant: "destructive" });
+      return;
+    }
     const trimmed = couponCode.trim();
     if (!trimmed) return;
     if (!user) { toast({ title: "Sign in to apply a discount code", variant: "destructive" }); return; }
     validateDiscountMutation.mutate(trimmed);
   };
 
-  if (items.length === 0 && !cashappModal) {
+  if (items.length === 0 && !bulkBundle && !cashappModal) {
     return (
       <div className="pixel-page flex flex-col items-center justify-center py-24 space-y-6 max-w-sm mx-auto text-center">
         <div className="grid h-20 w-20 place-items-center border-[3px] border-black bg-[#10215e]">
@@ -309,13 +322,31 @@ export default function CartPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="pixel-text text-[8px] text-[#ffe177]">CHECKOUT</p>
-            <h2 className="mt-2 text-base leading-relaxed text-white">CART ({items.length})</h2>
+            <h2 className="mt-2 text-base leading-relaxed text-white">CART ({items.reduce((count, item) => count + item.quantity, 0) + (bulkBundle?.cardIds.length ?? 0)})</h2>
           </div>
           <span className="font-mono text-[10px] text-white/45">Review your order</span>
         </div>
 
         {/* Product list */}
         <div className="pixel-panel bg-[#10215e] overflow-hidden divide-y-2 divide-black">
+          {bulkBundle && (
+            <div className="border-[3px] border-black bg-[#ee292b] px-4 py-4 text-white" data-testid="locked-bulk-bundle">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="pixel-text text-[9px]">LOCKED CARD BULK BUNDLE</p>
+                  <p className="mt-2 text-xs font-bold">20 CARDS · 50% OFF EACH · INDIVIDUAL REMOVAL DISABLED</p>
+                </div>
+                <ShoppingCart className="h-5 w-5 shrink-0" />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {bulkBundle.cards.map(card => (
+                  <span key={card.id} className="border-2 border-black bg-[#ffe1aa] px-1.5 py-1 text-[8px] font-bold text-[#21140c]">
+                    {card.bin || "CARD"} · {card.brand || card.type || "CARD"}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           {items.map((item) => (
             <div key={`v-${item.variantId}`} className="flex items-center gap-3 px-3 py-3" data-testid={`card-cart-item-${item.variantId}`}>
               <div className="h-10 w-10 rounded-lg bg-[#111]/5 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -343,7 +374,11 @@ export default function CartPage() {
 
         {/* Coupon input */}
         <div className="space-y-2">
-          {appliedDiscount ? (
+          {bulkBundle ? (
+            <div className="border-[3px] border-black bg-[#1d3d93] px-3 py-3 text-[10px] font-bold text-[#ffe177]">
+              BULK BUNDLE PRICE IS LOCKED AT 50% OFF. COUPONS AND RANK DISCOUNTS DO NOT STACK.
+            </div>
+          ) : appliedDiscount ? (
             <div className="flex items-center justify-between bg-primary/10 border border-primary/30 rounded-xl px-3 py-2.5">
               <div className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-primary" />
@@ -391,6 +426,12 @@ export default function CartPage() {
               <span className="text-white/60">Subtotal</span>
               <span className="text-white font-bold">${(cartTotal / 100).toFixed(2)}</span>
             </div>
+            {bulkBundle && (
+              <div className="flex justify-between py-2.5 text-xs">
+                <span className="text-[#ffe177] font-bold">20-card bulk discount (50%)</span>
+                <span className="text-[#43b94e] font-bold">-${(bundleDiscount / 100).toFixed(2)}</span>
+              </div>
+            )}
             {appliedDiscount && (
               <div className="flex justify-between py-2.5 text-xs">
                 <span className="text-primary/80 flex items-center gap-1">

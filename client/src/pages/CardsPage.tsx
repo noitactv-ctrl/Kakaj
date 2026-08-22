@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Search, ShoppingCart, ChevronDown, X, Loader2, SlidersHorizontal } from "lucide-react";
+import { ShoppingCart, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useCart } from "@/hooks/use-cart";
 
 function countryFlag(code: string): string {
   if (!code || code.length !== 2) return "";
@@ -105,20 +105,13 @@ function extractState(extras: string): string {
 }
 
 export default function CardsPage() {
-  const [search, setSearch] = useState("");
-  const [zipSearch, setZipSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedBase, setSelectedBase] = useState<number | null>(null);
-  const [showBaseDropdown, setShowBaseDropdown] = useState(false);
-  const [selectedBank, setSelectedBank] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState("");
-  const [priceMin, setPriceMin] = useState("");
-  const [priceMax, setPriceMax] = useState("");
+  const [selectedType, setSelectedType] = useState<"DEBIT" | "CREDIT" | null>(null);
   const [cartCardIds, setCartCardIds] = useState<Set<number>>(new Set());
-  const [cartPurchasing, setCartPurchasing] = useState<{ current: number; total: number; done: boolean } | null>(null);
 
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const setBulkBundle = useCart(s => s.setBulkBundle);
 
   const { data: bases } = useQuery<any[]>({
     queryKey: ["/api/card-bases"],
@@ -135,84 +128,46 @@ export default function CardsPage() {
     refetchInterval: 20000,
   });
 
-  const availableBanks = useMemo(() => {
-    if (!cards) return [];
-    const set = new Set<string>();
-    cards.forEach((c: any) => { const b = c.binData?.bank; if (b && b !== "Unknown") set.add(b); });
-    return Array.from(set).sort();
-  }, [cards]);
-
-  const availableCountries = useMemo(() => {
-    if (!cards) return [];
-    const set = new Set<string>();
-    cards.forEach((c: any) => { const code = c.binData?.countryCode; if (code) set.add(code.toUpperCase()); });
-    return Array.from(set).sort();
-  }, [cards]);
-
   const filteredCards = useMemo(() => {
     if (!cards) return [];
-    return cards.filter((card: any) => {
-      const q = search.toLowerCase();
-      const matchSearch = !search
-        || extractBin(card.cardNumber).includes(q)
-        || (card.baseName ?? "").toLowerCase().includes(q)
-        || (card.binData?.scheme ?? "").toLowerCase().includes(q)
-        || (card.binData?.type ?? "").toLowerCase().includes(q)
-        || (card.binData?.brand ?? "").toLowerCase().includes(q);
-      const matchZip = !zipSearch || extractZip(card.extras ?? "").startsWith(zipSearch.trim());
-      const cardPrice = card.price / 100;
-      const matchMin = !priceMin || cardPrice >= parseFloat(priceMin);
-      const matchMax = !priceMax || cardPrice <= parseFloat(priceMax);
-      const matchBank = !selectedBank || (card.binData?.bank === selectedBank);
-      const matchCountry = !selectedCountry || ((card.binData?.countryCode ?? "").toUpperCase() === selectedCountry);
-      return matchSearch && matchZip && matchMin && matchMax && matchBank && matchCountry;
-    });
-  }, [cards, search, zipSearch, priceMin, priceMax, selectedBank, selectedCountry]);
+    return cards.filter((card: any) => !selectedType || formatType(card.binData) === selectedType);
+  }, [cards, selectedType]);
 
   const cartCards = useMemo(() => (cards ?? []).filter((c: any) => cartCardIds.has(c.id)), [cards, cartCardIds]);
-  const cartTotal = cartCards.reduce((s: number, c: any) => s + c.price, 0);
-
   const toggleCart = (card: any) => {
     setCartCardIds(prev => {
       const next = new Set(prev);
-      if (next.has(card.id)) next.delete(card.id); else next.add(card.id);
+      if (next.has(card.id)) {
+        next.delete(card.id);
+      } else if (next.size >= 20) {
+        toast({ title: "BULK BUNDLE IS FULL", description: "Select exactly 20 cards to continue.", variant: "destructive" });
+      } else {
+        next.add(card.id);
+      }
       return next;
     });
   };
 
-  const toggleAll = () => {
-    if (cartCardIds.size === filteredCards.length) {
-      setCartCardIds(new Set());
-    } else {
-      setCartCardIds(new Set(filteredCards.map((c: any) => c.id)));
-    }
-  };
-
-  const purchaseCart = async () => {
-    if (cartCards.length === 0) return;
-    setCartPurchasing({ current: 0, total: cartCards.length, done: false });
-    let ok = 0;
-    for (let i = 0; i < cartCards.length; i++) {
-      setCartPurchasing({ current: i + 1, total: cartCards.length, done: false });
-      try {
-        const res = await apiRequest("POST", `/api/cards/${cartCards[i].id}/purchase`, {});
-        if (!res.ok) { const err = await res.json().catch(() => ({})); toast({ title: `Card ${i + 1} failed`, description: err.message, variant: "destructive" }); }
-        else ok++;
-      } catch { toast({ title: `Card ${i + 1} failed`, variant: "destructive" }); }
-    }
-    setCartPurchasing({ current: cartCards.length, total: cartCards.length, done: true });
-    queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+  const addBulkBundle = () => {
+    if (cartCards.length !== 20) return;
+    const originalTotal = cartCards.reduce((total: number, card: any) => total + card.price, 0);
+    setBulkBundle({
+      cardIds: cartCards.map((card: any) => card.id),
+      cards: cartCards.map((card: any) => ({
+        id: card.id,
+        bin: extractBin(card.cardNumber),
+        brand: formatBrand(card.binData),
+        type: formatType(card.binData),
+        baseName: card.baseName || "Unnamed base",
+        price: card.price,
+      })),
+      originalTotal,
+      discountedTotal: Math.round(originalTotal / 2),
+    });
     setCartCardIds(new Set());
-    setTimeout(() => {
-      setCartPurchasing(null);
-      if (ok > 0) { toast({ title: `${ok} card${ok > 1 ? "s" : ""} purchased` }); setLocation("/orders"); }
-    }, 800);
+    toast({ title: "BULK BUNDLE ADDED", description: "20 cards are locked at 50% off each." });
+    setLocation("/cart");
   };
-
-  const activeFilters = (zipSearch ? 1 : 0) + (priceMin ? 1 : 0) + (priceMax ? 1 : 0) + (selectedBank ? 1 : 0) + (selectedCountry ? 1 : 0);
-  const clearFilters = () => { setZipSearch(""); setPriceMin(""); setPriceMax(""); setSelectedBank(""); setSelectedCountry(""); };
 
   return (
     <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto">
@@ -224,159 +179,38 @@ export default function CardsPage() {
         <p className="text-sm text-white/65">Browse named card bases, inspect details, and purchase securely using your wallet.</p>
       </div>
 
-      {/* Bases + Search + controls */}
-      <div className="mt-5 pixel-panel px-3 pt-3 pb-3 space-y-2.5 bg-[#0e1c50] sticky top-[68px] z-30">
-
-        {/* Search bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/35" />
-          <input
-            type="text"
-            placeholder="Search by card type, category, keywords..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full h-10 bg-[#070b1e] border-[2px] border-black rounded-none pl-9 pr-3 text-xs text-white/90 placeholder:text-white/35 outline-none focus:border-[#ffe177] transition-colors"
-            data-testid="input-search"
-          />
-        </div>
-
-        {/* Base dropdown + Filters button */}
-        <div className="flex gap-1.5">
-          {/* Base dropdown */}
-          <div className="relative flex-1">
+      <div className="mt-5 pixel-panel bg-[#0e1c50] px-3 py-3 space-y-3 sticky top-[68px] z-30">
+        <div className="flex flex-wrap gap-2">
+          {(["DEBIT", "CREDIT"] as const).map(type => (
             <button
-              onClick={() => setShowBaseDropdown(d => !d)}
-              className="w-full flex items-center justify-between bg-[#ffe1aa] border-[3px] border-black rounded-none px-2.5 h-9 text-[11px] font-semibold text-[#22150d] hover:bg-[#fff0c9] transition-colors"
-              data-testid="btn-base-dropdown"
+              key={type}
+              onClick={() => setSelectedType(current => current === type ? null : type)}
+              className={`pixel-button px-3 py-2 text-[8px] ${selectedType === type ? "!bg-[#ee292b] !text-white" : ""}`}
             >
-              <span className="truncate">
-                {selectedBase === null
-                  ? `All Names · ${(bases ?? []).reduce((s: number, b: any) => s + (b.count ?? 0), 0)}`
-                  : (() => { const b = (bases ?? []).find((b: any) => b.id === selectedBase); return b ? `${b.name} · ${b.count ?? 0}` : "All Names"; })()
-                }
-              </span>
-              <ChevronDown className={`h-3 w-3 text-white/30 ml-1 flex-shrink-0 transition-transform ${showBaseDropdown ? "rotate-180" : ""}`} />
+              {type}
             </button>
-            {showBaseDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[#111] border border-white/10 rounded-xl shadow-lg z-50 overflow-hidden max-h-48 overflow-y-auto">
-                <button
-                  onClick={() => { setSelectedBase(null); setShowBaseDropdown(false); }}
-                  className={`w-full text-left px-3 py-2 text-[11px] flex justify-between transition-colors hover:bg-[#0d0d0d] ${selectedBase === null ? "font-semibold text-white" : "text-white/55"}`}
-                  data-testid="btn-base-all"
-                >
-                  <span>All Names</span>
-                  <span className="text-white/30 font-mono">{(bases ?? []).reduce((s: number, b: any) => s + (b.count ?? 0), 0)}</span>
-                </button>
-                {(bases ?? []).map((b: any) => (
-                  <button
-                    key={b.id}
-                    onClick={() => { setSelectedBase(b.id); setShowBaseDropdown(false); }}
-                    className={`w-full text-left px-3 py-2 text-[11px] flex justify-between border-t border-white/[0.06] transition-colors hover:bg-[#0d0d0d] ${selectedBase === b.id ? "font-semibold text-white" : "text-white/55"}`}
-                    data-testid={`btn-base-${b.id}`}
-                  >
-                    <span className="truncate pr-2">{b.name}</span>
-                    <span className="text-white/30 font-mono shrink-0">{b.count ?? 0}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Filters button */}
-          <button
-            onClick={() => setShowFilters(f => !f)}
-              className={`flex items-center gap-1.5 px-3 h-9 rounded-none border-[3px] border-black text-[11px] font-medium transition-colors ${
-              showFilters || activeFilters > 0
-                  ? "bg-[#ee292b] text-white"
-                  : "bg-[#ffe1aa] text-[#22150d] hover:bg-[#fff0c9]"
-            }`}
-            data-testid="btn-toggle-filters"
-          >
-            <SlidersHorizontal className="h-3 w-3" />
-            Filters{activeFilters > 0 ? ` (${activeFilters})` : ""}
-          </button>
+          ))}
         </div>
-
-        {/* Filter panel */}
-        {showFilters && (
-          <div className="space-y-2 bg-[#0d0d0d] border border-white/10 rounded-xl p-2.5">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-white/35 mb-1">ZIP Code</p>
-              <input
-                type="text"
-                placeholder="Enter ZIP..."
-                value={zipSearch}
-                onChange={e => setZipSearch(e.target.value)}
-                className="w-full h-7 bg-[#111] border border-white/10 rounded-lg px-2.5 text-[11px] text-white/90 placeholder:text-white/35 outline-none focus:border-white/15"
-                data-testid="input-zip"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-white/35 mb-1">Bank</p>
-                <select
-                  value={selectedBank}
-                  onChange={e => setSelectedBank(e.target.value)}
-                  className="w-full h-7 bg-[#111] border border-white/10 rounded-lg px-2 text-[11px] text-white/70 outline-none"
-                >
-                  <option value="">All Banks</option>
-                  {availableBanks.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-white/35 mb-1">Country</p>
-                <select
-                  value={selectedCountry}
-                  onChange={e => setSelectedCountry(e.target.value)}
-                  className="w-full h-7 bg-[#111] border border-white/10 rounded-lg px-2 text-[11px] text-white/70 outline-none"
-                >
-                  <option value="">All</option>
-                  {availableCountries.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-1.5 items-center">
-              <input type="number" step="0.01" placeholder="Min $" value={priceMin} onChange={e => setPriceMin(e.target.value)}
-                className="flex-1 h-7 bg-[#111] border border-white/10 rounded-lg px-2.5 text-[11px] text-white/90 placeholder:text-white/35 outline-none"
-                data-testid="input-price-min"
-              />
-              <span className="text-white/30 text-[11px] shrink-0">—</span>
-              <input type="number" step="0.01" placeholder="Max $" value={priceMax} onChange={e => setPriceMax(e.target.value)}
-                className="flex-1 h-7 bg-[#111] border border-white/10 rounded-lg px-2.5 text-[11px] text-white/90 placeholder:text-white/35 outline-none"
-                data-testid="input-price-max"
-              />
-            </div>
-            {activeFilters > 0 && (
-              <button onClick={clearFilters} className="flex items-center gap-1 text-[10px] text-red-400/70 hover:text-red-400 transition-colors">
-                <X className="h-3 w-3" /> Clear all filters
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Buy Selected button */}
-        <button
-          onClick={purchaseCart}
-          disabled={cartCardIds.size === 0 || !!cartPurchasing}
-          className="w-full flex items-center justify-center gap-1.5 h-10 rounded-none border-[3px] border-black text-[11px] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-             background: cartCardIds.size > 0 ? "#44b94e" : "#141d49",
-             color: cartCardIds.size > 0 ? "#fff" : "rgba(255,255,255,0.4)",
-          }}
-          data-testid="btn-add-selected"
-        >
-          {cartPurchasing && !cartPurchasing.done ? (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Purchasing {cartPurchasing.current}/{cartPurchasing.total}...
-            </>
-          ) : (
-            <>
-              <ShoppingCart className="h-3 w-3" />
-              Buy Selected ({cartCardIds.size}){cartCardIds.size > 0 ? ` · $${(cartTotal / 100).toFixed(2)}` : ""}
-            </>
-          )}
-        </button>
+        <div className="flex flex-wrap gap-2 border-t-2 border-black/60 pt-3">
+          <button onClick={() => setSelectedBase(null)} className={`pixel-button px-3 py-2 text-[8px] ${selectedBase === null ? "!bg-[#ee292b] !text-white" : ""}`}>ALL BASES</button>
+          {(bases ?? []).map((base: any) => (
+            <button key={base.id} onClick={() => setSelectedBase(base.id)} className={`pixel-button px-3 py-2 text-[8px] ${selectedBase === base.id ? "!bg-[#ee292b] !text-white" : ""}`}>
+              {base.name}
+            </button>
+          ))}
+        </div>
+        <div className="border-t-2 border-black/60 pt-3">
+          <button
+            onClick={addBulkBundle}
+            disabled={cartCards.length !== 20}
+            className="pixel-button flex w-full items-center justify-center gap-2 !bg-[#43b94e] px-3 py-3 text-[9px] !text-white disabled:opacity-50"
+            data-testid="btn-create-bulk-bundle"
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+            BULK BUNDLE · {cartCards.length}/20 · 50% OFF EACH
+          </button>
+          <p className="mt-2 text-center text-[10px] font-bold text-[#ffe177]">SELECT EXACTLY 20 CARDS TO LOCK YOUR BULK DISCOUNT</p>
+        </div>
       </div>
 
       {/* Table */}
@@ -391,15 +225,7 @@ export default function CardsPage() {
           <table className="w-full text-xs border-collapse" style={{ minWidth: "900px" }}>
             <thead>
               <tr className="border-b-[3px] border-black bg-[#1d3d93]">
-                <th className="w-8 px-2.5 py-2 text-left">
-                  <input
-                    type="checkbox"
-                    checked={filteredCards.length > 0 && cartCardIds.size === filteredCards.length}
-                    onChange={toggleAll}
-                    className="w-3.5 h-3.5 rounded border-white/15 cursor-pointer accent-green-500"
-                    data-testid="checkbox-all"
-                  />
-                </th>
+                <th className="w-10 px-2.5 py-2 text-left pixel-text text-[7px] text-[#ffe177]">ADD</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BIN</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BRAND</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">TYPE</th>
@@ -430,9 +256,6 @@ export default function CardsPage() {
 }
 
 function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boolean; onToggleCart: (c: any) => void }) {
-  const { toast } = useToast();
-  const [, setLocation] = useLocation();
-
   const bin = extractBin(card.cardNumber);
   const zip = extractZip(card.extras ?? "");
   const flag = countryFlag(card.binData?.countryCode ?? "");
@@ -441,22 +264,6 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
   const cardType = formatType(card.binData);
   const bank = formatBank(card.binData);
   const state = extractState(card.extras ?? "");
-
-  const purchaseMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/cards/${card.id}/purchase`, {});
-      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || "Purchase failed"); }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({ title: "Purchase complete", description: "Card delivered to your orders" });
-      setLocation("/orders");
-    },
-    onError: (e: Error) => toast({ title: "Purchase failed", description: e.message, variant: "destructive" }),
-  });
 
   return (
     <tr
@@ -501,15 +308,13 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
       </td>
       <td className="px-2.5 py-3 text-right whitespace-nowrap">
         <button
-          onClick={() => purchaseMutation.mutate()}
-          disabled={purchaseMutation.isPending}
-          className="inline-flex items-center justify-center gap-1 border-[2px] border-black bg-[#43b94e] px-2 py-1.5 text-[9px] font-bold text-white transition-colors hover:bg-[#31973a] disabled:opacity-50"
-          data-testid={`btn-buy-card-${card.id}`}
+          onClick={() => onToggleCart(card)}
+          className={`inline-flex items-center justify-center border-[2px] border-black px-2 py-1.5 text-[8px] font-bold transition-colors ${
+            inCart ? "bg-[#ee292b] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
+          }`}
+          data-testid={`btn-select-card-${card.id}`}
         >
-          {purchaseMutation.isPending
-            ? <Loader2 className="h-3 w-3 animate-spin" />
-            : <><ShoppingCart className="h-3 w-3" /> Buy ${(card.price / 100).toFixed(2)}</>
-          }
+          {inCart ? "SELECTED" : "SELECT"}
         </button>
       </td>
     </tr>

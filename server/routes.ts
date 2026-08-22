@@ -195,12 +195,12 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     try {
       const userId = (req.user as any).id;
-      const { items, cardIds, discountCodeId, sellerId } = req.body;
+      const { items, cardIds, bulkCardIds, discountCodeId, sellerId } = req.body;
       const productItems = (items || []).filter((i: any) => !i.cardId && i.variantId > 0)
         .map((i: any) => ({ ...i, sellerId: sellerId || i.sellerId || undefined }));
       const cardIdList: number[] = cardIds || [];
 
-      const order = await storage.createOrder(userId, productItems, cardIdList, discountCodeId ?? null);
+      const order = await storage.createOrder(userId, productItems, cardIdList, discountCodeId ?? null, bulkCardIds || []);
       res.status(201).json(order);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
@@ -1526,11 +1526,11 @@ export async function registerRoutes(
     let pendingOrderId: number | null = null;
     try {
       const userId = (req.user as any).id;
-      const { items, cardIds, discountCodeId } = req.body;
+      const { items, cardIds, bulkCardIds, discountCodeId } = req.body;
       const productItems = (items || []).filter((i: any) => !i.cardId && i.variantId > 0);
       const cardIdList: number[] = cardIds || [];
 
-      const order = await storage.createPendingOrder(userId, productItems, cardIdList, discountCodeId ?? null);
+      const order = await storage.createPendingOrder(userId, productItems, cardIdList, discountCodeId ?? null, bulkCardIds || []);
       pendingOrderId = order.id;
 
       const totalWithFee = order.total;
@@ -1951,13 +1951,14 @@ export async function registerRoutes(
     let pendingOrderId: number | null = null;
     try {
       const userId = (req.user as any).id;
-      const { items, amount } = req.body;
+      const { items, amount, cardIds, bulkCardIds } = req.body;
       const productItems = (items || []).filter((i: any) => !i.cardId && i.variantId > 0);
+      const cardIdList: number[] = cardIds || [];
       const paymentNote = generateNote();
       const cashappTag = await storage.getSetting("cashapp_tag", "");
 
       // Deposit-only mode: user specifies how much they want to deposit
-      if (productItems.length === 0) {
+      if (productItems.length === 0 && cardIdList.length === 0) {
         const depositAmount = amount ? Math.round(parseFloat(String(amount)) * 100) : 0;
         const publicOrderId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         const [order] = await db.insert(orders).values({
@@ -1975,7 +1976,7 @@ export async function registerRoutes(
 
       // Checkout mode: reserve stock
       const { discountCodeId } = req.body;
-      const order = await storage.createPendingOrder(userId, productItems, [], discountCodeId ?? null);
+      const order = await storage.createPendingOrder(userId, productItems, cardIdList, discountCodeId ?? null, bulkCardIds || []);
       pendingOrderId = order.id;
 
       // Apply configured processing fee as a surcharge the buyer pays on top
