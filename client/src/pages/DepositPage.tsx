@@ -24,7 +24,7 @@ type Deposit = {
   createdAt: string;
 };
 
-type ManualResult = { note: string; handle: string; amount: number; method: Method };
+type ManualResult = { note: string; handle: string; url: string; amount: number; method: Method };
 
 function methodColor(type: string) {
   if (type === "cashapp") return "#00D632";
@@ -112,6 +112,22 @@ function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset
             {result.handle && <CopyBtn value={result.handle} />}
           </div>
         </div>
+        {result.method === "cashapp" && result.url && (
+          <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
+            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">CashApp URL</p>
+            <div className="flex items-center justify-between gap-2">
+              <a
+                href={result.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-bold text-[#00D632] font-mono truncate hover:underline"
+              >
+                {result.url}
+              </a>
+              <CopyBtn value={result.url} />
+            </div>
+          </div>
+        )}
         <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
           <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">Amount — send EXACTLY</p>
           <div className="flex items-center justify-between gap-2">
@@ -148,7 +164,7 @@ export default function DepositPage() {
   const [manualResult, setManualResult] = useState<ManualResult | null>(null);
 
   const { data: manualMethods } = useQuery<{
-    cashapp: { enabled: boolean; tag: string; fee: number };
+    cashapp: { enabled: boolean; tag: string; url: string; fee: number };
   }>({ queryKey: ["/api/site-settings/manual-payments"] });
 
   const { data: minDeposits } = useQuery<Record<string, number>>({
@@ -224,7 +240,13 @@ export default function DepositPage() {
   const cashappMutation = useMutation({
     mutationFn: () => createManual("/api/orders/cashapp", "cashapp"),
     onSuccess: (data) => {
-      setManualResult({ note: data.paymentNote, handle: data.cashappTag || manualMethods?.cashapp.tag || "", amount: Math.round(parsedAmount * 100), method: "cashapp" });
+      setManualResult({
+        note: data.paymentNote,
+        handle: data.cashappTag || manualMethods?.cashapp.tag || "",
+        url: data.cashappUrl || manualMethods?.cashapp.url || "",
+        amount: Math.round(parsedAmount * 100),
+        method: "cashapp",
+      });
       qc.invalidateQueries({ queryKey: ["/api/deposits"] });
       qc.invalidateQueries({ queryKey: ["/api/orders"] });
     },

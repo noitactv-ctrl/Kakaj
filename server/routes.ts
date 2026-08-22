@@ -1842,6 +1842,14 @@ export async function registerRoutes(
     res.json({ tag: tag.trim() });
   });
 
+  function getCashAppUrl(tag: string): string {
+    const value = tag.trim();
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value)) return value;
+    const account = value.replace(/^cash\.app\//i, "").replace(/^\/+/, "");
+    return `https://cash.app/${account.startsWith("$") ? account : `$${account}`}`;
+  }
+
   // ── Admin: Chime handle setting ────────────────────────────────────────────
   app.get("/api/admin/settings/chime-handle", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
@@ -1936,7 +1944,7 @@ export async function registerRoutes(
       storage.getSetting("zelle_fee", "0"),
     ]);
     res.json({
-      cashapp: { enabled: methods.cashapp !== false, tag: cashappTag, fee: parseFloat(cashappFee) || 0 },
+      cashapp: { enabled: methods.cashapp !== false, tag: cashappTag, url: getCashAppUrl(cashappTag), fee: parseFloat(cashappFee) || 0 },
       chime:   { enabled: methods.chime === true,   handle: chimeHandle, fee: parseFloat(chimeFee) || 0 },
       zelle:   { enabled: methods.zelle === true,   handle: zelleHandle, fee: parseFloat(zelleFee) || 0 },
       venmo:   { enabled: (methods as any).venmo === true, handle: venmoHandle, fee: 0 },
@@ -1962,7 +1970,7 @@ export async function registerRoutes(
   // ── CashApp order (checkout) + deposit ───────────────────────────────────
   app.get("/api/site-settings/cashapp-tag", async (req, res) => {
     const tag = await storage.getSetting("cashapp_tag", "");
-    res.json({ tag });
+    res.json({ tag, cashappUrl: getCashAppUrl(tag) });
   });
 
   function generateNote(): string {
@@ -2002,7 +2010,12 @@ export async function registerRoutes(
           paymentNote,
           deliveryContent: "",
         }).returning();
-        return res.status(201).json({ order: { ...order, paymentMethod: "CashApp", paymentNote }, paymentNote, cashappTag });
+        return res.status(201).json({
+          order: { ...order, paymentMethod: "CashApp", paymentNote },
+          paymentNote,
+          cashappTag,
+          cashappUrl: getCashAppUrl(cashappTag),
+        });
       }
 
       // Checkout mode: reserve stock
@@ -2024,6 +2037,7 @@ export async function registerRoutes(
         order: { ...updatedOrder, paymentMethod: "CashApp", paymentNote },
         paymentNote,
         cashappTag,
+        cashappUrl: getCashAppUrl(cashappTag),
         fee: feeAmount,
         feePct,
       });
