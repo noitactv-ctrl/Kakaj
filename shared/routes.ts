@@ -229,6 +229,7 @@ export const api = {
           multiplier: z.number(),
           payout: z.number(),
           newBalance: z.number(),
+          path: z.array(z.number().int().min(0).max(1)).length(16),
         }),
         400: errorSchemas.validation,
       },

@@ -456,10 +456,17 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Bet amount exceeds maximum allowed." });
       }
 
-      // The outer slots are less likely and pay more; the centre gives a lower return.
-      const multipliers = [5, 2.2, 1.4, 0.7, 0.3, 0.7, 1.4, 2.2, 5];
+      // Sixteen bounces produce seventeen slots. The path is returned so the
+      // client can animate the exact server-resolved result rather than inventing
+      // a visual outcome locally.
+      const multipliers = [20, 10, 5, 2, 1, 0.6, 0.35, 0.2, 0.1, 0.2, 0.35, 0.6, 1, 2, 5, 10, 20];
+      const path: number[] = [];
       let slot = 0;
-      for (let row = 0; row < 8; row++) slot += Math.random() < 0.5 ? 0 : 1;
+      for (let row = 0; row < 16; row++) {
+        const direction = Math.random() < 0.5 ? 0 : 1;
+        path.push(direction);
+        slot += direction;
+      }
       const multiplier = multipliers[slot];
       const payout = Math.floor(bet * multiplier);
 
@@ -467,7 +474,7 @@ export async function registerRoutes(
       if (!settledUser) {
         return res.status(400).json({ message: "Insufficient balance" });
       }
-      res.json({ slot, multiplier, payout, newBalance: settledUser.balance });
+      res.json({ slot, multiplier, payout, newBalance: settledUser.balance, path });
     } catch (e: any) {
       res.status(500).json({ message: e.message });
     }
