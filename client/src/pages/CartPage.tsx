@@ -99,7 +99,7 @@ function CashAppModal({ orderId, total, paymentNote, cashappTag, onClose }: {
 }
 
 export default function CartPage() {
-  const { items, bulkBundle, removeItem, total, clearCart } = useCart();
+  const { items, cardItems, bulkBundle, removeItem, removeCard, total, clearCart } = useCart();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -109,9 +109,10 @@ export default function CartPage() {
   const [cashappModal, setCashappModal] = useState<{ orderId: string; total: number; paymentNote: string; cashappTag: string } | null>(null);
 
   const productTotal = total();
+  const cardSubtotal = cardItems.reduce((sum, card) => sum + card.price, 0);
   const bundleSubtotal = bulkBundle?.originalTotal ?? 0;
   const bundleDiscount = bulkBundle ? bulkBundle.originalTotal - bulkBundle.discountedTotal : 0;
-  const cartTotal = productTotal + bundleSubtotal;
+  const cartTotal = productTotal + cardSubtotal + bundleSubtotal;
   const discountAmount = appliedDiscount?.discountAmount ?? 0;
   const discountedTotal = Math.max(0, cartTotal - bundleDiscount - discountAmount);
   const userBalance = user?.balance || 0;
@@ -176,13 +177,14 @@ export default function CartPage() {
   const processorFeePercent = selectedMethod === "balance" ? 0 : feePercentFor(selectedMethod);
   const processorFee = Math.round(finalTotal * processorFeePercent / 100);
   const dueTotal = finalTotal + processorFee;
+  const selectedCardIds = [...cardItems.map(card => card.id), ...(bulkBundle?.cardIds ?? [])];
 
   const cashappOrderMutation = useMutation({
     mutationFn: async () => {
       const cartItems = items.map(i => ({ variantId: i.variantId, quantity: i.quantity }));
       const res = await apiRequest("POST", "/api/orders/cashapp", {
         items: cartItems,
-        cardIds: bulkBundle?.cardIds ?? [],
+        cardIds: selectedCardIds,
         bulkCardIds: bulkBundle?.cardIds ?? [],
         discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
       });
@@ -211,7 +213,7 @@ export default function CartPage() {
       const cartItems = items.map(i => ({ variantId: i.variantId, quantity: i.quantity }));
       const res = await apiRequest("POST", api.orders.create.path, {
         items: cartItems,
-        cardIds: bulkBundle?.cardIds ?? [],
+        cardIds: selectedCardIds,
         bulkCardIds: bulkBundle?.cardIds ?? [],
         discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
       });
@@ -236,7 +238,7 @@ export default function CartPage() {
       const cartItems = items.map(i => ({ variantId: i.variantId, quantity: i.quantity }));
       const res = await apiRequest("POST", "/api/orders/crypto", {
         items: cartItems,
-        cardIds: bulkBundle?.cardIds ?? [],
+        cardIds: selectedCardIds,
         bulkCardIds: bulkBundle?.cardIds ?? [],
         discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
       });
@@ -285,7 +287,7 @@ export default function CartPage() {
     validateDiscountMutation.mutate(trimmed);
   };
 
-  if (items.length === 0 && !bulkBundle && !cashappModal) {
+  if (items.length === 0 && cardItems.length === 0 && !bulkBundle && !cashappModal) {
     return (
       <div className="pixel-page flex flex-col items-center justify-center py-24 space-y-6 max-w-sm mx-auto text-center">
         <div className="grid h-20 w-20 place-items-center border-[3px] border-black bg-[#10215e]">
@@ -322,7 +324,7 @@ export default function CartPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="pixel-text text-[8px] text-[#ffe177]">CHECKOUT</p>
-            <h2 className="mt-2 text-base leading-relaxed text-white">CART ({items.reduce((count, item) => count + item.quantity, 0) + (bulkBundle?.cardIds.length ?? 0)})</h2>
+            <h2 className="mt-2 text-base leading-relaxed text-white">CART ({items.reduce((count, item) => count + item.quantity, 0) + cardItems.length + (bulkBundle?.cardIds.length ?? 0)})</h2>
           </div>
           <span className="font-mono text-[10px] text-white/45">Review your order</span>
         </div>
@@ -347,6 +349,25 @@ export default function CartPage() {
               </div>
             </div>
           )}
+          {cardItems.map(card => (
+            <div key={`card-${card.id}`} className="flex items-center gap-3 px-3 py-3" data-testid={`card-cart-item-${card.id}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center border-2 border-black bg-[#1d3d93]">
+                <span className="text-[9px] font-bold text-[#ffe177]">{card.brand || "CARD"}</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-white/90">{card.bin || "CARD"} · {card.baseName || "Unnamed base"}</p>
+                <p className="mt-0.5 text-[11px] text-white/45">{card.type || "CARD"} · Individual card</p>
+                <p className="mt-0.5 text-xs font-bold text-primary">${(card.price / 100).toFixed(2)}</p>
+              </div>
+              <button
+                onClick={() => removeCard(card.id)}
+                className="flex-shrink-0 border-2 border-black bg-[#d94343] px-2.5 py-1 text-[10px] font-semibold text-white transition-colors hover:bg-[#b92b31]"
+                data-testid={`button-remove-card-${card.id}`}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
           {items.map((item) => (
             <div key={`v-${item.variantId}`} className="flex items-center gap-3 px-3 py-3" data-testid={`card-cart-item-${item.variantId}`}>
               <div className="h-10 w-10 rounded-lg bg-[#111]/5 overflow-hidden flex-shrink-0 flex items-center justify-center">

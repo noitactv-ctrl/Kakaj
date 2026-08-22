@@ -47,8 +47,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [navOpen, setNavOpen] = useState(false);
   const cartItems = useCart(s => s.items);
+  const cardItems = useCart(s => s.cardItems);
   const bulkBundle = useCart(s => s.bulkBundle);
-  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0) + (bulkBundle?.cardIds.length ?? 0);
+  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0) + cardItems.length + (bulkBundle?.cardIds.length ?? 0);
   const balance = user ? (user.balance / 100).toFixed(2) : "0.00";
   const { data: announcements } = useQuery<{ id: number; text: string; active: boolean }[]>({
     queryKey: ["/api/announcements"],

@@ -108,10 +108,14 @@ export default function CardsPage() {
   const [selectedBase, setSelectedBase] = useState<number | null>(null);
   const [selectedType, setSelectedType] = useState<"DEBIT" | "CREDIT" | null>(null);
   const [cartCardIds, setCartCardIds] = useState<Set<number>>(new Set());
+  const [bulkMode, setBulkMode] = useState(false);
 
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const cardItems = useCart(s => s.cardItems);
+  const addCard = useCart(s => s.addCard);
   const setBulkBundle = useCart(s => s.setBulkBundle);
+  const directCartIds = useMemo(() => new Set(cardItems.map(card => card.id)), [cardItems]);
 
   const { data: bases } = useQuery<any[]>({
     queryKey: ["/api/card-bases"],
@@ -150,6 +154,10 @@ export default function CardsPage() {
 
   const addBulkBundle = () => {
     if (cartCards.length !== 20) return;
+    if (cardItems.length > 0) {
+      toast({ title: "CLEAR REGULAR CARDS FIRST", description: "Finish or remove regular card items before creating a bulk bundle.", variant: "destructive" });
+      return;
+    }
     const originalTotal = cartCards.reduce((total: number, card: any) => total + card.price, 0);
     setBulkBundle({
       cardIds: cartCards.map((card: any) => card.id),
@@ -167,6 +175,27 @@ export default function CardsPage() {
     setCartCardIds(new Set());
     toast({ title: "BULK BUNDLE ADDED", description: "20 cards are locked at 50% off each." });
     setLocation("/cart");
+  };
+
+  const cancelBulkSelection = () => {
+    setCartCardIds(new Set());
+    setBulkMode(false);
+  };
+
+  const addCardToCart = (card: any) => {
+    if (directCartIds.has(card.id)) {
+      toast({ title: "ALREADY IN CART", description: "This card is already in your cart." });
+      return;
+    }
+    addCard({
+      id: card.id,
+      bin: extractBin(card.cardNumber),
+      brand: formatBrand(card.binData),
+      type: formatType(card.binData),
+      baseName: card.baseName || "Unnamed base",
+      price: card.price,
+    });
+    toast({ title: "ADDED TO CART", description: "Card added to your cart." });
   };
 
   return (
@@ -193,16 +222,38 @@ export default function CardsPage() {
           ))}
         </div>
         <div className="border-t-2 border-black/60 pt-3">
-          <button
-            onClick={addBulkBundle}
-            disabled={cartCards.length !== 20}
-            className="pixel-button flex w-full items-center justify-center gap-2 !bg-[#43b94e] px-3 py-3 text-[9px] !text-white disabled:opacity-50"
-            data-testid="btn-create-bulk-bundle"
-          >
-            <ShoppingCart className="h-3.5 w-3.5" />
-            BULK BUNDLE · {cartCards.length}/20 · 50% OFF EACH
-          </button>
-          <p className="mt-2 text-center text-[10px] font-bold text-[#ffe177]">SELECT EXACTLY 20 CARDS TO LOCK YOUR BULK DISCOUNT</p>
+          {!bulkMode ? (
+            <button
+              onClick={() => { setCartCardIds(new Set()); setBulkMode(true); }}
+              className="pixel-button flex w-full items-center justify-center gap-2 !bg-[#43b94e] px-3 py-3 text-[9px] !text-white"
+              data-testid="btn-start-bulk-selection"
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              SELECT 20 FOR BULK · 50% OFF EACH
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={addBulkBundle}
+                disabled={cartCards.length !== 20}
+                className="pixel-button flex min-w-0 flex-1 items-center justify-center gap-2 !bg-[#43b94e] px-3 py-3 text-[9px] !text-white disabled:opacity-50"
+                data-testid="btn-create-bulk-bundle"
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+                BULK · {cartCards.length}/20
+              </button>
+              <button
+                onClick={cancelBulkSelection}
+                className="pixel-button px-3 py-3 text-[9px] !bg-[#ee292b] !text-white"
+                data-testid="btn-cancel-bulk-selection"
+              >
+                CANCEL
+              </button>
+            </div>
+          )}
+          <p className="mt-2 text-center text-[10px] font-bold text-[#ffe177]">
+            {bulkMode ? "SELECT EXACTLY 20 CARDS TO LOCK YOUR BULK DISCOUNT" : "ADD CARDS INDIVIDUALLY OR SELECT A 20-CARD BULK BUNDLE"}
+          </p>
         </div>
       </div>
 
@@ -218,7 +269,7 @@ export default function CardsPage() {
           <table className="w-full text-xs border-collapse" style={{ minWidth: "900px" }}>
             <thead>
               <tr className="border-b-[3px] border-black bg-[#1d3d93]">
-                <th className="w-10 px-2.5 py-2 text-left pixel-text text-[7px] text-[#ffe177]">ADD</th>
+                {bulkMode && <th className="w-10 px-2.5 py-2 text-left pixel-text text-[7px] text-[#ffe177]">SELECT</th>}
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BIN</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BRAND</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">TYPE</th>
@@ -226,7 +277,7 @@ export default function CardsPage() {
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">STATE</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ZIP</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">COUNTRY</th>
-                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">NAME</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BASE</th>
                 <th className="px-2.5 py-3 text-right pixel-text text-[7px] text-[#ffe177]">ACTIONS</th>
               </tr>
             </thead>
@@ -235,8 +286,11 @@ export default function CardsPage() {
                 <CardTableRow
                   key={card.id}
                   card={card}
-                  inCart={cartCardIds.has(card.id)}
+                  inCart={directCartIds.has(card.id)}
+                  bulkSelected={cartCardIds.has(card.id)}
+                  bulkMode={bulkMode}
                   onToggleCart={toggleCart}
+                  onAddCard={addCardToCart}
                 />
               ))}
             </tbody>
@@ -247,7 +301,21 @@ export default function CardsPage() {
   );
 }
 
-function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boolean; onToggleCart: (c: any) => void }) {
+function CardTableRow({
+  card,
+  inCart,
+  bulkSelected,
+  bulkMode,
+  onToggleCart,
+  onAddCard,
+}: {
+  card: any;
+  inCart: boolean;
+  bulkSelected: boolean;
+  bulkMode: boolean;
+  onToggleCart: (c: any) => void;
+  onAddCard: (c: any) => void;
+}) {
   const bin = extractBin(card.cardNumber);
   const zip = extractZip(card.extras ?? "");
   const flag = countryFlag(card.binData?.countryCode ?? "");
@@ -259,18 +327,21 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
 
   return (
     <tr
-      className={`border-b-[2px] border-black/70 transition-colors ${inCart ? "bg-[#21469f]" : "bg-[#122766] hover:bg-[#19357e]"}`}
+      className={`border-b-[2px] border-black/70 transition-colors ${bulkSelected ? "bg-[#21469f]" : "bg-[#122766] hover:bg-[#19357e]"}`}
       data-testid={`card-row-${card.id}`}
     >
-      <td className="px-2.5 py-2">
-        <input
-          type="checkbox"
-          checked={inCart}
-          onChange={() => onToggleCart(card)}
-          className="w-3.5 h-3.5 rounded border-white/15 cursor-pointer accent-green-500"
-          data-testid={`checkbox-card-${card.id}`}
-        />
-      </td>
+      {bulkMode && (
+        <td className="px-2.5 py-2">
+          <input
+            type="checkbox"
+            checked={bulkSelected}
+            onChange={() => onToggleCart(card)}
+            disabled={inCart}
+            className="w-3.5 h-3.5 rounded border-white/15 cursor-pointer accent-green-500 disabled:cursor-not-allowed disabled:opacity-40"
+            data-testid={`checkbox-card-${card.id}`}
+          />
+        </td>
+      )}
       <td className="px-2.5 py-2">
         <span className="font-bold font-mono text-xs text-white">{bin || "—"}</span>
       </td>
@@ -297,13 +368,16 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
       </td>
       <td className="px-2.5 py-3 text-right whitespace-nowrap">
         <button
-          onClick={() => onToggleCart(card)}
+          onClick={() => bulkMode ? onToggleCart(card) : onAddCard(card)}
+          disabled={bulkMode && inCart}
           className={`inline-flex items-center justify-center border-[2px] border-black px-2 py-1.5 text-[8px] font-bold transition-colors ${
-            inCart ? "bg-[#ee292b] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
-          }`}
-          data-testid={`btn-select-card-${card.id}`}
+            bulkMode
+              ? bulkSelected ? "bg-[#ee292b] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
+              : inCart ? "bg-[#43b94e] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
+          } disabled:cursor-not-allowed disabled:opacity-50`}
+          data-testid={bulkMode ? `btn-select-card-${card.id}` : `btn-add-card-${card.id}`}
         >
-          {inCart ? "SELECTED" : "SELECT"}
+          {bulkMode ? (inCart ? "IN CART" : bulkSelected ? "SELECTED" : "SELECT") : inCart ? "IN CART" : "ADD TO CART"}
         </button>
       </td>
     </tr>
