@@ -108,14 +108,13 @@ function extractState(extras: string): string {
 function InCartIcon() {
   return (
     <svg
-      viewBox="0 0 24 22"
-      className="h-6 w-6"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
       aria-hidden="true"
-      shapeRendering="crispEdges"
     >
       <path
         fill="currentColor"
-        d="M1 2h4l2.6 11h12.8L23 6H6.2L5.3 2H1Zm6.4 6h12.3l-.8 3H8.1L7.4 8Zm.3 8h13v2h-13v-2Zm1 3h3v3h-3v-3Zm9 0h3v3h-3v-3Z"
+        d="M1 2v2h2l3.6 7.59-1.35 2.45A2 2 0 0 0 5 15c0 1.1.9 2 2 2h12v-2H7.42a.25.25 0 0 1-.22-.37L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L20.88 5.5A1 1 0 0 0 20 4H5.21l-.94-2H1Zm6 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"
       />
     </svg>
   );
