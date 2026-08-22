@@ -4,9 +4,9 @@ import { Loader2, RotateCcw, Trophy } from "lucide-react";
 import { useGames } from "@/hooks/use-games";
 import { useAuth } from "@/hooks/use-auth";
 
-const BOARD_ROWS = 16;
-const PEG_STEP = 5.8;
-const multipliers = [20, 10, 5, 2, 1, 0.6, 0.35, 0.2, 0.1, 0.2, 0.35, 0.6, 1, 2, 5, 10, 20];
+const BOARD_ROWS = 5;
+const PEG_STEP = 12;
+const multipliers = [0.1, 0.3, 0.2, 0.5, 0.35, 0.75];
 type DropResult = { slot: number; multiplier: number; payout: number; newBalance?: number; path: number[] };
 
 export default function PlinkoGamePage() {
@@ -39,7 +39,7 @@ export default function PlinkoGamePage() {
     if (dropResults.length > 1) {
       return `Completed ${dropResults.length} drops · total payout $${(batchPayoutTotal / 100).toFixed(2)}`;
     }
-    const multiplier = multipliers[landedSlots[0]];
+    const multiplier = dropResults[0]?.multiplier ?? multipliers[landedSlots[0]];
     return lastPayout > 0
       ? `Landed x${multiplier} · won $${(lastPayout / 100).toFixed(2)}`
       : `Landed x${multiplier} · no payout`;
@@ -73,13 +73,13 @@ export default function PlinkoGamePage() {
       if (cancelled) return;
       setBallPositions(Object.fromEntries(dropResults.map((drop, index) => [
         index,
-        { x: 50 + (drop.slot - 8) * PEG_STEP, top: 89 },
+         { x: 50 + (drop.slot - (multipliers.length - 1) / 2) * PEG_STEP, top: 89 },
       ])));
       setLandedSlots(dropResults.map(drop => drop.slot));
       setLastPayout(dropResults[dropResults.length - 1].payout);
       setRecentDrops(previous => [...dropResults.slice().reverse(), ...previous].slice(0, 6));
       setIsSettled(true);
-    }, 16 * 75 + 160));
+    }, BOARD_ROWS * 75 + 160));
 
     return () => {
       cancelled = true;
@@ -155,7 +155,10 @@ export default function PlinkoGamePage() {
               );
             })}
 
-            <div className="absolute inset-x-2 bottom-3 grid grid-cols-[repeat(17,minmax(0,1fr))] gap-0.5">
+            <div
+              className="absolute inset-x-2 bottom-3 grid gap-0.5"
+              style={{ gridTemplateColumns: `repeat(${multipliers.length}, minmax(0, 1fr))` }}
+            >
               {multipliers.map((multiplier, index) => (
                 <div
                   key={index}
