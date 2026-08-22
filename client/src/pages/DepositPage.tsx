@@ -10,6 +10,7 @@ import {
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Link } from "wouter";
 import { calculateDepositCredit, DEPOSIT_BONUS_TIERS } from "@shared/deposit";
+import { CashAppQrCode } from "@/components/CashAppQrCode";
 
 type Method = "crypto" | "cashapp";
 
@@ -113,20 +114,23 @@ function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset
           </div>
         </div>
         {result.method === "cashapp" && result.url && (
-          <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
-            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">CashApp URL</p>
-            <div className="flex items-center justify-between gap-2">
-              <a
-                href={result.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-bold text-[#00D632] font-mono truncate hover:underline"
-              >
-                {result.url}
-              </a>
-              <CopyBtn value={result.url} />
+          <>
+            <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
+              <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">CashApp URL</p>
+              <div className="flex items-center justify-between gap-2">
+                <a
+                  href={result.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-bold text-[#00D632] font-mono truncate hover:underline"
+                >
+                  {result.url}
+                </a>
+                <CopyBtn value={result.url} />
+              </div>
             </div>
-          </div>
+            <CashAppQrCode url={result.url} />
+          </>
         )}
         <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
           <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">Amount — send EXACTLY</p>

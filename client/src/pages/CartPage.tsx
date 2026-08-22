@@ -9,6 +9,7 @@ import { SiCashapp, SiBitcoin } from "react-icons/si";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { api } from "@shared/routes";
+import { CashAppQrCode } from "@/components/CashAppQrCode";
 
 type PaymentMethod = "balance" | "cashapp" | "crypto";
 
@@ -61,17 +62,20 @@ function CashAppModal({ orderId, total, paymentNote, cashappTag, cashappUrl, onC
           </div>
 
           {cashappUrl && (
-            <div className="flex items-center justify-between bg-[#0d0d0d] rounded-xl px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-[10px] text-white/45 mb-0.5">CashApp URL</p>
-                <a href={cashappUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-sm font-bold text-[#00D632] hover:underline">
-                  {cashappUrl}
-                </a>
+            <>
+              <div className="flex items-center justify-between bg-[#0d0d0d] rounded-xl px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[10px] text-white/45 mb-0.5">CashApp URL</p>
+                  <a href={cashappUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-sm font-bold text-[#00D632] hover:underline">
+                    {cashappUrl}
+                  </a>
+                </div>
+                <button onClick={() => copy(cashappUrl, "CashApp URL")} className="ml-2 text-white/40 hover:text-white transition-colors">
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <button onClick={() => copy(cashappUrl, "CashApp URL")} className="ml-2 text-white/40 hover:text-white transition-colors">
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </div>
+              <CashAppQrCode url={cashappUrl} />
+            </>
           )}
 
           <div className="flex items-center justify-between bg-[#0d0d0d] rounded-xl px-3 py-2.5">
