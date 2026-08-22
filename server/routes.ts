@@ -7,6 +7,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { createNowPaymentsInvoice, getNowPaymentsInvoice, mapNowPaymentsStatus, verifyNowPaymentsWebhook } from "./nowpayments";
 import { hashPassword, comparePassword } from "./auth";
+import { randomInt } from "crypto";
 import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, products, redeemCodes } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, desc, sql } from "drizzle-orm";
@@ -464,17 +465,32 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Drop count must be between 1 and 20." });
       }
 
-      // Sixteen bounces produce seventeen slots. The path is returned so the
-      // client can animate the exact server-resolved result rather than inventing
-      // a visual outcome locally.
+      // Sixteen bounces produce seventeen slots. Outcome weights are intentionally
+      // server-side only; the client receives only the resolved result and path.
       const multipliers = [20, 10, 5, 5, 2, 1, 0.75, 0.5, 0.3, 0.5, 0.75, 1, 2, 5, 5, 10, 20];
+      const weightedSlots = [
+        { slots: multipliers.map((value, index) => value === 1 ? index : -1).filter(index => index >= 0), weight: 190909 },
+        { slots: multipliers.map((value, index) => value === 2 ? index : -1).filter(index => index >= 0), weight: 95455 },
+        { slots: multipliers.map((value, index) => value === 5 ? index : -1).filter(index => index >= 0), weight: 47727 },
+        { slots: multipliers.map((value, index) => value === 20 ? index : -1).filter(index => index >= 0), weight: 15909 },
+        { slots: multipliers.map((value, index) => ![1, 2, 5, 20].includes(value) ? index : -1).filter(index => index >= 0), weight: 650000 },
+      ];
       const results = Array.from({ length: count }, () => {
-        const path: number[] = [];
-        let slot = 0;
-        for (let row = 0; row < 16; row++) {
-          const direction = Math.random() < 0.5 ? 0 : 1;
-          path.push(direction);
-          slot += direction;
+        const roll = randomInt(0, 1_000_000);
+        let cursor = 0;
+        let selected = weightedSlots[weightedSlots.length - 1];
+        for (const group of weightedSlots) {
+          cursor += group.weight;
+          if (roll < cursor) {
+            selected = group;
+            break;
+          }
+        }
+        const slot = selected.slots[randomInt(0, selected.slots.length)];
+        const path: number[] = Array.from({ length: 16 }, (_, row) => row < slot ? 1 : 0);
+        for (let index = path.length - 1; index > 0; index--) {
+          const swapIndex = randomInt(0, index + 1);
+          [path[index], path[swapIndex]] = [path[swapIndex], path[index]];
         }
         const multiplier = multipliers[slot];
         return { slot, multiplier, payout: Math.floor(bet * multiplier), path };
