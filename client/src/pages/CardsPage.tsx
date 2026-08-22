@@ -105,6 +105,22 @@ function extractState(extras: string): string {
   return tokens.find(token => US_STATES.has(token)) || "";
 }
 
+function InCartIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 22"
+      className="h-6 w-6"
+      aria-hidden="true"
+      shapeRendering="crispEdges"
+    >
+      <path
+        fill="currentColor"
+        d="M1 2h4l2.6 11h12.8L23 6H6.2L5.3 2H1Zm6.4 6h12.3l-.8 3H8.1L7.4 8Zm.3 8h13v2h-13v-2Zm1 3h3v3h-3v-3Zm9 0h3v3h-3v-3Z"
+      />
+    </svg>
+  );
+}
+
 export default function CardsPage() {
   const [selectedBase, setSelectedBase] = useState<number | null>(null);
   const [selectedType, setSelectedType] = useState<"DEBIT" | "CREDIT" | null>(null);
@@ -402,7 +418,7 @@ function CardTableRow({
               aria-label="In cart"
               data-testid={`icon-cart-card-${card.id}`}
             >
-              <ShoppingCart className="h-5 w-5" fill="currentColor" strokeWidth={1.5} />
+              <InCartIcon />
             </span>
           ) : (
             <button
