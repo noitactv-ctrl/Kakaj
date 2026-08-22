@@ -99,7 +99,7 @@ export const variants = pgTable("variants", {
 export const insertVariantSchema = createInsertSchema(variants).omit({ id: true });
 
 // === STOCK ITEMS ===
-// 1 Item = 3 lines. We store the full content.
+// Each stock item stores the exact content that will be delivered.
 export const stockItems = pgTable("stock_items", {
   id: serial("id").primaryKey(),
   variantId: integer("variant_id").notNull().references(() => variants.id),

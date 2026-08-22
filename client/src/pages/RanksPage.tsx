@@ -90,7 +90,7 @@ export default function RanksPage() {
                   </div>
                   <div className="h-3 border-[2px] border-black bg-[#0a1645] overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-700"
+                      className="h-full rounded-full transition-[width] duration-700 ease-out"
                       style={{ width: `${progress}%`, backgroundColor: current.bar }}
                     />
                   </div>

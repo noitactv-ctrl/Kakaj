@@ -825,13 +825,20 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
     },
   });
 
-  // Live count from textarea
+  // Live count from textarea. Card records may be separated by spaces or
+  // newlines, so count each card-shaped record before falling back to the
+  // generic product stock format.
+  const cardStarts = input.match(
+    /(?<!\d)\d{13,19}(?=[\s|,:;/-]+\d{1,2}[\s|,:;/-]+\d{2,4}[\s|,:;/-]+\d{3,4}(?:\s|$|[|,:;/-]))/g,
+  ) ?? [];
   const hasBlankLines = /\n[ \t]*\n/.test(input);
-  const pendingCount = input.trim()
-    ? hasBlankLines
-      ? input.split(/\n\s*\n/).filter(b => b.trim()).length
-      : input.split(/\n/).filter(l => l.trim()).length
-    : 0;
+  const pendingCount = cardStarts.length > 0
+    ? cardStarts.length
+    : input.trim()
+      ? hasBlankLines
+        ? input.split(/\n\s*\n/).filter(b => b.trim()).length
+        : input.split(/\n/).filter(l => l.trim()).length
+      : 0;
 
   return (
     <div className="mt-1 mb-2 bg-[#111]/5 rounded-lg border border-white/10 p-3 space-y-3">
@@ -854,7 +861,7 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={"Paste logs — one per line:\nuser@email.com:pass | Cards = [...]\nuser2@email.com:pass | Cards = [...]"}
+            placeholder={"Paste stock — one CC per line or multiple CCs separated by spaces:\n4147202597609633|03|28|554|Name|Address|City|ST|ZIP|COUNTRY"}
             rows={5}
             className="bg-black/60 border-white/10 text-xs font-mono resize-none placeholder:text-white/30"
           />

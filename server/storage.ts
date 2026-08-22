@@ -335,13 +335,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addStockItems(variantId: number, content: string, sellerId?: number): Promise<{ added: number; skipped: number }> {
-    // Support both single-line-per-item and blank-line-separated blocks.
-    // If the content has blank lines, treat each blank-separated block as one item.
-    // Otherwise split by single newline so each line = one item.
-    const hasBlankLines = /\n[ \t]*\n/.test(content);
-    const items = hasBlankLines
-      ? content.split(/\n\s*\n/).map(block => block.trim()).filter(block => block.length > 0)
-      : content.split(/\n/).map(line => line.trim()).filter(line => line.length > 0);
+    const items = splitStockContent(content);
     if (items.length === 0) return { added: 0, skipped: 0 };
 
     let added = 0;
@@ -1394,6 +1388,37 @@ export class DatabaseStorage implements IStorage {
     return defaults;
   }
 
+}
+
+// A CC record can be pasted on its own line, separated by spaces, or mixed
+// into a larger paste. Split only at the start of another card so the
+// original record content is retained for delivery.
+function splitStockContent(content: string): string[] {
+  const raw = String(content ?? "");
+  if (!raw.trim()) return [];
+
+  const cardStarts = Array.from(raw.matchAll(
+    /(?<!\d)\d{13,19}(?=[\s|,:;/-]+\d{1,2}[\s|,:;/-]+\d{2,4}[\s|,:;/-]+\d{3,4}(?:\s|$|[|,:;/-]))/g,
+  ));
+
+  if (cardStarts.length > 0) {
+    return cardStarts
+      .map((match, index) => {
+        const start = match.index ?? 0;
+        const end = index + 1 < cardStarts.length
+          ? (cardStarts[index + 1].index ?? raw.length)
+          : raw.length;
+        return raw.slice(start, end).trim();
+      })
+      .filter(Boolean);
+  }
+
+  // Preserve the existing behavior for non-CC products that use either
+  // blank-line-separated bundles or one stock item per line.
+  const hasBlankLines = /\n[ \t]*\n/.test(raw);
+  return hasBlankLines
+    ? raw.split(/\n\s*\n/).map(block => block.trim()).filter(Boolean)
+    : raw.split(/\n/).map(line => line.trim()).filter(Boolean);
 }
 
 export const storage = new DatabaseStorage();
