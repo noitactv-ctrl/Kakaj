@@ -118,7 +118,7 @@ export default function PlinkoGamePage() {
       <div className="mb-5 border-b-[3px] border-[#233f9b] pb-5">
         <p className="pixel-text text-[9px] text-[#ffe177]">GAMES / PLINKO</p>
         <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">DROP THE BALL</h1>
-        <p className="mt-3 max-w-xl text-sm text-white/60">Choose a stake. The server picks the landing path and settles every result against your wallet.</p>
+        <p className="mt-3 max-w-xl text-sm text-white/60">Provably fair · instant drop.</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
