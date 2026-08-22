@@ -2765,7 +2765,6 @@ function AdminCardsSection() {
   const [fullItem, setFullItem] = useState("");
   const [price, setPrice] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState<string>("");
-  const [isFirstHand, setIsFirstHand] = useState<boolean | null>(null);
 
   const { data: cards, isLoading } = useQuery<any[]>({ queryKey: ["/api/cards"] });
   const { data: bases } = useQuery<any[]>({ queryKey: ["/api/card-bases"] });
@@ -2780,8 +2779,7 @@ function AdminCardsSection() {
       if (!fullItem.trim()) throw new Error("Full item is required");
       if (!price || parseFloat(price) <= 0) throw new Error("Valid price is required");
       if (!selectedBaseId) throw new Error("Name is required");
-      if (isFirstHand === null) throw new Error("Choose First Handed status");
-      const body: any = { extras: fullItem.trim(), price: parseFloat(price), baseId: Number(selectedBaseId), isFirstHand };
+      const body: any = { extras: fullItem.trim(), price: parseFloat(price), baseId: Number(selectedBaseId) };
       const res = await apiRequest("POST", "/api/cards", body);
       if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed to add card"); }
       return res.json();
@@ -2789,7 +2787,7 @@ function AdminCardsSection() {
     onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ["/api/cards"] });
       qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
-      setFullItem(""); setPrice(""); setSelectedBaseId(""); setIsFirstHand(null);
+      setFullItem(""); setPrice(""); setSelectedBaseId("");
       const count = data?.count ?? 1;
       toast({ title: count > 1 ? `${count} cards added` : "Card added" });
     },
@@ -2850,28 +2848,6 @@ function AdminCardsSection() {
           </select>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] text-white/45 uppercase tracking-widest">First Handed <span className="text-red-400/70">*</span></label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setIsFirstHand(true)}
-              className={`border-[3px] border-black py-2 text-xs font-bold transition-colors ${isFirstHand === true ? "bg-[#43b94e] text-white" : "bg-[#1b2b67] text-white/60 hover:bg-[#243a86]"}`}
-              data-testid="btn-first-hand-yes"
-            >
-              Yes
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsFirstHand(false)}
-              className={`border-[3px] border-black py-2 text-xs font-bold transition-colors ${isFirstHand === false ? "bg-[#697184] text-white" : "bg-[#1b2b67] text-white/60 hover:bg-[#243a86]"}`}
-              data-testid="btn-first-hand-no"
-            >
-              No
-            </button>
-          </div>
-        </div>
-
         <div className="space-y-1">
           <label className="text-[10px] text-white/45 uppercase tracking-widest">Price ($)</label>
           <Input
@@ -2887,7 +2863,7 @@ function AdminCardsSection() {
 
         <Button
           onClick={() => addMutation.mutate()}
-          disabled={addMutation.isPending || !fullItem.trim() || !price || !selectedBaseId || isFirstHand === null}
+          disabled={addMutation.isPending || !fullItem.trim() || !price || !selectedBaseId}
           size="sm"
           className="w-full h-8 text-xs"
           data-testid="btn-add-card"

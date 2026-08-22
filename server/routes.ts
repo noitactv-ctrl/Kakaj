@@ -1283,7 +1283,7 @@ export async function registerRoutes(
     const baseFilter = baseId ? sql`AND c.base_id = ${baseId}` : sql``;
     const { rows } = await db.execute(sql`
       SELECT c.id, c.card_number, c.masked_card, c.expiry, c.cvv, c.country, c.extras,
-             c.price, c.hr_percent, c.is_sold, c.is_first_hand, c.user_id, c.created_at, c.bin_data,
+             c.price, c.hr_percent, c.is_sold, c.user_id, c.created_at, c.bin_data,
              c.base_id, cb.name as base_name
       FROM cards c
       LEFT JOIN card_bases cb ON cb.id = c.base_id
@@ -1309,7 +1309,7 @@ export async function registerRoutes(
     res.json(rows.map((r: any) => ({
       id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
       expiry: r.expiry, cvv: r.cvv, country: r.country, extras: r.extras,
-      price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold, isFirstHand: r.is_first_hand,
+      price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
       userId: r.user_id, createdAt: r.created_at,
       binData: r.bin_data ?? null,
       baseId: r.base_id ?? null, baseName: r.base_name ?? null,
@@ -1351,7 +1351,6 @@ export async function registerRoutes(
 
     const baseId = req.body.baseId ? Number(req.body.baseId) : undefined;
     const priceCents = Math.round(parseFloat(req.body.price || "0") * 100);
-    const isFirstHand = req.body.isFirstHand === true;
 
     const createdCards: any[] = [];
 
@@ -1382,7 +1381,6 @@ export async function registerRoutes(
         country,
         extras: fullItem,
         price: priceCents,
-        isFirstHand,
         hrPercent: 80,
         ...(baseId ? { baseId } : {}),
       } as any);
