@@ -171,8 +171,23 @@ export default function DepositPage() {
 
   const cashappEnabled = manualMethods?.cashapp.enabled !== false;
 
+  function minimumForMethod(method: string | null) {
+    if (method === "crypto") return Math.max(1, minDeposits?.crypto ?? 0);
+    if (method) return Math.max(0.01, minDeposits?.[method] ?? 0);
+    return 0.01;
+  }
+
+  const selectedMinimum = minimumForMethod(selectedOption);
   const parsedAmount = parseFloat(amountInput) || 0;
   const activeTier = BONUS_TIERS.find(t => parsedAmount >= t.min && (t.max === null || parsedAmount <= t.max));
+
+  useEffect(() => {
+    if (!selectedOption || !amountInput) return;
+    const amount = parseFloat(amountInput);
+    if (Number.isFinite(amount) && amount < selectedMinimum) {
+      setAmountInput(selectedMinimum.toFixed(2));
+    }
+  }, [selectedOption, selectedMinimum, amountInput]);
 
   const recentDeposits = deposits?.slice(0, 15) ?? [];
 
@@ -240,6 +255,28 @@ export default function DepositPage() {
     else if (selectedOption === "cashapp") cashappMutation.mutate();
   }
 
+  function handlePaymentMethodSelect(method: string) {
+    setSelectedOption(method);
+    const minimum = minimumForMethod(method);
+    const amount = parseFloat(amountInput);
+    if (!Number.isFinite(amount) || amount < minimum) {
+      setAmountInput(minimum.toFixed(2));
+    }
+  }
+
+  function handleAmountChange(value: string) {
+    if (value === "") {
+      setAmountInput("");
+      return;
+    }
+    const amount = parseFloat(value);
+    if (Number.isFinite(amount) && amount < selectedMinimum) {
+      setAmountInput(selectedMinimum.toFixed(2));
+      return;
+    }
+    setAmountInput(value);
+  }
+
   return (
     <div className="pixel-page min-h-screen flex flex-col">
       <div className="mx-auto flex-1 w-full max-w-3xl px-1 py-1 space-y-3">
@@ -264,10 +301,16 @@ export default function DepositPage() {
               <input
                 type="number"
                 step="0.01"
-                min="0.01"
-                placeholder="Enter amount in USD"
+                min={selectedMinimum}
+                placeholder={selectedOption ? `Minimum $${selectedMinimum.toFixed(2)}` : "Enter amount in USD"}
                 value={amountInput}
-                onChange={e => setAmountInput(e.target.value)}
+                onChange={e => handleAmountChange(e.target.value)}
+                onBlur={() => {
+                  const amount = parseFloat(amountInput);
+                  if (Number.isFinite(amount) && amount < selectedMinimum) {
+                    setAmountInput(selectedMinimum.toFixed(2));
+                  }
+                }}
                 className="pixel-input h-12"
                 data-testid="input-amount"
               />
@@ -294,7 +337,7 @@ export default function DepositPage() {
                   return (
                     <button
                       key={opt.id}
-                      onClick={() => setSelectedOption(opt.id)}
+                      onClick={() => handlePaymentMethodSelect(opt.id)}
                       className={`flex min-h-20 flex-col items-center justify-center gap-1.5 border-[3px] border-black px-2 py-2 transition-all ${isActive ? "bg-[#2555c5] shadow-[2px_2px_0_#ffe177]" : "bg-[#0b1849] hover:bg-[#17337d]"}`}
                       style={{
                         outline: isActive ? `2px solid ${opt.color}` : "none",
