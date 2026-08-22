@@ -129,8 +129,9 @@ export default function PlinkoGamePage() {
             </div>
 
             <div className="absolute inset-x-0 bottom-[58px] top-12">
-              {Array.from({ length: BOARD_ROWS }).flatMap((_, row) =>
-                Array.from({ length: row + 1 }).map((__, column) => (
+              {Array.from({ length: BOARD_ROWS - 1 }).flatMap((_, rowIndex) => {
+                const row = rowIndex + 1;
+                return Array.from({ length: row + 1 }).map((__, column) => (
                   <span
                     key={`${row}-${column}`}
                     className="absolute h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 border-[#0b1b50] bg-[#ffe39d] shadow-[0_0_7px_#c9dcff]"
@@ -139,8 +140,8 @@ export default function PlinkoGamePage() {
                       top: `${4 + (row / BOARD_ROWS) * 78}%`,
                     }}
                   />
-                )),
-              )}
+                ));
+              })}
             </div>
 
             {dropResults.map((_, index) => {
