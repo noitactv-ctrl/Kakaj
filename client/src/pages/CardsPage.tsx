@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useCart } from "@/hooks/use-cart";
+import { apiRequest } from "@/lib/queryClient";
 
 function countryFlag(code: string): string {
   if (!code || code.length !== 2) return "";
@@ -111,11 +112,30 @@ export default function CardsPage() {
   const [bulkMode, setBulkMode] = useState(false);
 
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const cardItems = useCart(s => s.cardItems);
   const addCard = useCart(s => s.addCard);
   const setBulkBundle = useCart(s => s.setBulkBundle);
   const directCartIds = useMemo(() => new Set(cardItems.map(card => card.id)), [cardItems]);
+  const buyCard = useMutation({
+    mutationFn: async (cardId: number) => {
+      const response = await apiRequest("POST", `/api/cards/${cardId}/purchase`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/card-bases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({ title: "PURCHASE COMPLETE", description: "The card has been added to your orders." });
+    },
+    onError: (error: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/card-bases"] });
+      toast({ title: "PURCHASE FAILED", description: error.message || "This card may no longer be available.", variant: "destructive" });
+    },
+  });
 
   const { data: bases } = useQuery<any[]>({
     queryKey: ["/api/card-bases"],
@@ -292,6 +312,8 @@ export default function CardsPage() {
                   bulkMode={bulkMode}
                   onToggleCart={toggleCart}
                   onAddCard={addCardToCart}
+                  onBuyCard={(cardId: number) => buyCard.mutate(cardId)}
+                  isBuying={buyCard.isPending}
                 />
               ))}
             </tbody>
@@ -309,6 +331,8 @@ function CardTableRow({
   bulkMode,
   onToggleCart,
   onAddCard,
+  onBuyCard,
+  isBuying,
 }: {
   card: any;
   inCart: boolean;
@@ -316,6 +340,8 @@ function CardTableRow({
   bulkMode: boolean;
   onToggleCart: (c: any) => void;
   onAddCard: (c: any) => void;
+  onBuyCard: (cardId: number) => void;
+  isBuying: boolean;
 }) {
   const bin = extractBin(card.cardNumber);
   const zip = extractZip(card.extras ?? "");
@@ -368,18 +394,30 @@ function CardTableRow({
         <span className="text-[10px] font-bold text-[#ffe177] truncate block">{card.baseName || "—"}</span>
       </td>
       <td className="px-2.5 py-3 text-right whitespace-nowrap">
-        <button
-          onClick={() => bulkMode ? onToggleCart(card) : onAddCard(card)}
-          disabled={bulkMode && inCart}
-          className={`inline-flex items-center justify-center border-[2px] border-black px-2 py-1.5 text-[8px] font-bold transition-colors ${
-            bulkMode
-              ? bulkSelected ? "bg-[#ee292b] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
-              : inCart ? "bg-[#43b94e] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
-          } disabled:cursor-not-allowed disabled:opacity-50`}
-          data-testid={bulkMode ? `btn-select-card-${card.id}` : `btn-add-card-${card.id}`}
-        >
-          {bulkMode ? (inCart ? "IN CART" : bulkSelected ? "SELECTED" : "SELECT") : inCart ? "IN CART" : "ADD TO CART"}
-        </button>
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={() => bulkMode ? onToggleCart(card) : onAddCard(card)}
+            disabled={bulkMode && inCart}
+            className={`pixel-button inline-flex items-center justify-center px-2 py-1.5 text-[8px] font-bold transition-colors ${
+              bulkMode
+                ? bulkSelected ? "bg-[#ee292b] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
+                : inCart ? "bg-[#43b94e] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
+            } disabled:cursor-not-allowed disabled:opacity-50`}
+            data-testid={bulkMode ? `btn-select-card-${card.id}` : `btn-add-card-${card.id}`}
+          >
+            {bulkMode ? (inCart ? "IN CART" : bulkSelected ? "SELECTED" : "SELECT") : inCart ? "IN CART" : "Add"}
+          </button>
+          {!bulkMode && (
+            <button
+              onClick={() => onBuyCard(card.id)}
+              disabled={isBuying || card.isSold}
+              className="pixel-button inline-flex items-center justify-center !bg-[#43b94e] px-2 py-1.5 text-[8px] font-bold !text-white transition-colors hover:!bg-[#58cf63] disabled:cursor-not-allowed disabled:opacity-50"
+              data-testid={`btn-buy-card-${card.id}`}
+            >
+              Buy ${(card.price / 100).toFixed(2)}
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   );

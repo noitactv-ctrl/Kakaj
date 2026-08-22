@@ -172,10 +172,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link href="/deposit" className="pixel-button px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
               ${balance}
             </Link>
-            <Link href="/cart" className="relative text-[#ffe177]" aria-label="Cart">
-              <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-[#ee292b] px-1 text-[8px] text-white">{cartCount}</span>}
-            </Link>
           </div>
         </header>
         <div className="min-h-[calc(100vh-84px)] px-3 py-3 sm:px-4 lg:px-6 lg:py-4">
