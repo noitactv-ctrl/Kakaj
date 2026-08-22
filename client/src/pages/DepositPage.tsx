@@ -85,14 +85,14 @@ function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset
   const name = methodLabel(result.method);
 
   return (
-    <div className="rounded-2xl border overflow-hidden" style={{ borderColor: `${color}30`, background: `${color}06` }}>
-      <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: `${color}20` }}>
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black text-white" style={{ background: color }}>
+    <div className="overflow-hidden border-[3px] border-[#080f2c] bg-[#18296d] text-[#fff0c5]">
+      <div className="flex items-center gap-2 border-b-[2px] border-[#0e1b4e] bg-[#18296d] px-4 py-3">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f5d000] text-xs font-black text-[#111a42]">
           {name.charAt(0)}
         </div>
-        <p className="text-sm font-bold" style={{ color }}>Send via {name}</p>
+        <p className="text-sm font-bold text-[#fff0c5]">Send via {name}</p>
       </div>
-      <div className="p-4 space-y-3">
+      <div className="space-y-3 bg-[#18296d] p-4">
         {result.url && <CashAppQrCode url={result.url} amountCents={result.amount} note={result.note} />}
         <p className="text-[10px] text-white/20 font-mono text-center">include the exact note · admin will confirm and credit balance</p>
         <button onClick={onReset} className="w-full text-[11px] text-white/25 hover:text-white/50 transition-colors font-mono pt-1" data-testid="btn-new-deposit">

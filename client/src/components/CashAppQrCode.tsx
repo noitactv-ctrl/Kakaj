@@ -50,7 +50,7 @@ export function CashAppQrCode({ url, amountCents, note }: { url: string; amountC
 
   return (
     <div className="border-[3px] border-[#080f2c] bg-[#18296d] p-3 text-[#fff0c5] sm:p-4">
-      <div className="border-[2px] border-[#f5d000] bg-[#111a42] px-3 py-2.5 text-center">
+      <div className="border-[2px] border-[#f5d000] bg-[#18296d] px-3 py-2.5 text-center">
         <p className="font-mono text-[10px] font-bold leading-relaxed text-[#fff0c5] sm:text-[11px]">
           Send the exact CashApp amount only{" "}
           <span className="font-black text-[#ff7924]">{amount}</span>

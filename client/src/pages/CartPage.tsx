@@ -30,19 +30,19 @@ function CashAppModal({ orderId, total, paymentNote, cashappUrl, onClose }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm p-5 space-y-4">
+      <div className="w-full max-w-sm space-y-4 border-[3px] border-[#080f2c] bg-[#18296d] p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <SiCashapp className="h-5 w-5 text-[#00D632]" />
-            <span className="text-sm text-white">CashApp Payment</span>
+            <SiCashapp className="h-5 w-5 text-[#f5d000]" />
+            <span className="text-sm font-bold text-[#fff0c5]">CashApp Payment</span>
           </div>
-          <button onClick={onClose} className="text-white/40 hover:text-white/70 transition-colors">
+          <button onClick={onClose} className="text-[#aab6e6] transition-colors hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="text-xs text-white/45 leading-relaxed">
-          Send the exact amount below to the CashApp tag. You <strong className="text-white">must</strong> include the note — it's how we match your order.
+        <p className="text-xs leading-relaxed text-[#aab6e6]">
+          Send the exact amount below to the CashApp URL. You <strong className="text-[#fff0c5]">must</strong> include the note — it's how we match your order.
         </p>
 
         {cashappUrl && <CashAppQrCode url={cashappUrl} amountCents={total} note={paymentNote} />}
@@ -55,7 +55,7 @@ function CashAppModal({ orderId, total, paymentNote, cashappUrl, onClose }: {
         </div>
 
         <button
-          className="w-full h-9 rounded-xl bg-[#00D632] hover:bg-[#00C02C] text-black text-xs font-bold transition-colors"
+          className="h-9 w-full border-[2px] border-[#080808] bg-[#fff0c5] text-xs font-bold text-[#111a42] shadow-[2px_2px_0_#080808] transition-colors hover:bg-white"
           onClick={onClose}
         >
           Done — I've sent it
