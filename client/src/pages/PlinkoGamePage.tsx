@@ -14,12 +14,11 @@ export default function PlinkoGamePage() {
   const { playPlinko } = useGames();
   const [bet, setBet] = useState("1.00");
   const [dropCount, setDropCount] = useState<1 | 10 | 20>(1);
-  const [landedSlot, setLandedSlot] = useState<number | null>(null);
+  const [landedSlots, setLandedSlots] = useState<number[]>([]);
   const [lastPayout, setLastPayout] = useState<number | null>(null);
   const [dropResults, setDropResults] = useState<DropResult[]>([]);
-  const [activeDropIndex, setActiveDropIndex] = useState(0);
+  const [ballPositions, setBallPositions] = useState<Record<number, { x: number; top: number }>>({});
   const [batchPayoutTotal, setBatchPayoutTotal] = useState(0);
-  const [ballPosition, setBallPosition] = useState({ x: 50, top: 5 });
   const [recentDrops, setRecentDrops] = useState<DropResult[]>([]);
   const [isSettled, setIsSettled] = useState(false);
 
@@ -29,96 +28,89 @@ export default function PlinkoGamePage() {
   const betCents = /^\d+(?:\.\d{1,2})?$/.test(parsedBet) ? Math.round(Number(parsedBet) * 100) : 0;
   const totalBetCents = betCents * dropCount;
   const validBet = Number.isInteger(betCents) && betCents > 0 && totalBetCents <= balanceCents;
-  const activeDrop = dropResults[activeDropIndex] ?? null;
-  const isDropping = playPlinko.isPending || (activeDrop !== null && !isSettled);
+  const isDropping = playPlinko.isPending || (dropResults.length > 0 && !isSettled);
   const resultText = useMemo(() => {
     if (isDropping) {
       return dropResults.length > 1
-        ? `Drop ${activeDropIndex + 1} of ${dropResults.length} is bouncing through the board...`
+        ? `Dropping all ${dropResults.length} balls through the board...`
         : "The ball is bouncing through the board...";
     }
-    if (landedSlot === null || lastPayout === null) return "Pick a bet and drop the ball.";
+    if (landedSlots.length === 0 || lastPayout === null) return "Pick a bet and drop the ball.";
     if (dropResults.length > 1) {
       return `Completed ${dropResults.length} drops · total payout $${(batchPayoutTotal / 100).toFixed(2)}`;
     }
-    const multiplier = multipliers[landedSlot];
+    const multiplier = multipliers[landedSlots[0]];
     return lastPayout > 0
       ? `Landed x${multiplier} · won $${(lastPayout / 100).toFixed(2)}`
       : `Landed x${multiplier} · no payout`;
-  }, [isDropping, dropResults.length, activeDropIndex, landedSlot, lastPayout, batchPayoutTotal]);
+  }, [isDropping, dropResults.length, landedSlots, lastPayout, batchPayoutTotal]);
 
   useEffect(() => {
-    if (!activeDrop) return;
+    if (dropResults.length === 0) return;
 
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    let rightSteps = 0;
 
-    activeDrop.path.forEach((direction, index) => {
-      const row = index + 1;
-      if (direction === 1) rightSteps += 1;
-      const x = 50 + (rightSteps - row / 2) * PEG_STEP;
-      timers.push(setTimeout(() => {
-        if (cancelled) return;
-        setBallPosition({
-          x,
-          top: 7 + (row / BOARD_ROWS) * 74,
-        });
-      }, index * 75));
+    setBallPositions(Object.fromEntries(dropResults.map((_, index) => [index, { x: 50, top: 5 }])));
+
+    dropResults.forEach((drop, ballIndex) => {
+      let rightSteps = 0;
+      drop.path.forEach((direction, pathIndex) => {
+        const row = pathIndex + 1;
+        if (direction === 1) rightSteps += 1;
+        const x = 50 + (rightSteps - row / 2) * PEG_STEP;
+        timers.push(setTimeout(() => {
+          if (cancelled) return;
+          setBallPositions(previous => ({
+            ...previous,
+            [ballIndex]: { x, top: 7 + (row / BOARD_ROWS) * 74 },
+          }));
+        }, pathIndex * 75));
+      });
     });
 
     timers.push(setTimeout(() => {
       if (cancelled) return;
-      setBallPosition({ x: 50 + (activeDrop.slot - 8) * PEG_STEP, top: 89 });
-      setLandedSlot(activeDrop.slot);
-      setLastPayout(activeDrop.payout);
-      setRecentDrops(previous => [activeDrop, ...previous].slice(0, 6));
-
-      if (activeDropIndex < dropResults.length - 1) {
-        setIsSettled(false);
-        timers.push(setTimeout(() => {
-          if (cancelled) return;
-          setActiveDropIndex(index => index + 1);
-          setBallPosition({ x: 50, top: 5 });
-        }, 260));
-      } else {
-        setIsSettled(true);
-      }
-    }, activeDrop.path.length * 75 + 160));
+      setBallPositions(Object.fromEntries(dropResults.map((drop, index) => [
+        index,
+        { x: 50 + (drop.slot - 8) * PEG_STEP, top: 89 },
+      ])));
+      setLandedSlots(dropResults.map(drop => drop.slot));
+      setLastPayout(dropResults[dropResults.length - 1].payout);
+      setRecentDrops(previous => [...dropResults.slice().reverse(), ...previous].slice(0, 6));
+      setIsSettled(true);
+    }, 16 * 75 + 160));
 
     return () => {
       cancelled = true;
       timers.forEach(clearTimeout);
     };
-  }, [activeDrop, activeDropIndex, dropResults.length]);
+  }, [dropResults]);
 
   const play = () => {
     if (!validBet || isDropping) return;
-    setLandedSlot(null);
+    setLandedSlots([]);
     setLastPayout(null);
     setDropResults([]);
-    setActiveDropIndex(0);
+    setBallPositions({});
     setBatchPayoutTotal(0);
     setIsSettled(false);
-    setBallPosition({ x: 50, top: 5 });
     playPlinko.mutate({ betAmount: betCents, count: dropCount }, {
       onSuccess: data => {
         const results = data.results?.length ? data.results : [data];
         setDropResults(results);
-        setActiveDropIndex(0);
         setBatchPayoutTotal(results.reduce((total, result) => total + result.payout, 0));
       },
     });
   };
 
   const resetBoard = () => {
-    setLandedSlot(null);
+    setLandedSlots([]);
     setLastPayout(null);
     setDropResults([]);
-    setActiveDropIndex(0);
+    setBallPositions({});
     setBatchPayoutTotal(0);
     setIsSettled(false);
-    setBallPosition({ x: 50, top: 5 });
   };
 
   return (
@@ -151,18 +143,24 @@ export default function PlinkoGamePage() {
               )}
             </div>
 
-            <span
-              aria-label="Plinko ball"
-              className="absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-[#110b08] bg-[#ef2b2b] shadow-[2px_2px_0_#080808] transition-[left,top] duration-75 ease-linear"
-              style={{ left: `${ballPosition.x}%`, top: `${ballPosition.top}%` }}
-            />
+            {dropResults.map((_, index) => {
+              const position = ballPositions[index] ?? { x: 50, top: 5 };
+              return (
+                <span
+                  key={`ball-${index}`}
+                  aria-label={`Plinko ball ${index + 1}`}
+                  className="absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-[#110b08] bg-[#ef2b2b] shadow-[2px_2px_0_#080808] transition-[left,top] duration-75 ease-linear"
+                  style={{ left: `${position.x}%`, top: `${position.top}%` }}
+                />
+              );
+            })}
 
             <div className="absolute inset-x-2 bottom-3 grid grid-cols-[repeat(17,minmax(0,1fr))] gap-0.5">
               {multipliers.map((multiplier, index) => (
                 <div
                   key={index}
                   className={`border-2 border-black py-2 text-center font-mono text-[8px] font-bold sm:text-[9px] ${
-                    index === landedSlot && isSettled ? "bg-[#ee292b] text-white" : multiplier >= 5 ? "bg-[#ffe09b] text-[#17100b]" : multiplier < 1 ? "bg-[#78a3ff] text-[#0d173c]" : "bg-[#c27ac7] text-[#17100b]"
+                    landedSlots.includes(index) && isSettled ? "bg-[#ee292b] text-white" : multiplier >= 5 ? "bg-[#ffe09b] text-[#17100b]" : multiplier < 1 ? "bg-[#78a3ff] text-[#0d173c]" : "bg-[#c27ac7] text-[#17100b]"
                   }`}
                 >
                   {multiplier}x
@@ -238,7 +236,7 @@ export default function PlinkoGamePage() {
           <div className="mt-5 border-t border-white/15 pt-4">
             <p className="pixel-text text-[8px] text-[#ffe177]">RESULT</p>
             <p className="mt-3 min-h-9 text-xs leading-relaxed text-white/75">{resultText}</p>
-            {landedSlot !== null && (
+            {landedSlots.length > 0 && (
               <button onClick={resetBoard} className="mt-2 inline-flex items-center gap-1 text-[10px] text-[#ffe177] hover:text-white">
                 <RotateCcw className="h-3 w-3" /> Reset board
               </button>
