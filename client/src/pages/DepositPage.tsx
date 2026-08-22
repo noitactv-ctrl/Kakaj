@@ -81,14 +81,13 @@ function DepositRow({ deposit }: { deposit: Deposit }) {
 
 /* ── MANUAL DEPOSIT PANEL ── */
 function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset: () => void }) {
-  const color = methodColor(result.method);
   const name = methodLabel(result.method);
 
   return (
     <div className="overflow-hidden border-[3px] border-[#080f2c] bg-[#18296d] text-[#fff0c5]">
       <div className="flex items-center gap-2 border-b-[2px] border-[#0e1b4e] bg-[#18296d] px-4 py-3">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f5d000] text-xs font-black text-[#111a42]">
-          {name.charAt(0)}
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#00D632] text-[#071509]">
+          <SiCashapp className="h-4 w-4" aria-label="Cash App" />
         </div>
         <p className="text-sm font-bold text-[#fff0c5]">Send via {name}</p>
       </div>

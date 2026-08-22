@@ -33,7 +33,7 @@ function CashAppModal({ orderId, total, paymentNote, cashappUrl, onClose }: {
       <div className="w-full max-w-sm space-y-4 border-[3px] border-[#080f2c] bg-[#18296d] p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <SiCashapp className="h-5 w-5 text-[#f5d000]" />
+            <SiCashapp className="h-5 w-5 text-[#00D632]" aria-label="Cash App" />
             <span className="text-sm font-bold text-[#fff0c5]">CashApp Payment</span>
           </div>
           <button onClick={onClose} className="text-[#aab6e6] transition-colors hover:text-white">
