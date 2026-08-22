@@ -220,7 +220,6 @@ export default function CardsPage() {
               <tr className="border-b-[3px] border-black bg-[#1d3d93]">
                 <th className="w-10 px-2.5 py-2 text-left pixel-text text-[7px] text-[#ffe177]">ADD</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BIN</th>
-                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BRAND</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">TYPE</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ISSUER</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">STATE</th>
@@ -253,7 +252,6 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
   const zip = extractZip(card.extras ?? "");
   const flag = countryFlag(card.binData?.countryCode ?? "");
   const ccCountry = countryName(card.binData?.countryCode ?? "");
-  const brand = formatBrand(card.binData);
   const cardType = formatType(card.binData);
   const bank = formatBank(card.binData);
   const state = extractState(card.extras ?? "");
@@ -274,9 +272,6 @@ function CardTableRow({ card, inCart, onToggleCart }: { card: any; inCart: boole
       </td>
       <td className="px-2.5 py-2">
         <span className="font-bold font-mono text-xs text-white">{bin || "—"}</span>
-      </td>
-      <td className="px-2.5 py-3">
-        <span className="inline-flex border border-black bg-[#d94343] px-1.5 py-0.5 text-[9px] font-bold text-white">{brand || "—"}</span>
       </td>
       <td className="px-2.5 py-3">
         <span className="text-[10px] font-mono font-bold text-[#f7ebd8]">{cardType || "—"}</span>
