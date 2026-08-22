@@ -68,9 +68,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navContent = (
     <>
-      <div className="px-3 pt-4 pb-3 space-y-4">
+      <div className="px-3 pt-3 pb-2 space-y-3">
         <Link href="/cards">
-          <div className="pixel-button sidebar-brand-button flex h-[52px] items-center justify-center !text-white">
+          <div className="pixel-button sidebar-brand-button flex h-[48px] items-center justify-center !text-white">
             <p className="pixel-logo-text">NYCHQ</p>
           </div>
         </Link>
@@ -144,7 +144,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="pixel-shell min-h-screen bg-[#030303] text-[#fff4dc]">
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[296px] flex-col bg-[#5f90ef] text-[#16100c] lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[260px] flex-col bg-[#5f90ef] text-[#16100c] lg:flex">
         {navContent}
       </aside>
 
@@ -156,13 +156,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {navContent}
       </aside>
 
-      <main className="min-h-screen lg:pl-[296px]">
+      <main className="min-h-screen lg:pl-[260px]">
         <div className="border-b-[3px] border-[#183c9d] bg-[#245cdb] px-4 py-2 text-center">
           <a href="https://t.me/+9_iBYCRURfgwNGUx" target="_blank" rel="noreferrer" className="pixel-text text-[8px] text-white underline underline-offset-4">
             {activeAnnouncement?.text || "JOIN OUR TELEGRAM"}
           </a>
         </div>
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/10 bg-[#050505]/95 px-4 backdrop-blur lg:px-8">
+        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-white/10 bg-[#050505]/95 px-4 backdrop-blur lg:px-6">
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
@@ -176,7 +176,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
         </header>
-        <div className="min-h-[calc(100vh-88px)] px-3 py-5 sm:px-5 lg:px-10 lg:py-8">
+        <div className="min-h-[calc(100vh-84px)] px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
           {children}
         </div>
       </main>

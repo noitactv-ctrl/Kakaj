@@ -172,14 +172,7 @@ export default function CardsPage() {
   return (
     <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto">
 
-      {/* ── Hero ── */}
-      <div className="pixel-panel bg-[#10215e] px-5 py-7 text-center space-y-3">
-        <p className="pixel-text text-[8px] text-[#ffe177]">FOODPLUG / SECURE MARKET</p>
-        <h1 className="text-xl leading-relaxed text-white sm:text-2xl">PREMIUM CARDS</h1>
-        <p className="text-sm text-white/65">Browse named card bases, inspect details, and purchase securely using your wallet.</p>
-      </div>
-
-      <div className="mt-5 pixel-panel bg-[#0e1c50] px-3 py-3 space-y-3 sticky top-[68px] z-30">
+      <div className="pixel-panel bg-[#0e1c50] px-3 py-3 space-y-3 sticky top-[60px] z-30">
         <div className="flex flex-wrap gap-2">
           {(["DEBIT", "CREDIT"] as const).map(type => (
             <button
@@ -214,7 +207,7 @@ export default function CardsPage() {
       </div>
 
       {/* Table */}
-      <div className="pixel-panel mt-5 overflow-x-auto bg-[#0b1744]">
+      <div className="pixel-panel mt-4 overflow-x-auto bg-[#0b1744]">
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-4 w-4 animate-spin text-white/30" />

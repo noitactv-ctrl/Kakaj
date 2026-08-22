@@ -49,7 +49,9 @@
     font-weight: 900;
     letter-spacing: 0.05em;
     line-height: 1;
-    text-shadow: 4px 4px 0 #080808, 0 0 5px rgba(255, 255, 255, 0.45);
+    -webkit-text-stroke: 3px #050505;
+    paint-order: stroke fill;
+    text-shadow: 4px 4px 0 #050505, 0 0 0 #fff;
   }
   .sidebar-brand-button {
     position: relative;
@@ -66,9 +68,9 @@
     z-index: 1;
   }
   .pixel-panel { border: 3px solid #070707; box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.75); }
-  .pixel-button { border: 3px solid #090909; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.72); background: #ffe1aa; color: #17110a; font-family: var(--font-pixel); }
+  .pixel-button { border: 3px solid #090909; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.72); background: #ffe1aa; color: #17110a; font-family: var(--font-pixel); font-weight: 700; }
   .pixel-button:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.72); }
-  .pixel-page { max-width: 1100px; margin: 0 auto; }
+  .pixel-page { max-width: 1040px; margin: 0 auto; }
   .pixel-input { width: 100%; border: 3px solid #050505; border-radius: 0; background: #ffe1aa; color: #1b130b; padding: 0.75rem 0.9rem; font-family: var(--font-mono); font-size: 0.78rem; outline: none; box-shadow: 2px 2px 0 #050505; }
   .pixel-input::placeholder { color: #735c44; }
   .pixel-input:focus { background: #fff0c9; }
