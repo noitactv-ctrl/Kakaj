@@ -4,9 +4,9 @@ import { Loader2, RotateCcw, Trophy } from "lucide-react";
 import { useGames } from "@/hooks/use-games";
 import { useAuth } from "@/hooks/use-auth";
 
-const BOARD_ROWS = 5;
-const PEG_STEP = 12;
-const multipliers = [0.1, 0.3, 0.2, 0.5, 0.35, 0.75];
+const BOARD_ROWS = 16;
+const PEG_STEP = 5.8;
+const multipliers = [20, 10, 5, 5, 2, 1, 0.75, 0.5, 0.3, 0.5, 0.75, 1, 2, 5, 5, 10, 20];
 type DropResult = { slot: number; multiplier: number; payout: number; newBalance?: number; path: number[] };
 
 export default function PlinkoGamePage() {
@@ -155,10 +155,7 @@ export default function PlinkoGamePage() {
               );
             })}
 
-            <div
-              className="absolute inset-x-2 bottom-3 grid gap-0.5"
-              style={{ gridTemplateColumns: `repeat(${multipliers.length}, minmax(0, 1fr))` }}
-            >
+            <div className="absolute inset-x-2 bottom-3 grid grid-cols-[repeat(17,minmax(0,1fr))] gap-0.5">
               {multipliers.map((multiplier, index) => (
                 <div
                   key={index}

@@ -464,14 +464,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Drop count must be between 1 and 20." });
       }
 
-      // Five bounces produce six slots. The path is returned so the
+      // Sixteen bounces produce seventeen slots. The path is returned so the
       // client can animate the exact server-resolved result rather than inventing
       // a visual outcome locally.
-      const multipliers = [0.1, 0.3, 0.2, 0.5, 0.35, 0.75];
+      const multipliers = [20, 10, 5, 5, 2, 1, 0.75, 0.5, 0.3, 0.5, 0.75, 1, 2, 5, 5, 10, 20];
       const results = Array.from({ length: count }, () => {
         const path: number[] = [];
         let slot = 0;
-        for (let row = 0; row < 5; row++) {
+        for (let row = 0; row < 16; row++) {
           const direction = Math.random() < 0.5 ? 0 : 1;
           path.push(direction);
           slot += direction;
