@@ -469,12 +469,12 @@ export async function registerRoutes(
       // server-side only; the client receives only the resolved result and path.
       const multipliers = [20, 10, 5, 5, 2, 1, 0.75, 0.5, 0.3, 0.5, 0.75, 1, 2, 5, 5, 10, 20];
       const weightedSlots = [
-        { slots: multipliers.map((value, index) => value === 1 ? index : -1).filter(index => index >= 0), weight: 190909 },
-        { slots: multipliers.map((value, index) => value === 2 ? index : -1).filter(index => index >= 0), weight: 300000 },
-        { slots: multipliers.map((value, index) => value === 5 ? index : -1).filter(index => index >= 0), weight: 200000 },
-        { slots: multipliers.map((value, index) => value === 10 ? index : -1).filter(index => index >= 0), weight: 100000 },
-        { slots: multipliers.map((value, index) => value === 20 ? index : -1).filter(index => index >= 0), weight: 10000 },
-        { slots: multipliers.map((value, index) => ![1, 2, 5, 10, 20].includes(value) ? index : -1).filter(index => index >= 0), weight: 199091 },
+        { slots: multipliers.map((value, index) => value === 1 ? index : -1).filter(index => index >= 0), weight: 150000 },
+        { slots: multipliers.map((value, index) => value === 2 ? index : -1).filter(index => index >= 0), weight: 80000 },
+        { slots: multipliers.map((value, index) => value === 5 ? index : -1).filter(index => index >= 0), weight: 20000 },
+        { slots: multipliers.map((value, index) => value === 10 ? index : -1).filter(index => index >= 0), weight: 5000 },
+        { slots: multipliers.map((value, index) => value === 20 ? index : -1).filter(index => index >= 0), weight: 1000 },
+        { slots: multipliers.map((value, index) => ![1, 2, 5, 10, 20].includes(value) ? index : -1).filter(index => index >= 0), weight: 744000 },
       ];
       const results = Array.from({ length: count }, () => {
         const roll = randomInt(0, 1_000_000);
