@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useCart } from "@/hooks/use-cart";
 import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
-import { ShoppingCart, ArrowRight, Loader2, Wallet, Copy, X, Clock, Tag, Check } from "lucide-react";
+import { ShoppingCart, ArrowRight, Loader2, Wallet, X, Clock, Tag, Check } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { SiCashapp, SiBitcoin } from "react-icons/si";
@@ -21,18 +21,13 @@ interface AppliedDiscount {
   discountAmount: number;
 }
 
-function CashAppModal({ orderId, total, paymentNote, cashappTag, cashappUrl, onClose }: {
+function CashAppModal({ orderId, total, paymentNote, cashappUrl, onClose }: {
   orderId: string;
   total: number;
   paymentNote: string;
-  cashappTag: string;
   cashappUrl: string;
   onClose: () => void;
 }) {
-  const { toast } = useToast();
-  const copy = (val: string, label: string) => {
-    navigator.clipboard.writeText(val).then(() => toast({ title: `${label} copied` }));
-  };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-sm p-5 space-y-4">
@@ -50,54 +45,7 @@ function CashAppModal({ orderId, total, paymentNote, cashappTag, cashappUrl, onC
           Send the exact amount below to the CashApp tag. You <strong className="text-white">must</strong> include the note — it's how we match your order.
         </p>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between bg-[#0d0d0d] rounded-xl px-3 py-2.5">
-            <div>
-              <p className="text-[10px] text-white/45 mb-0.5">Send to</p>
-              <p className="text-sm font-bold text-[#00D632]">{cashappTag || "$YourCashTag"}</p>
-            </div>
-            <button onClick={() => copy(cashappTag, "CashApp tag")} className="text-white/40 hover:text-white transition-colors">
-              <Copy className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {cashappUrl && (
-            <>
-              <div className="flex items-center justify-between bg-[#0d0d0d] rounded-xl px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-[10px] text-white/45 mb-0.5">CashApp URL</p>
-                  <a href={cashappUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-sm font-bold text-[#00D632] hover:underline">
-                    {cashappUrl}
-                  </a>
-                </div>
-                <button onClick={() => copy(cashappUrl, "CashApp URL")} className="ml-2 text-white/40 hover:text-white transition-colors">
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <CashAppQrCode url={cashappUrl} />
-            </>
-          )}
-
-          <div className="flex items-center justify-between bg-[#0d0d0d] rounded-xl px-3 py-2.5">
-            <div>
-              <p className="text-[10px] text-white/45 mb-0.5">Amount</p>
-              <p className="text-sm font-bold text-white">${(total / 100).toFixed(2)}</p>
-            </div>
-            <button onClick={() => copy((total / 100).toFixed(2), "Amount")} className="text-white/40 hover:text-white transition-colors">
-              <Copy className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-xl px-3 py-2.5">
-            <div>
-              <p className="text-[10px] text-primary/70 mb-0.5">Note (required)</p>
-              <p className="text-sm font-bold text-primary font-mono">{paymentNote}</p>
-            </div>
-            <button onClick={() => copy(paymentNote, "Note")} className="text-primary/50 hover:text-primary transition-colors">
-              <Copy className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
+        {cashappUrl && <CashAppQrCode url={cashappUrl} amountCents={total} note={paymentNote} />}
 
         <div className="flex items-start gap-2 bg-[#0d0d0d] rounded-xl px-3 py-2.5">
           <Clock className="h-3.5 w-3.5 text-white/45 flex-shrink-0 mt-0.5" />
@@ -125,7 +73,7 @@ export default function CartPage() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cashapp");
-  const [cashappModal, setCashappModal] = useState<{ orderId: string; total: number; paymentNote: string; cashappTag: string; cashappUrl: string } | null>(null);
+  const [cashappModal, setCashappModal] = useState<{ orderId: string; total: number; paymentNote: string; cashappUrl: string } | null>(null);
 
   const productTotal = total();
   const cardSubtotal = cardItems.reduce((sum, card) => sum + card.price, 0);
@@ -236,7 +184,6 @@ export default function CartPage() {
         orderId: data.order?.orderId || data.orderId || "N/A",
         total: data.order?.total ?? dueTotal,
         paymentNote: data.paymentNote || data.order?.orderId || "",
-        cashappTag: data.cashappTag || "",
         cashappUrl: data.cashappUrl || manualMethods?.cashapp.url || "",
       });
     },
@@ -346,7 +293,6 @@ export default function CartPage() {
           orderId={cashappModal.orderId}
           total={cashappModal.total}
           paymentNote={cashappModal.paymentNote}
-          cashappTag={cashappModal.cashappTag}
           cashappUrl={cashappModal.cashappUrl}
           onClose={() => { setCashappModal(null); setLocation("/orders"); }}
         />

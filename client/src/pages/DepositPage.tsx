@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
-  Loader2, Copy, Check, Clock, CheckCircle2, XCircle, AlertTriangle,
+  Loader2, Clock, CheckCircle2, XCircle, AlertTriangle,
   RefreshCw, ExternalLink
 } from "lucide-react";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
@@ -34,19 +34,6 @@ function methodColor(type: string) {
 function methodLabel(type: string) {
   if (type === "cashapp") return "CashApp";
   return "Crypto";
-}
-
-function CopyBtn({ value, className = "" }: { value: string; className?: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      className={`flex items-center justify-center w-9 h-9 rounded-lg bg-white/8 hover:bg-white/12 border border-white/10 text-white/50 hover:text-white transition-colors flex-shrink-0 ${className}`}
-      data-testid="btn-copy"
-    >
-      {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
-    </button>
-  );
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -106,47 +93,7 @@ function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset
         <p className="text-sm font-bold" style={{ color }}>Send via {name}</p>
       </div>
       <div className="p-4 space-y-3">
-        <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
-          <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">Send to</p>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-white font-mono truncate">{result.handle || `(no handle set)`}</p>
-            {result.handle && <CopyBtn value={result.handle} />}
-          </div>
-        </div>
-        {result.method === "cashapp" && result.url && (
-          <>
-            <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
-              <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">CashApp URL</p>
-              <div className="flex items-center justify-between gap-2">
-                <a
-                  href={result.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-bold text-[#00D632] font-mono truncate hover:underline"
-                >
-                  {result.url}
-                </a>
-                <CopyBtn value={result.url} />
-              </div>
-            </div>
-            <CashAppQrCode url={result.url} />
-          </>
-        )}
-        <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
-          <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">Amount — send EXACTLY</p>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-2xl font-black text-white font-mono">${(result.amount / 100).toFixed(2)}</p>
-            <CopyBtn value={(result.amount / 100).toFixed(2)} />
-          </div>
-          <p className="text-[10px] text-yellow-400/60 font-mono mt-1.5">⚠ Wrong amount = not credited</p>
-        </div>
-        <div className="rounded-xl bg-black/30 border border-white/5 px-4 py-3">
-          <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5 font-mono">Payment Note (required)</p>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold font-mono" style={{ color }}>{result.note}</p>
-            <CopyBtn value={result.note} />
-          </div>
-        </div>
+        {result.url && <CashAppQrCode url={result.url} amountCents={result.amount} note={result.note} />}
         <p className="text-[10px] text-white/20 font-mono text-center">include the exact note · admin will confirm and credit balance</p>
         <button onClick={onReset} className="w-full text-[11px] text-white/25 hover:text-white/50 transition-colors font-mono pt-1" data-testid="btn-new-deposit">
           ← create new deposit

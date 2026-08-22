@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { Check, Copy, ExternalLink } from "lucide-react";
 
-export function CashAppQrCode({ url }: { url: string }) {
+export function CashAppQrCode({ url, amountCents, note }: { url: string; amountCents: number; note?: string }) {
   const [dataUrl, setDataUrl] = useState("");
+  const [copied, setCopied] = useState<"amount" | "url" | "note" | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -29,13 +31,84 @@ export function CashAppQrCode({ url }: { url: string }) {
 
   if (!dataUrl) return null;
 
+  const amount = `$${(amountCents / 100).toFixed(2)}`;
+  const copyValue = (value: string, field: "amount" | "url" | "note") => {
+    navigator.clipboard.writeText(value);
+    setCopied(field);
+    window.setTimeout(() => setCopied(current => current === field ? null : current), 1600);
+  };
+  const copyButton = (value: string, field: "amount" | "url" | "note") => (
+    <button
+      type="button"
+      onClick={() => copyValue(value, field)}
+      className="flex h-7 w-7 flex-shrink-0 items-center justify-center text-[#a5b2e7] transition-colors hover:text-white"
+      aria-label={`Copy ${field}`}
+    >
+      {copied === field ? <Check className="h-3.5 w-3.5 text-[#43b94e]" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+
   return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-4 text-center">
-      <p className="mb-3 text-[9px] font-mono uppercase tracking-widest text-white/35">Scan to open CashApp</p>
-      <div className="mx-auto w-fit border-[4px] border-white bg-white p-1">
-        <img src={dataUrl} alt="QR code for CashApp payment" className="block h-44 w-44" />
+    <div className="border-[3px] border-[#080f2c] bg-[#18296d] p-3 text-[#fff0c5] sm:p-4">
+      <div className="border-[2px] border-[#f5d000] bg-[#111a42] px-3 py-2.5 text-center">
+        <p className="font-mono text-[10px] font-bold leading-relaxed text-[#fff0c5] sm:text-[11px]">
+          Send the exact CashApp amount only{" "}
+          <span className="font-black text-[#ff7924]">{amount}</span>
+          {" "}— do not send a different amount. Wrong amount = no credit.
+        </p>
       </div>
-      <p className="mt-3 text-[10px] font-mono text-white/30">Scan this code to open the CashApp URL</p>
+
+      <div className="mt-3 divide-y-[2px] divide-[#0e1b4e] border-y-[2px] border-[#0e1b4e]">
+        <div className="flex items-center justify-between gap-3 py-2.5">
+          <span className="font-mono text-[10px] text-[#9ca9de]">Amount (send this)</span>
+          <div className="flex items-center gap-1">
+            <strong className="font-mono text-[11px] text-[#ff7924]">{amount}</strong>
+            {copyButton(amount, "amount")}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-2.5">
+          <span className="font-mono text-[10px] text-[#9ca9de]">CashApp URL</span>
+          <div className="flex min-w-0 items-center gap-1">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="max-w-[190px] truncate font-mono text-[10px] font-bold text-[#fff0c5] hover:underline"
+            >
+              {url}
+            </a>
+            {copyButton(url, "url")}
+          </div>
+        </div>
+        {note && (
+          <div className="flex items-center justify-between gap-3 py-2.5">
+            <span className="font-mono text-[10px] text-[#9ca9de]">Payment note</span>
+            <div className="flex items-center gap-1">
+              <strong className="font-mono text-[10px] text-[#ff7924]">{note}</strong>
+              {copyButton(note, "note")}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 text-center">
+        <div className="mx-auto w-fit border-[3px] border-[#080808] bg-white p-1">
+          <img src={dataUrl} alt="QR code for CashApp payment" className="block h-48 w-48 sm:h-52 sm:w-52" />
+        </div>
+        <p className="mx-auto mt-4 max-w-xl font-mono text-[10px] leading-relaxed text-[#aab6e6]">
+          Send exactly <strong className="text-[#ff7924]">{amount}</strong> to this CashApp URL.
+          <br />
+          Scan the code to open CashApp and complete your payment.
+        </p>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex items-center gap-2 border-[2px] border-[#080808] bg-[#fff0c5] px-5 py-2 font-mono text-[10px] font-bold text-[#111a42] shadow-[2px_2px_0_#080808] hover:bg-white"
+        >
+          OPEN CASHAPP <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
     </div>
   );
 }
