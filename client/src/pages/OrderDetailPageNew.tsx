@@ -3,8 +3,6 @@ import { useOrders } from "@/hooks/use-orders";
 import { Loader2, ChevronLeft, ChevronDown, ChevronUp, Copy, Check, ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 
 function statusLabel(s: string) {
   if (s === "pending") return "pending";
@@ -40,23 +38,7 @@ export default function OrderDetailPageNew() {
   const [activeTab, setActiveTab] = useState<"info" | "products">("info");
   const [stockVisible, setStockVisible] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState<Record<string, boolean>>({});
-  const [liveCheckResult, setLiveCheckResult] = useState<{ live: boolean; message: string } | null>(null);
   const { toast } = useToast();
-
-  const liveCheckMutation = useMutation({
-    mutationFn: async (orderId: number) => {
-      const res = await apiRequest("POST", `/api/orders/${orderId}/live-check`, {});
-      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || "Failed"); }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setLiveCheckResult(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-    },
-    onError: (e: Error) => {
-      toast({ title: "Live Check Failed", description: e.message, variant: "destructive" });
-    },
-  });
 
   const order = orders?.find((o: any) => o.orderId === params?.id || o.id.toString() === params?.id);
 

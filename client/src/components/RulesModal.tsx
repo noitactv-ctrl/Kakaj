@@ -8,11 +8,11 @@ export const RULES = [
   },
   {
     title: "DON'T FAKE OWNING A CHANNEL",
-    body: "Do not submit a Telegram channel that is not yours. Fraud will result in permanent termination.",
+    body: "Do not submit information that is not yours. Fraud will result in permanent termination.",
   },
   {
-    title: "ALWAYS UPDATE YOUR TELEGRAM NAME",
-    body: "If you change your Telegram username, update it in your account Settings immediately.",
+    title: "KEEP ACCOUNT DETAILS CURRENT",
+    body: "Keep your account details current so support can help you efficiently.",
   },
   {
     title: "DON'T TEXT ADMIN TO CHECK YOUR ORDER",

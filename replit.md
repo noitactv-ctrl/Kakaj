@@ -16,7 +16,7 @@ A dark-themed digital marketplace for selling digital items (logs, cards, accoun
 - **CashApp Payments** — user sends CashApp with a generated note (`snack-XXXX`); admin manually confirms via Paid/Unpaid buttons; stock delivered on confirmation
 - **Stock System** — admin pre-loads text items per variant; each purchase pulls one item off the stack
 - **Admin Dashboard** — manage products, variants, stock, orders, users, redeem codes, announcements
-- **Payment Method Toggles** — admin can show/hide Wallet, CashApp, Crypto, Telegram Stars per customer
+- **Payment Method Toggles** — admin can show/hide Wallet, CashApp, and Crypto per customer
 - **Games** — dice, mines, daily spin (for earning credits)
 - **Profile** — order history with delivery content, balance history
 - **Dark theme** — `#090a0c` base, primary amber/orange, CashApp green `#00D632`
@@ -31,7 +31,7 @@ A dark-themed digital marketplace for selling digital items (logs, cards, accoun
 | Backend | Node.js, Express 5, TypeScript |
 | Database | PostgreSQL (Drizzle ORM) |
 | Auth | Passport.js (local strategy), express-session, connect-pg-simple |
-| Payments | CashApp (manual), Crypto via Forebit API, Telegram Stars |
+| Payments | CashApp (manual), Crypto via NOWPayments |
 
 ---
 
@@ -56,9 +56,8 @@ Set these in the Replit **Secrets** panel:
 |---|---|---|
 | `DATABASE_URL` | Auto-set | Set automatically when you create a Replit DB |
 | `SESSION_SECRET` | Recommended | Random string for signing session cookies. Defaults to a placeholder if missing. |
-| `FOREBIT_ACCESS_KEY` | Optional | API key for Forebit crypto payment processing |
-| `FOREBIT_ACCOUNT_ID` | Optional | Business ID for Forebit |
-| `TELEGRAM_BOT_TOKEN` | Optional | For Telegram Stars payment integration |
+| `NOWPAYMENTS_API_KEY` | Required for crypto | API key for NOWPayments crypto payment processing |
+| `NOWPAYMENTS_IPN_SECRET` | Required for webhooks | Secret used to verify NOWPayments payment notifications |
 
 ### 3. Admin Account
 
@@ -168,7 +167,7 @@ npm run build      # Build for production
 - **Transactions** — wallet history (top-ups, purchases, game wins/losses)
 - **Redeem Codes** — one-time codes for wallet top-up
 - **Site Settings** — key/value store for CashApp tag, payment method toggles, announcements
-- **Crypto Payments** — Forebit payment tracking
+- **Crypto Payments** — NOWPayments payment tracking
 
 ### Build System
 - Dev: Vite HMR proxied through Express

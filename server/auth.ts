@@ -180,7 +180,6 @@ export function setupAuth(app: Express) {
         email: normalEmail,
         password: hashed,
         loginCode: "",
-        telegramUsername: "",
         role,
       } as any);
 

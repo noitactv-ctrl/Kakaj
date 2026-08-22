@@ -4,3 +4,4 @@
 - [Auth-gated screenshot testing](auth-gated-screenshot-testing.md) — login requires a captcha, so the screenshot tool can't get past sign-in to visually verify pages behind auth.
 - [Plinko transactional settlement](plinko-transactional-settlement.md) — settle Plinko wager, ledger entries, and payout in one transaction so a game cannot leave a partial wallet result.
 - [Provider secret storage](provider-secret-storage.md) — admin-managed provider secrets are encrypted server-side; runtime values may fall back to host variables without being exposed.
+- [Retired provider compatibility](retired-provider-compatibility.md) — remove retired integrations from runtime paths while retaining legacy database records unless data deletion is explicitly requested.

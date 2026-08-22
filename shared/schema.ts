@@ -363,7 +363,7 @@ export type Mail = typeof mails.$inferSelect;
 export const cryptoPayments = pgTable("crypto_payments", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  forebitPaymentId: text("forebit_payment_id").notNull().unique(),
+  nowPaymentsPaymentId: text("forebit_payment_id").notNull().unique(),
   amount: integer("amount").notNull(),
   currency: text("currency").default("USD").notNull(),
   status: text("status", { enum: ["pending", "completed", "failed", "expired", "underpaid"] }).default("pending").notNull(),

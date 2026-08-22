@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  Coins, Crown, Gamepad2, HeartHandshake, Menu, ShoppingCart,
+  Coins, Crown, Gamepad2, Menu, ShoppingCart,
   Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -27,10 +27,6 @@ const navigation: { label: string; items: NavItem[] }[] = [
   {
     label: "GAMES",
     items: [{ href: "/plinko", label: "Plinko", icon: Gamepad2 }],
-  },
-  {
-    label: "CHANNEL",
-    items: [{ href: "https://t.me/+jUsKLmOgpV42NGJh", label: "Telegram Channel", icon: HeartHandshake, external: true }],
   },
   {
     label: "SUPPORT",
@@ -158,9 +154,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="min-h-screen lg:pl-[260px]">
         <div className="border-b-[3px] border-[#183c9d] bg-[#245cdb] px-4 py-2 text-center">
-          <a href="https://t.me/+jUsKLmOgpV42NGJh" target="_blank" rel="noreferrer" className="pixel-text text-[8px] text-white underline underline-offset-4">
-            {activeAnnouncement?.text || "JOIN OUR TELEGRAM"}
-          </a>
+          <p className="pixel-text text-[8px] text-white">
+            {activeAnnouncement?.text || "WELCOME TO NYCHQ"}
+          </p>
         </div>
         <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-white/10 bg-[#050505]/95 px-4 backdrop-blur lg:px-6">
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">

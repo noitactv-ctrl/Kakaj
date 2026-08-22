@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Star, Package, Wallet, Pin, Gift, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2, KeyRound } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Gift, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2, KeyRound } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -1021,7 +1021,7 @@ function OrdersSection() {
           <div className="space-y-3 border-b border-white/10 pb-4">
             <div><p className="text-[10px] text-white/45 mb-0.5">Order ID</p><p className="text-xs font-mono text-white break-all">{current.orderId}</p></div>
             <div><p className="text-[10px] text-white/45 mb-0.5">Date</p><p className="text-xs text-white/70">{new Date(current.createdAt).toLocaleString("en-US")}</p></div>
-            <div><p className="text-[10px] text-white/45 mb-0.5">Customer</p><p className="text-xs text-white font-bold">{current.user?.username || current.userId} · @{current.user?.telegramUsername || "—"}</p></div>
+            <div><p className="text-[10px] text-white/45 mb-0.5">Customer</p><p className="text-xs text-white font-bold">{current.user?.username || current.userId}</p></div>
             <div><p className="text-[10px] text-white/45 mb-0.5">Payment</p><p className="text-xs text-white/70">{current.paymentMethod || "—"}</p></div>
             {current.paymentNote && (
               <div><p className="text-[10px] text-white/45 mb-0.5">Payment Note</p><p className="text-xs font-mono text-[#00D632]">{current.paymentNote}</p></div>
@@ -1547,7 +1547,6 @@ function UsersSection() {
           </div>
 
           <div className="text-[9px] text-white/30 font-mono pt-1 border-t border-white/10 space-y-0.5">
-            <p>Telegram: @{selectedUser.telegramUsername || '—'}</p>
             <p>Joined: {new Date(selectedUser.createdAt).toLocaleDateString()}</p>
           </div>
         </div>
@@ -2071,7 +2070,6 @@ function IntegrationsSection() {
     { id: "zelle", label: "Zelle", icon: <span className="text-white font-black text-sm">Z</span>, bg: "bg-[#6D1ED4]" },
     { id: "chime", label: "Chime", icon: <span className="text-white font-black text-sm">C</span>, bg: "bg-[#7BC67E]" },
     { id: "crypto", label: "Crypto", icon: <SiBitcoin className="h-4 w-4 text-white" />, bg: "bg-primary" },
-    { id: "stars", label: "Telegram Stars", icon: <Star className="h-4 w-4 text-white fill-white" />, bg: "bg-blue-500" },
   ];
 
   return (
@@ -2192,16 +2190,11 @@ type ApiSetting = {
   source: "database" | "environment" | "default" | "none";
   value?: string;
   maskedValue?: string;
-  custom: boolean;
 };
 
 function ApiSecretsSettings() {
   const { toast } = useToast();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [showCustom, setShowCustom] = useState(false);
-  const [customName, setCustomName] = useState("");
-  const [customKind, setCustomKind] = useState<"url" | "secret" | "text">("secret");
-  const [customValue, setCustomValue] = useState("");
 
   const { data, isLoading } = useQuery<{ settings: ApiSetting[]; encryptionConfigured: boolean }>({
     queryKey: ["/api/admin/api-settings"],
@@ -2266,41 +2259,7 @@ function ApiSecretsSettings() {
     onError: (error: Error) => toast({ title: "Unable to clear setting", description: error.message, variant: "destructive" }),
   });
 
-  const addCustomMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/admin/api-settings", {
-        name: customName,
-        label: customName,
-        kind: customKind,
-        value: customValue,
-        enabled: true,
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Unable to add setting");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      setCustomName("");
-      setCustomValue("");
-      setCustomKind("secret");
-      setShowCustom(false);
-      refresh();
-      toast({ title: "Custom setting added" });
-    },
-    onError: (error: Error) => toast({ title: "Unable to add setting", description: error.message, variant: "destructive" }),
-  });
-
-  const groups = [
-    { title: "NOWPayments", keys: ["nowpayments_api_url", "nowpayments_api_key", "nowpayments_ipn_secret"] },
-    { title: "Telegram", keys: ["telegram_bot_token", "telegram_group_id"] },
-    { title: "Stripe", keys: ["stripe_secret_key", "stripe_webhook_secret"] },
-    { title: "SMTP", keys: ["smtp_host", "smtp_port", "smtp_email", "smtp_password"] },
-    { title: "Additional", keys: ["forebit_account_id"] },
-  ];
   const settings = data?.settings ?? [];
-  const settingByKey = new Map(settings.map((setting) => [setting.key, setting]));
 
   const renderSetting = (setting: ApiSetting) => {
     const draft = drafts[setting.key] ?? "";
@@ -2378,14 +2337,9 @@ function ApiSecretsSettings() {
 
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><KeyRound className="h-3.5 w-3.5 text-primary" /> API & Secrets</p>
-          <p className="text-xs text-white/45 mt-1">Secrets are encrypted on the server and never sent back to this page.</p>
-        </div>
-        <Button size="sm" variant="outline" className="gap-1.5 border-white/10 text-xs" onClick={() => setShowCustom(!showCustom)}>
-          <Plus className="h-3.5 w-3.5" /> Custom setting
-        </Button>
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><KeyRound className="h-3.5 w-3.5 text-primary" /> NOWPayments API</p>
+        <p className="text-xs text-white/45 mt-1">Secrets are encrypted on the server and never sent back to this page.</p>
       </div>
 
       {!data?.encryptionConfigured && (
@@ -2396,51 +2350,10 @@ function ApiSecretsSettings() {
         </Card>
       )}
 
-      {showCustom && (
-        <Card className="bg-[#111] border-primary/30">
-          <CardContent className="p-4 space-y-3">
-            <p className="text-sm font-bold text-white">Add custom API setting</p>
-            <div className="grid gap-2 sm:grid-cols-[1fr_130px]">
-              <Input value={customName} onChange={(event) => setCustomName(event.target.value)} placeholder="Example API key" className="bg-[#0d0d0d] border-white/10" data-testid="input-custom-api-name" />
-              <Select value={customKind} onValueChange={(value: "url" | "secret" | "text") => setCustomKind(value)}>
-                <SelectTrigger className="bg-[#0d0d0d] border-white/10" data-testid="select-custom-api-kind"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="secret">Secret</SelectItem>
-                  <SelectItem value="url">API URL</SelectItem>
-                  <SelectItem value="text">Text</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Input type={customKind === "secret" ? "password" : "text"} value={customValue} onChange={(event) => setCustomValue(event.target.value)} placeholder={customKind === "url" ? "https://api.example.com" : "Value"} className="flex-1 bg-[#0d0d0d] border-white/10 font-mono" data-testid="input-custom-api-value" />
-              <Button size="sm" disabled={addCustomMutation.isPending || !customName.trim() || !customValue.trim()} onClick={() => addCustomMutation.mutate()} data-testid="button-add-custom-api-setting">
-                {addCustomMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {isLoading ? (
         <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
       ) : (
-        <div className="space-y-5">
-          {groups.map((group) => {
-            const groupSettings = group.keys.map((key) => settingByKey.get(key)).filter(Boolean) as ApiSetting[];
-            return groupSettings.length > 0 ? (
-              <div key={group.title} className="space-y-2">
-                <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">{group.title}</p>
-                <div className="space-y-2">{groupSettings.map(renderSetting)}</div>
-              </div>
-            ) : null;
-          })}
-          {settings.filter((setting) => setting.custom).length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Custom</p>
-              <div className="space-y-2">{settings.filter((setting) => setting.custom).map(renderSetting)}</div>
-            </div>
-          )}
-        </div>
+        <div className="space-y-2">{settings.map(renderSetting)}</div>
       )}
     </section>
   );
@@ -2448,12 +2361,12 @@ function ApiSecretsSettings() {
 
 function FeatureTogglesCard() {
   const { toast } = useToast();
-  const { data: features, isLoading: featuresLoading } = useQuery<{ checker: boolean; reseller: boolean; ranks: boolean; logs: boolean; cards: boolean }>({
+  const { data: features, isLoading: featuresLoading } = useQuery<{ reseller: boolean; ranks: boolean; logs: boolean; cards: boolean }>({
     queryKey: ["/api/settings/features"],
   });
 
   const toggleFeature = useMutation({
-    mutationFn: async (body: { checker?: boolean; reseller?: boolean; ranks?: boolean; logs?: boolean; cards?: boolean }) => {
+    mutationFn: async (body: { reseller?: boolean; ranks?: boolean; logs?: boolean; cards?: boolean }) => {
       const res = await apiRequest("POST", "/api/admin/settings/features", body);
       return res.json();
     },
@@ -2467,7 +2380,6 @@ function FeatureTogglesCard() {
   const FEATURES = [
     { key: "ranks" as const, label: "Ranks", desc: "Show/hide the Ranks page and nav link" },
     { key: "cards" as const, label: "Cards", desc: "Show/hide the Cards page and nav link" },
-    { key: "checker" as const, label: "Card Checker", desc: "Show/hide the Checker page and nav link" },
     { key: "reseller" as const, label: "Become Reseller", desc: "Show/hide the Reseller application page" },
   ];
 
@@ -3286,120 +3198,6 @@ function AdminAchSection() {
   );
 }
 
-
-function SmtpSection() {
-  const { toast } = useToast();
-  const [host, setHost] = useState("smtp.gmail.com");
-  const [port, setPort] = useState("587");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loaded, setLoaded] = useState(false);
-
-  const { data: smtpData, isLoading } = useQuery({
-    queryKey: ["/api/admin/smtp"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/smtp");
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-  });
-
-  if (smtpData && !loaded) {
-    setHost(smtpData.smtp_host || "smtp.gmail.com");
-    setPort(smtpData.smtp_port || "587");
-    setEmail(smtpData.smtp_email || "");
-    setLoaded(true);
-  }
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const body: any = { smtp_host: host, smtp_port: port, smtp_email: email };
-      if (password) body.smtp_password = password;
-      const res = await apiRequest("POST", "/api/admin/smtp", body);
-      if (!res.ok) throw new Error("Failed to save");
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "SMTP settings saved!" });
-      setPassword("");
-    },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold">Email (SMTP)</h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure the sending email for the Email Bomber tool</p>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-      ) : (
-        <div className="bg-[#111] border border-white/10 rounded-xl p-5 space-y-4 max-w-md">
-          <div className="space-y-1">
-            <label className="text-[10px] text-white/45 uppercase tracking-widest">SMTP Host</label>
-            <Input
-              value={host}
-              onChange={e => setHost(e.target.value)}
-              placeholder="smtp.gmail.com"
-              className="bg-[#111]/5 border-white/10"
-              data-testid="input-smtp-host"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] text-white/45 uppercase tracking-widest">SMTP Port</label>
-            <Input
-              value={port}
-              onChange={e => setPort(e.target.value)}
-              placeholder="587"
-              className="bg-[#111]/5 border-white/10"
-              data-testid="input-smtp-port"
-            />
-            <p className="text-[10px] text-white/30">587 for TLS, 465 for SSL, 25 for plain</p>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] text-white/45 uppercase tracking-widest">Sender Email</label>
-            <Input
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="youremail@gmail.com"
-              type="email"
-              className="bg-[#111]/5 border-white/10"
-              data-testid="input-smtp-email"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] text-white/45 uppercase tracking-widest">
-              App Password {smtpData?.has_password && <span className="text-green-400 normal-case">(saved)</span>}
-            </label>
-            <Input
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder={smtpData?.has_password ? "Leave blank to keep current password" : "App password or SMTP password"}
-              type="password"
-              className="bg-[#111]/5 border-white/10"
-              data-testid="input-smtp-password"
-            />
-            <p className="text-[10px] text-white/30">For Gmail: use an App Password, not your account password</p>
-          </div>
-
-          <Button
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending || !host || !port || !email}
-            className="w-full h-9 text-xs"
-            data-testid="btn-save-smtp"
-          >
-            {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save SMTP Settings"}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function SellersSection() {
   const { toast } = useToast();

@@ -40,75 +40,21 @@ export const API_SETTING_DEFINITIONS: ApiSettingDefinition[] = [
     envKey: "NOWPAYMENTS_IPN_SECRET",
     required: true,
   },
-  {
-    key: "telegram_bot_token",
-    label: "Telegram Bot Token",
-    description: "BotFather token used by the rewards bot.",
-    kind: "secret",
-    envKey: "TELEGRAM_BOT_TOKEN",
-  },
-  {
-    key: "telegram_group_id",
-    label: "Telegram Group ID",
-    description: "Optional group ID used for membership checks.",
-    kind: "text",
-    envKey: "Telegram_group_id",
-  },
-  {
-    key: "stripe_secret_key",
-    label: "Stripe Secret Key",
-    description: "Server-side Stripe key used by card checks and checkout helpers.",
-    kind: "secret",
-    envKey: "STRIPE_SECRET_KEY",
-  },
-  {
-    key: "stripe_webhook_secret",
-    label: "Stripe Webhook Secret",
-    description: "Secret used to verify Stripe webhook events.",
-    kind: "secret",
-    envKey: "STRIPE_WEBHOOK_SECRET",
-  },
-  {
-    key: "forebit_account_id",
-    label: "Forebit Account ID",
-    description: "Optional account identifier retained for compatible crypto deployments.",
-    kind: "text",
-    envKey: "FOREBIT_ACCOUNT_ID",
-  },
-  {
-    key: "smtp_host",
-    label: "SMTP Host",
-    description: "SMTP server hostname used by the email tool.",
-    kind: "text",
-    envKey: "SMTP_HOST",
-    defaultValue: "smtp.gmail.com",
-  },
-  {
-    key: "smtp_port",
-    label: "SMTP Port",
-    description: "SMTP server port, usually 587 or 465.",
-    kind: "text",
-    envKey: "SMTP_PORT",
-    defaultValue: "587",
-  },
-  {
-    key: "smtp_email",
-    label: "SMTP Sender Email",
-    description: "Email address used as the SMTP sender.",
-    kind: "text",
-    envKey: "SMTP_EMAIL",
-  },
-  {
-    key: "smtp_password",
-    label: "SMTP Password",
-    description: "SMTP or provider app password.",
-    kind: "secret",
-    envKey: "SMTP_PASSWORD",
-  },
 ];
 
 const definitionsByKey = new Map(API_SETTING_DEFINITIONS.map((definition) => [definition.key, definition]));
 const ENCRYPTED_PREFIX = "enc:v1:";
+const RETIRED_API_SETTING_KEYS = [
+  "telegram_bot_token",
+  "telegram_group_id",
+  "stripe_secret_key",
+  "stripe_webhook_secret",
+  "forebit_account_id",
+  "smtp_host",
+  "smtp_port",
+  "smtp_email",
+  "smtp_password",
+];
 
 export function getApiSettingDefinition(key: string): ApiSettingDefinition | undefined {
   return definitionsByKey.get(key);
@@ -194,6 +140,12 @@ export async function migrateLegacySecretSettings(): Promise<void> {
   }
 }
 
+export async function removeRetiredApiSettings(): Promise<void> {
+  for (const key of RETIRED_API_SETTING_KEYS) {
+    await db.delete(siteSettings).where(eq(siteSettings.key, key));
+  }
+}
+
 export async function getStoredApiSetting(key: string) {
   const [row] = await db.select().from(siteSettings).where(eq(siteSettings.key, key));
   return row;
@@ -233,7 +185,6 @@ function sourceFor(
 export async function listApiSettings() {
   const rows = await db.select().from(siteSettings);
   const rowsByKey = new Map(rows.map((row) => [row.key, row]));
-  const knownKeys = new Set(API_SETTING_DEFINITIONS.map((definition) => definition.key));
 
   const known = API_SETTING_DEFINITIONS.map((definition) => {
     const row = rowsByKey.get(definition.key);
@@ -261,24 +212,7 @@ export async function listApiSettings() {
     };
   });
 
-  const custom = rows
-    .filter((row) => !knownKeys.has(row.key) && row.key.startsWith("custom_"))
-    .map((row) => ({
-      key: row.key,
-      label: row.label || row.key.replace(/^custom_/, "").replace(/_/g, " "),
-      description: "Custom server-side API or secret setting.",
-      kind: (row.kind === "url" || row.kind === "secret" ? row.kind : "text") as ApiSettingKind,
-      required: false,
-      configured: Boolean(row.value),
-      enabled: row.enabled,
-      source: "database" as const,
-      value: row.isSecret ? undefined : row.value,
-      maskedValue: row.isSecret && row.value ? maskValue("configured") : "",
-      envKey: undefined,
-      custom: true,
-    }));
-
-  return [...known, ...custom];
+  return known;
 }
 
 function validateValue(key: string, kind: ApiSettingKind, value: string): string {
@@ -365,11 +299,4 @@ export async function setApiSettingEnabled(key: string, enabled: boolean): Promi
 
 export async function deleteApiSetting(key: string): Promise<void> {
   await db.delete(siteSettings).where(eq(siteSettings.key, key));
-}
-
-export function normalizeCustomSettingKey(name: string): string {
-  const normalized = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  if (!normalized) throw new Error("A setting name is required.");
-  if (normalized.length > 60) throw new Error("Setting name is too long.");
-  return `custom_${normalized}`;
 }

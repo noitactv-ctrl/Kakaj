@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/use-auth";
-import { useForebitPolling } from "@/hooks/use-forebit-polling";
+import { useCryptoPolling } from "@/hooks/use-crypto-polling";
 import { useEffect } from "react";
 
 // Pages
@@ -28,7 +28,7 @@ function CardsRedirect() {
 function Router() {
   const { user, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
-  useForebitPolling();
+  useCryptoPolling();
 
   useEffect(() => {
     if (!isLoading && !user && location !== "/auth") {

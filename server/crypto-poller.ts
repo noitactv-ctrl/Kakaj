@@ -42,7 +42,7 @@ export async function pollPendingCryptoPayments() {
 
     for (const payment of pending) {
       try {
-        const invoice = await getNowPaymentsInvoice(payment.forebitPaymentId);
+        const invoice = await getNowPaymentsInvoice(payment.nowPaymentsPaymentId);
         const newStatus = mapNowPaymentsStatus(invoice.payment_status || invoice.status || "");
 
         if (newStatus === payment.status) continue;
@@ -57,13 +57,13 @@ export async function pollPendingCryptoPayments() {
 
         if (newStatus === "completed") {
           await processCompletion(payment);
-          log(`Auto-credited crypto payment ${payment.forebitPaymentId} ($${(payment.amount / 100).toFixed(2)}) for user ${payment.userId}`);
+          log(`Auto-credited crypto payment ${payment.nowPaymentsPaymentId} ($${(payment.amount / 100).toFixed(2)}) for user ${payment.userId}`);
         } else if ((newStatus === "failed" || newStatus === "expired") && payment.purpose === "order" && payment.orderId) {
           await storage.cancelPendingOrder(payment.orderId);
-          log(`Auto-cancelled order for failed crypto payment ${payment.forebitPaymentId}`);
+          log(`Auto-cancelled order for failed crypto payment ${payment.nowPaymentsPaymentId}`);
         }
       } catch (err: any) {
-        console.error(`[crypto-poller] Failed to process payment ${payment.forebitPaymentId}:`, err?.message ?? err);
+        console.error(`[crypto-poller] Failed to process payment ${payment.nowPaymentsPaymentId}:`, err?.message ?? err);
       }
     }
   } catch (err: any) {

@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 
-export function useForebitPolling() {
+export function useCryptoPolling() {
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -15,12 +15,11 @@ export function useForebitPolling() {
 
     const lastPurpose = sessionStorage.getItem("lastCryptoPurpose") || "deposit";
     const lastOrderId = sessionStorage.getItem("lastCryptoOrderId");
-
-    function clearSession() {
+    const clearSession = () => {
       sessionStorage.removeItem("lastCryptoPaymentId");
       sessionStorage.removeItem("lastCryptoPurpose");
       sessionStorage.removeItem("lastCryptoOrderId");
-    }
+    };
 
     let attempts = 0;
     const pollInterval = setInterval(async () => {
@@ -32,35 +31,24 @@ export function useForebitPolling() {
           if (data.status === "completed") {
             clearInterval(pollInterval);
             clearSession();
-
             queryClient.invalidateQueries({ queryKey: ["/api/user"] });
             queryClient.invalidateQueries({ queryKey: ["/api/wallet/transactions"] });
             queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
 
             if (lastPurpose === "order") {
-              toast({
-                title: "Order fulfilled!",
-                description: "Your crypto payment was confirmed. Check your orders for details.",
-              });
+              toast({ title: "Order fulfilled!", description: "Your crypto payment was confirmed. Check your orders for details." });
               const orderId = data.orderId || lastOrderId;
               if (orderId) window.location.href = `/order/${orderId}`;
             } else {
-              toast({
-                title: "Payment completed!",
-                description: `$${(data.amount / 100).toFixed(2)} has been added to your balance.`,
-              });
+              toast({ title: "Payment completed!", description: `$${(data.amount / 100).toFixed(2)} has been added to your balance.` });
             }
           } else if (data.status === "failed" || data.status === "expired") {
             clearInterval(pollInterval);
             clearSession();
-
             queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-
             toast({
-              title: "Payment " + data.status,
-              description: lastPurpose === "order"
-                ? "Your order has been cancelled. Stock has been released."
-                : "Your crypto payment did not go through.",
+              title: `Payment ${data.status}`,
+              description: lastPurpose === "order" ? "Your order has been cancelled. Stock has been released." : "Your crypto payment did not go through.",
               variant: "destructive",
             });
           }
@@ -71,6 +59,7 @@ export function useForebitPolling() {
         clearSession();
       }
     }, 5000);
+
     return () => clearInterval(pollInterval);
-  }, [user]);
+  }, [user, toast]);
 }

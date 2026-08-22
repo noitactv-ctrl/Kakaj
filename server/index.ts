@@ -8,8 +8,7 @@ import { pool, db } from "./db";
 import { users } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { pollPendingCryptoPayments } from "./crypto-poller";
-import { startTelegramBot } from "./telegram";
-import { ensureApiSettingsSchema, migrateLegacySecretSettings } from "./settings";
+import { ensureApiSettingsSchema, migrateLegacySecretSettings, removeRetiredApiSettings } from "./settings";
 
 const app = express();
 const httpServer = createServer(app);
@@ -87,6 +86,7 @@ app.use((req, res, next) => {
   await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`);
   await ensureApiSettingsSchema();
   await migrateLegacySecretSettings();
+  await removeRetiredApiSettings();
 
   await registerRoutes(httpServer, app);
 
@@ -181,14 +181,10 @@ app.use((req, res, next) => {
   expireStaleCrypto();
   setInterval(expireStaleCrypto, 5 * 60 * 1000);
 
-  // Poll Forebit API every 30 seconds to auto-credit completed crypto payments
+  // Poll NOWPayments every 30 seconds to auto-credit completed crypto payments
   // This runs server-side so balance is credited even if user closes their browser
   pollPendingCryptoPayments();
   setInterval(pollPendingCryptoPayments, 30 * 1000);
-
-  // Start Telegram bot (no-op when no configured token is available)
-  startTelegramBot().catch((error) => console.error("[telegram] startup failed:", error?.message || error));
-
 
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
