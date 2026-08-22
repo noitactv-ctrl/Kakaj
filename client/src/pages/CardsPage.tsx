@@ -395,18 +395,28 @@ function CardTableRow({
       </td>
       <td className="px-2.5 py-3 text-right whitespace-nowrap">
         <div className="flex items-center justify-end gap-1">
-          <button
-            onClick={() => bulkMode ? onToggleCart(card) : onAddCard(card)}
-            disabled={bulkMode && inCart}
-            className={`pixel-button inline-flex items-center justify-center px-2 py-1.5 text-[8px] font-bold transition-colors ${
-              bulkMode
-                ? bulkSelected ? "bg-[#ee292b] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
-                : inCart ? "bg-[#43b94e] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
-            } disabled:cursor-not-allowed disabled:opacity-50`}
-            data-testid={bulkMode ? `btn-select-card-${card.id}` : `btn-add-card-${card.id}`}
-          >
-            {bulkMode ? (inCart ? "IN CART" : bulkSelected ? "SELECTED" : "SELECT") : inCart ? "IN CART" : "Add"}
-          </button>
+          {inCart ? (
+            <span
+              className="inline-flex h-8 w-8 items-center justify-center text-[#43b94e]"
+              title="In cart"
+              aria-label="In cart"
+              data-testid={`icon-cart-card-${card.id}`}
+            >
+              <ShoppingCart className="h-5 w-5" fill="currentColor" strokeWidth={1.5} />
+            </span>
+          ) : (
+            <button
+              onClick={() => bulkMode ? onToggleCart(card) : onAddCard(card)}
+              className={`pixel-button inline-flex items-center justify-center px-2 py-1.5 text-[8px] font-bold transition-colors ${
+                bulkMode
+                  ? bulkSelected ? "bg-[#ee292b] text-white" : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
+                  : "bg-[#ffe1aa] text-[#20140d] hover:bg-[#fff0c9]"
+              } disabled:cursor-not-allowed disabled:opacity-50`}
+              data-testid={bulkMode ? `btn-select-card-${card.id}` : `btn-add-card-${card.id}`}
+            >
+              {bulkMode ? (bulkSelected ? "SELECTED" : "SELECT") : "Add"}
+            </button>
+          )}
           {!bulkMode && (
             <button
               onClick={() => onBuyCard(card.id)}
