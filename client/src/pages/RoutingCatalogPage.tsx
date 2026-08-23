@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Landmark, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -30,11 +30,6 @@ export default function RoutingCatalogPage() {
     return items.filter(item => [item.bankName, item.routingNumber, item.state, item.zip]
       .some(value => value.toLowerCase().includes(search)));
   }, [items, query]);
-  const selectRandom = () => {
-    const randomItems = [...items].sort(() => Math.random() - 0.5).slice(0, Math.min(5, items.length));
-    setSelected(current => Array.from(new Set([...current, ...randomItems.map(item => item.id)])));
-  };
-
   const purchaseMutation = useMutation({
     mutationFn: async (itemIds: number[]) => {
       const response = await apiRequest("POST", "/api/routings/purchase", { itemIds });
@@ -58,34 +53,24 @@ export default function RoutingCatalogPage() {
   const toggleSelected = (id: number) => setSelected(current => current.includes(id)
     ? current.filter(itemId => itemId !== id)
     : [...current, id]);
-  const selectedTotal = items.filter(item => selected.includes(item.id)).reduce((sum, item) => sum + item.price, 0);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
-      <Link href="/deposit">
-        <span className="store-action store-deposit">
-          <span>◉ DEPOSIT</span>
-        </span>
-      </Link>
-      <section className="space-y-3">
+      <section className="pixel-panel sticky top-[68px] z-30 space-y-3 bg-[#10276a] p-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#725d42]" />
-          <Input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by bank, routing, state, zip..."
-            className="h-10 pl-9 bg-[#ffe1aa] border-[3px] border-black rounded-none text-[#171108] placeholder:text-[#725d42]" data-testid="input-routing-search" />
+          <Input value={query} onChange={event => setQuery(event.target.value)} placeholder="SEARCH BANK, ROUTING, STATE OR ZIP..."
+            className="pixel-input h-11 pl-10 text-xs" data-testid="input-routing-search" />
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="border-t-2 border-black/60 pt-3">
           <Button onClick={() => purchaseMutation.mutate(selected)} disabled={purchaseMutation.isPending || selected.length === 0}
-            className="pixel-button h-8 rounded-none !bg-[#ffe1aa] !text-[#171108] !shadow-[3px_3px_0_#000] text-[8px]" data-testid="button-add-selected-routings">
-            + add selected ({selected.length})
+            className="pixel-button flex w-full items-center justify-center !bg-[#43b94e] px-3 py-3 text-[9px] !text-white"
+            data-testid="button-add-selected-routings">
+            {purchaseMutation.isPending ? "PROCESSING..." : `ADD SELECTED BANKS · ${selected.length}`}
           </Button>
-          <Button onClick={selectRandom} disabled={items.length === 0}
-            className="pixel-button h-8 rounded-none !bg-[#ffe1aa] !text-[#171108] !shadow-[3px_3px_0_#000] text-[8px]" data-testid="button-bulk-random-routings">
-            × bulk add random
-          </Button>
-        </div>
-        <div className="flex items-center justify-between text-[10px] font-mono text-white/45">
-          <span>{visibleItems.length} banks available</span>
-          <span>{selected.length} selected · ${(selectedTotal / 100).toFixed(2)}</span>
+          <p className="mt-2 text-center text-[10px] font-bold text-[#ffe177]">
+            SELECT BANKS TO ADD THEM TO YOUR ORDER
+          </p>
         </div>
       </section>
 

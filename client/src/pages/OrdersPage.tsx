@@ -3,7 +3,7 @@ import { useOrders } from "@/hooks/use-orders";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, CreditCard, Coins, ReceiptText, Send } from "lucide-react";
+import { Loader2, CreditCard, ReceiptText } from "lucide-react";
 import { Link } from "wouter";
 
 type TabType = "all" | "cards" | "ach";
@@ -113,20 +113,11 @@ export default function OrdersPage() {
 
   return (
     <div className="pixel-page max-w-5xl px-1 py-2 space-y-5">
-      <a href="https://t.me" target="_blank" rel="noreferrer" className="store-action store-telegram">
-        <span className="flex items-center gap-2"><Send className="h-4 w-4" />JOIN OUR TELEGRAM</span>
-      </a>
-
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl leading-relaxed text-white sm:text-2xl">ORDER HISTORY</h1>
           <p className="mt-2 font-mono text-[10px] text-white/45">{formatDateTime(now)}</p>
         </div>
-        <Link href="/support">
-          <span className="pixel-button flex items-center gap-1.5 px-3 py-2 text-[8px]" data-testid="btn-support">
-            SUPPORT
-          </span>
-        </Link>
       </div>
 
       {/* Tabs */}
@@ -171,9 +162,8 @@ export default function OrdersPage() {
           <ReceiptText className="mx-auto h-8 w-8 text-[#ffe177]" />
           <h2 className="mt-5 text-sm leading-relaxed text-white">NO ORDERS YET</h2>
           <p className="mx-auto mt-3 max-w-md text-xs text-white/55">When you buy cards or top up, your activity will show up here.</p>
-          <div className="mt-5 flex justify-center gap-3">
+          <div className="mt-5 flex justify-center">
             <Link href="/cards"><span className="pixel-button inline-flex items-center gap-2 px-3 py-3 text-[8px]"><CreditCard className="h-3 w-3" />BROWSE CARDS</span></Link>
-            <Link href="/deposit"><span className="pixel-button inline-flex items-center gap-2 px-3 py-3 text-[8px]"><Coins className="h-3 w-3" />DEPOSIT</span></Link>
           </div>
         </div>
       ) : (

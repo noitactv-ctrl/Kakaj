@@ -48,8 +48,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const cardItems = useCart(s => s.cardItems);
   const bulkBundle = useCart(s => s.bulkBundle);
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0) + cardItems.length + (bulkBundle?.cardIds.length ?? 0);
-  const balance = user ? (user.balance / 100).toFixed(2) : "0.00";
-
   useEffect(() => setNavOpen(false), [location]);
   useEffect(() => {
     document.body.style.overflow = navOpen ? "hidden" : "";
@@ -150,20 +148,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="min-h-screen lg:pl-[260px]">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b-[3px] border-[#183c9d] bg-[#070d25]/95 px-4 shadow-[0_3px_0_#02040d] backdrop-blur lg:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b-[3px] border-[#183c9d] bg-[#070d25]/95 px-4 shadow-[0_3px_0_#02040d] backdrop-blur lg:px-6">
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="ml-auto flex items-center gap-2">
-            <Link href="/support" className="pixel-button px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
-              <span className="hidden sm:inline">SUPPORT</span>
-              <Ticket className="h-3.5 w-3.5 sm:hidden" />
-            </Link>
-            <Link href="/deposit" className="pixel-button flex items-center gap-1.5 px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
-              <Coins className="h-3.5 w-3.5" />
-              <span>${balance}</span>
-            </Link>
-          </div>
         </header>
         <div className="min-h-[calc(100vh-56px)] px-3 py-4 sm:px-4 lg:px-6 lg:py-5">
           {children}
