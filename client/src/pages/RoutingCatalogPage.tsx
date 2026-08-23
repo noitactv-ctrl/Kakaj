@@ -11,6 +11,8 @@ type RoutingItem = {
   routingNumber: string;
   state: string;
   zip: string;
+  bin: string;
+  issuer: string;
   price: number;
 };
 
@@ -30,7 +32,7 @@ export default function RoutingCatalogPage() {
   const visibleItems = useMemo(() => {
     const search = query.trim().toLowerCase();
     if (!search) return items;
-    return items.filter(item => [item.bankName, item.routingNumber, item.state, item.zip]
+    return items.filter(item => [item.bankName, item.routingNumber, item.state, item.zip, item.bin, item.issuer]
       .some(value => value.toLowerCase().includes(search)));
   }, [items, query]);
 
@@ -157,15 +159,15 @@ export default function RoutingCatalogPage() {
           </div>
         ) : (
           <>
-            <div className={`hidden md:grid ${bulkMode ? "grid-cols-[42px_1.6fr_1fr_.7fr_.8fr_.6fr]" : "grid-cols-[42px_1.6fr_1fr_.7fr_.8fr_.6fr_.7fr]"} gap-4 bg-[#183c9d] px-5 py-3 pixel-text text-[8px] text-[#ffe177]`}>
+            <div className={`hidden md:grid ${bulkMode ? "grid-cols-[42px_1.3fr_1.3fr_1fr_.6fr_.7fr_.8fr_.6fr]" : "grid-cols-[42px_1.3fr_1.3fr_1fr_.6fr_.7fr_.8fr_.6fr_.7fr]"} gap-4 bg-[#183c9d] px-5 py-3 pixel-text text-[8px] text-[#ffe177]`}>
               <span />
-              <span>BANK</span><span>ROUTING NUMBER</span><span>STATE</span><span>ZIP</span><span>PRICE</span>
+              <span>BANK</span><span>ISSUER</span><span>ROUTING NUMBER</span><span>STATE</span><span>ZIP</span><span>BIN</span><span>PRICE</span>
               {!bulkMode && <span>ACTIONS</span>}
             </div>
             {visibleItems.map(item => {
               const isSelected = bulkMode ? selected.includes(item.id) : regularSelected.includes(item.id);
               return (
-                <div key={item.id} className={`grid grid-cols-1 ${bulkMode ? "md:grid-cols-[42px_1.6fr_1fr_.7fr_.8fr_.6fr]" : "md:grid-cols-[42px_1.6fr_1fr_.7fr_.8fr_.6fr_.7fr]"} gap-2 md:gap-4 items-center px-5 py-4 border-t border-[#1b3065] bg-[#07102a] ${isSelected ? "bg-[#102b6a]" : ""}`}>
+                <div key={item.id} className={`grid grid-cols-1 ${bulkMode ? "md:grid-cols-[42px_1.3fr_1.3fr_1fr_.6fr_.7fr_.8fr_.6fr]" : "md:grid-cols-[42px_1.3fr_1.3fr_1fr_.6fr_.7fr_.8fr_.6fr_.7fr]"} gap-2 md:gap-4 items-center px-5 py-4 border-t border-[#1b3065] bg-[#07102a] ${isSelected ? "bg-[#102b6a]" : ""}`}>
                   <label className="flex items-center">
                     <input
                       type="checkbox"
@@ -177,9 +179,11 @@ export default function RoutingCatalogPage() {
                     />
                   </label>
                   <div><span className="md:hidden mr-2 text-[10px] text-white/45">Bank</span><span className="font-semibold text-white">{item.bankName}</span></div>
+                  <div><span className="md:hidden mr-2 text-[10px] text-white/45">Issuer</span>{item.issuer || "—"}</div>
                   <div className="font-mono text-sm text-[#7fa9ff]"><span className="md:hidden mr-2 text-[10px] text-white/45">Routing</span>{item.routingNumber}</div>
                   <div><span className="md:hidden mr-2 text-[10px] text-white/45">State</span>{item.state}</div>
                   <div><span className="md:hidden mr-2 text-[10px] text-white/45">ZIP</span>{item.zip}</div>
+                  <div className="font-mono"><span className="md:hidden mr-2 text-[10px] text-white/45">BIN</span>{item.bin || "—"}</div>
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-[#ffe177]">${((bulkMode ? BULK_BANK_PRICE : item.price) / 100).toFixed(2)}</span>
                   </div>

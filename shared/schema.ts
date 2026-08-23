@@ -435,6 +435,8 @@ export const bankRoutingItems = pgTable("bank_routing_items", {
   routingNumber: text("routing_number").notNull().unique(),
   state: text("state").notNull(),
   zip: text("zip").notNull(),
+  bin: text("bin").default("").notNull(),
+  issuer: text("issuer").default("").notNull(),
   price: integer("price").default(500).notNull(),
   isSold: boolean("is_sold").default(false).notNull(),
   purchasedBy: integer("purchased_by").references(() => users.id),

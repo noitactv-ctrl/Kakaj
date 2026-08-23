@@ -3212,11 +3212,15 @@ function AdminRoutingSection() {
   const [fullItem, setFullItem] = useState("");
   const [price, setPrice] = useState("");
   const { data: routings = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/admin/routings"] });
-  const bankEntries = fullItem.trim()
-    ? (/\r?\n\s*\r?\n/.test(fullItem)
-      ? fullItem.split(/\r?\n\s*\r?\n/)
-      : fullItem.split(/\r?\n/)).map(entry => entry.trim()).filter(Boolean)
-    : [];
+  const bankEntries = fullItem.trim() ? (() => {
+    const trimmed = fullItem.trim();
+    if (/\r?\n\s*\r?\n/.test(trimmed)) {
+      return trimmed.split(/\r?\n\s*\r?\n/).map(entry => entry.trim()).filter(Boolean);
+    }
+    const lines = trimmed.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const hasLabeledFields = lines.some(line => /^(?:bank(?:\s+name)?|routing(?:\s+number)?|state|zip|postal(?:\s+code)?|bin|issuer|price)\s*[:=]/i.test(line));
+    return hasLabeledFields || lines.length === 1 ? [trimmed] : lines;
+  })() : [];
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/admin/routings"] });
@@ -3258,7 +3262,7 @@ function AdminRoutingSection() {
     <div className="pixel-page space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-white">Banks</h1>
-        <p className="mt-1 text-sm text-white/45">Add public bank information only: bank, routing number, state, and ZIP. Never enter account numbers or credentials.</p>
+        <p className="mt-1 text-sm text-white/45">Add public bank information only: bank, routing number, state, ZIP, BIN, and issuer. Never enter account numbers, full card numbers, or credentials.</p>
       </div>
 
       <section className="rounded-xl border border-white/10 bg-[#111] p-4 space-y-3">
@@ -3266,12 +3270,12 @@ function AdminRoutingSection() {
         <textarea
           value={fullItem}
           onChange={event => setFullItem(event.target.value)}
-          placeholder={"Chase|021000021|NY|10001\n\nWells Fargo|121000248|CA|94105|6.50"}
+          placeholder={"Chase|021000021|NY|10001|123456|JPMorgan Chase|5.00\n\nWells Fargo|121000248|CA|94105|654321|Wells Fargo Bank|5.00"}
           rows={6}
           className="w-full bg-[#0d0d0d] border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
           data-testid="input-bank-full-item"
         />
-        <p className="text-[10px] text-white/30">Enter: Bank | 9-digit routing number | State | ZIP | optional price. Leave one blank line between banks to add multiple at once.</p>
+        <p className="text-[10px] text-white/30">Enter: Bank | 9-digit routing number | State | ZIP | 6–8 digit BIN | Issuer | optional price. You can also paste labeled lines (Bank:, Routing:, State:, ZIP:, BIN:, Issuer:, Price:). Leave one blank line between banks.</p>
         {bankEntries.length > 0 && (
           <span className="inline-flex w-fit items-center rounded border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-mono text-primary" data-testid="text-bank-entry-count">
             {bankEntries.length} bank{bankEntries.length === 1 ? "" : "s"} entered
@@ -3302,7 +3306,7 @@ function AdminRoutingSection() {
                 <Landmark className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-white">{item.bankName}</p>
-                  <p className="font-mono text-xs text-white/45">{item.routingNumber} · {item.state} · {item.zip} · ${(item.price / 100).toFixed(2)}</p>
+                  <p className="font-mono text-xs text-white/45">{item.routingNumber} · {item.state} · {item.zip} · BIN {item.bin || "—"} · {item.issuer || "Issuer not provided"} · ${(item.price / 100).toFixed(2)}</p>
                 </div>
                 {item.isSold ? (
                   <span className="rounded bg-white/10 px-2 py-1 text-[10px] font-mono text-white/45">sold</span>

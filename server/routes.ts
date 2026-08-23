@@ -2308,12 +2308,57 @@ export async function registerRoutes(
 
   // ── Public Bank Routing Catalog ──────────────────────────────
   const routingInputSchema = z.object({
-    bankName: z.string().trim().min(1).max(120),
+    bankName: z.string().trim().min(1, "Bank name is required").max(120, "Bank name must contain at most 120 characters"),
     routingNumber: z.string().trim().regex(/^\d{9}$/, "Routing number must contain exactly 9 digits"),
     state: z.string().trim().regex(/^[A-Za-z]{2}$/, "State must be a two-letter abbreviation").transform(value => value.toUpperCase()),
     zip: z.string().trim().regex(/^\d{5}(?:-\d{4})?$/, "ZIP must be 5 digits or ZIP+4"),
+    bin: z.string().trim().regex(/^\d{6,8}$/, "BIN must contain 6 to 8 digits"),
+    issuer: z.string().trim().min(1, "Issuer is required").max(120, "Issuer must contain at most 120 characters"),
     price: z.coerce.number().min(0.01).max(100000).default(5),
   });
+
+  const splitRoutingRecords = (rawContent: string) => {
+    const trimmed = rawContent.trim();
+    if (!trimmed) return [];
+    if (/\r?\n\s*\r?\n/.test(trimmed)) {
+      return trimmed.split(/\r?\n\s*\r?\n/).map(record => record.trim()).filter(Boolean);
+    }
+    const lines = trimmed.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const hasLabeledFields = lines.some(line => /^(?:bank(?:\s+name)?|routing(?:\s+number)?|state|zip|postal(?:\s+code)?|bin|issuer|price)\s*[:=]/i.test(line));
+    return hasLabeledFields || lines.length === 1 ? [trimmed] : lines;
+  };
+
+  const parseRoutingRecord = (record: string, defaultPrice: number) => {
+    const pipeFields = record.split("|").map(part => part.trim());
+    if (pipeFields.length > 1) {
+      const [bankName, routingNumber, state, zip, bin, issuer, recordPrice] = pipeFields;
+      return routingInputSchema.safeParse({
+        bankName,
+        routingNumber,
+        state,
+        zip,
+        bin,
+        issuer,
+        price: recordPrice || defaultPrice,
+      });
+    }
+
+    const labeledFields: Record<string, string> = {};
+    for (const line of record.split(/\r?\n/)) {
+      const match = line.match(/^\s*([^:=]+?)\s*[:=]\s*(.*?)\s*$/);
+      if (!match) continue;
+      const key = match[1].trim().toLowerCase().replace(/\s+/g, " ");
+      const value = match[2].trim();
+      if (["bank", "bank name", "name"].includes(key)) labeledFields.bankName = value;
+      else if (["routing", "routing number", "aba"].includes(key)) labeledFields.routingNumber = value;
+      else if (["state"].includes(key)) labeledFields.state = value;
+      else if (["zip", "postal", "postal code"].includes(key)) labeledFields.zip = value;
+      else if (["bin", "iin"].includes(key)) labeledFields.bin = value;
+      else if (["issuer", "issuer name"].includes(key)) labeledFields.issuer = value;
+      else if (["price"].includes(key)) labeledFields.price = value;
+    }
+    return routingInputSchema.safeParse({ ...labeledFields, price: labeledFields.price || defaultPrice });
+  };
 
   const routingPurchaseSchema = z.object({
     itemIds: z.array(z.coerce.number().int().positive()).min(1).max(100),
@@ -2334,6 +2379,8 @@ export async function registerRoutes(
       routingNumber: bankRoutingItems.routingNumber,
       state: bankRoutingItems.state,
       zip: bankRoutingItems.zip,
+      bin: bankRoutingItems.bin,
+      issuer: bankRoutingItems.issuer,
       price: bankRoutingItems.price,
       createdAt: bankRoutingItems.createdAt,
     }).from(bankRoutingItems)
@@ -2371,19 +2418,12 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Unauthorized" });
     }
     const rawContent = String(req.body?.rawContent ?? "").trim();
-    const rawRecords = (/\r?\n\s*\r?\n/.test(rawContent)
-      ? rawContent.split(/\r?\n\s*\r?\n/)
-      : rawContent.split(/\r?\n/))
-      .map(record => record.trim())
-      .filter(Boolean);
+    const rawRecords = splitRoutingRecords(rawContent);
     if (rawRecords.length === 0 || rawRecords.length > 500) {
       return res.status(400).json({ message: "Provide between 1 and 500 routing records" });
     }
     const defaultPrice = Number(req.body?.price ?? 5);
-    const staged = rawRecords.map((record) => {
-      const [bankName, routingNumber, state, zip, price] = record.split("|").map(part => part.trim());
-      return routingInputSchema.safeParse({ bankName, routingNumber, state, zip, price: price || defaultPrice });
-    });
+    const staged = rawRecords.map(record => parseRoutingRecord(record, defaultPrice));
     const invalid = staged.find(result => !result.success);
     if (invalid && !invalid.success) return res.status(400).json({ message: invalid.error.issues[0]?.message ?? "Invalid routing record" });
     const data = staged.map(result => (result as z.SafeParseSuccess<z.infer<typeof routingInputSchema>>).data);
@@ -2438,6 +2478,8 @@ export async function registerRoutes(
 
         const routingRows = selected.map(item => [
           item.bankName,
+           `Issuer: ${item.issuer || item.bankName}`,
+           `BIN: ${item.bin || "Not provided"}`,
           `Routing: ${item.routingNumber}`,
           `State: ${item.state}`,
           `ZIP: ${item.zip}`,
@@ -2491,6 +2533,8 @@ export async function registerRoutes(
 
         const routingRows = selected.map(item => [
           item.bankName,
+           `Issuer: ${item.issuer || item.bankName}`,
+           `BIN: ${item.bin || "Not provided"}`,
           `Routing: ${item.routingNumber}`,
           `State: ${item.state}`,
           `ZIP: ${item.zip}`,
