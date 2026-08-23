@@ -229,7 +229,7 @@ export default function DepositPage() {
 
   return (
     <div className="pixel-page min-h-screen flex flex-col">
-      <div className="mx-auto flex-1 w-full max-w-4xl px-1 py-1 space-y-4">
+      <div className="pixel-page flex-1 space-y-4">
         {manualResult ? (
           <ManualDepositPanel result={manualResult} onReset={() => { setManualResult(null); setSelectedOption(null); setAmountInput(""); }} />
         ) : (

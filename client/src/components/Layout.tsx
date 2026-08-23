@@ -151,12 +151,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className={`min-h-screen lg:pl-[260px] ${showCartRail ? "lg:pr-[292px] 2xl:pr-[320px]" : ""}`}>
-        <header className="sticky top-0 z-30 flex h-14 items-center border-b-[3px] border-[#183c9d] bg-[#070d25]/95 px-4 shadow-[0_3px_0_#02040d] backdrop-blur lg:px-6">
+        <header className="pixel-content-gutter sticky top-0 z-30 flex h-14 items-center border-b-[3px] border-[#183c9d] bg-[#070d25]/95 shadow-[0_3px_0_#02040d] backdrop-blur">
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
         </header>
-        <div className="min-h-[calc(100vh-56px)] px-3 py-4 sm:px-4 lg:px-6 lg:py-5">
+        <div className="pixel-content-gutter min-h-[calc(100vh-56px)] py-4 lg:py-5">
           {children}
         </div>
       </main>

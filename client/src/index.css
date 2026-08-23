@@ -5,6 +5,9 @@
 @tailwind utilities;
 
 :root {
+  --site-content-max: 70rem;
+  --site-page-gutter: 1rem;
+  --pixel-control-height: 2.5rem;
   --background: 0 0% 3%;
   --foreground: 38 100% 94%;
   --card: 228 62% 18%;
@@ -70,7 +73,7 @@
   .pixel-panel { border: 3px solid #070707; box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.82), inset 0 1px 0 rgba(255,255,255,0.16); }
   .pixel-button { border: 3px solid #090909; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255,255,255,0.25); background: #ffe1aa; color: #17110a; font-family: var(--font-pixel); font-weight: 700; }
   .pixel-button:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255,255,255,0.25); filter: brightness(1.08); }
-  .pixel-page { max-width: 1120px; margin: 0 auto; }
+  .pixel-page { width: 100%; max-width: var(--site-content-max); margin: 0 auto; }
   .pixel-input { width: 100%; border: 3px solid #050505; border-radius: 0; background: #ffe1aa; color: #1b130b; padding: 0.75rem 0.9rem; font-family: var(--font-mono); font-size: 0.78rem; outline: none; box-shadow: 2px 2px 0 #050505; }
   .pixel-input::placeholder { color: #735c44; }
   .pixel-input:focus { background: #fff0c9; }
@@ -82,6 +85,36 @@
   .store-action:hover { transform: translate(1px, 1px); filter: brightness(1.1); }
   .store-deposit { background: linear-gradient(180deg, #ff4547 0%, #e11d25 55%, #bd1018 100%); color: #fff; text-shadow: 2px 2px 0 #821018; }
   .store-telegram { background: linear-gradient(180deg, #3f7ff7 0%, #2360df 55%, #1845b8 100%); color: #fff; text-shadow: 2px 2px 0 #12327d; }
+}
+
+.pixel-content-gutter {
+  padding-inline: var(--site-page-gutter);
+}
+
+/* Keep the storefront on one readable pixel scale even when a page adds
+   a smaller utility class for a specific state or breakpoint. */
+.pixel-shell .pixel-button {
+  min-height: var(--pixel-control-height);
+  padding: 0.625rem 0.875rem;
+  font-size: 0.5625rem;
+  line-height: 1.25;
+}
+
+.pixel-shell .pixel-input {
+  min-height: var(--pixel-control-height);
+  font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --site-page-gutter: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --site-page-gutter: 1.5rem;
+  }
 }
 
 @keyframes marquee {

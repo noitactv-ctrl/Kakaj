@@ -123,7 +123,7 @@ export default function SupportPage() {
 
   return (
     <div className="pixel-page min-h-screen flex flex-col">
-      <div className="flex-1 max-w-3xl mx-auto w-full px-1 py-2">
+      <div className="pixel-page flex-1 py-2">
 
         {/* Header */}
         <div className="mb-6">

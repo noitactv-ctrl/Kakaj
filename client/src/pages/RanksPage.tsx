@@ -28,7 +28,7 @@ export default function RanksPage() {
 
   return (
     <div className="pixel-page min-h-screen pb-10">
-      <div className="max-w-5xl mx-auto px-1 pt-2">
+      <div className="pixel-page pt-2">
 
         {/* ── Hero ── */}
         <div className="pt-2 pb-5 space-y-1">

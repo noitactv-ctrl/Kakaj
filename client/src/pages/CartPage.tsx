@@ -303,7 +303,7 @@ export default function CartPage() {
         />
       )}
 
-      <div className="pixel-page max-w-5xl mx-auto w-full space-y-4 pb-20">
+      <div className="pixel-page space-y-4 pb-20">
 
         {/* Products header */}
         <div className="flex items-center justify-between">

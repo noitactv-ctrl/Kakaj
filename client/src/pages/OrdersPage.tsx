@@ -112,7 +112,7 @@ export default function OrdersPage() {
   ];
 
   return (
-    <div className="pixel-page max-w-5xl px-1 py-2 space-y-5">
+    <div className="pixel-page space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl leading-relaxed text-white sm:text-2xl">ORDER HISTORY</h1>

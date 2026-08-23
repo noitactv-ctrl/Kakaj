@@ -134,7 +134,7 @@ export default function PlinkoGamePage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="pixel-page">
       <div className="mb-5 border-b-[3px] border-[#233f9b] pb-5">
         <p className="pixel-text text-[9px] text-[#ffe177]">GAMES / PLINKO</p>
         <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">DROP THE BALL</h1>

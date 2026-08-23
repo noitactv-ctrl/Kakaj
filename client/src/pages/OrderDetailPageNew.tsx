@@ -121,7 +121,7 @@ export default function OrderDetailPageNew() {
 
   return (
     <div className="pixel-page min-h-screen flex flex-col pb-20">
-      <div className="max-w-3xl w-full mx-auto px-1 pt-2 flex flex-col flex-1">
+      <div className="pixel-page w-full pt-2 flex flex-col flex-1">
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => setLocation("/orders")}

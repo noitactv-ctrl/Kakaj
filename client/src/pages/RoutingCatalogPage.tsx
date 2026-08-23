@@ -93,7 +93,7 @@ export default function RoutingCatalogPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4">
+    <div className="pixel-page space-y-4">
       <section className="pixel-panel sticky top-[68px] z-30 bg-[#10276a] px-3 py-3 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#725d42]" />

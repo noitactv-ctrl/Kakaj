@@ -131,16 +131,18 @@ export default function AdminPage() {
 
         {/* Scrollable content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
-          {activeSection === "dashboard"    && <DashboardSection />}
-          {activeSection === "cards"        && <AdminCardsSection />}
-          {activeSection === "routings"     && <AdminRoutingSection />}
-          {activeSection === "orders"       && <OrdersSection />}
-          {activeSection === "cashapp"      && <CashAppSection />}
-          {activeSection === "users"        && <UsersSection />}
-          {activeSection === "support"      && <SupportSection />}
-          {activeSection === "deposits"     && <DepositsSection />}
-          
-          {activeSection === "integrations" && <IntegrationsSection />}
+          <div className="pixel-page w-full">
+            {activeSection === "dashboard"    && <DashboardSection />}
+            {activeSection === "cards"        && <AdminCardsSection />}
+            {activeSection === "routings"     && <AdminRoutingSection />}
+            {activeSection === "orders"       && <OrdersSection />}
+            {activeSection === "cashapp"      && <CashAppSection />}
+            {activeSection === "users"        && <UsersSection />}
+            {activeSection === "support"      && <SupportSection />}
+            {activeSection === "deposits"     && <DepositsSection />}
+
+            {activeSection === "integrations" && <IntegrationsSection />}
+          </div>
         </main>
 
         {/* ── Mobile bottom tab bar ── */}
@@ -3250,7 +3252,7 @@ function AdminRoutingSection() {
   const availableValue = available.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="pixel-page space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-white">Banks</h1>
         <p className="mt-1 text-sm text-white/45">Add public bank information only: bank, routing number, state, and ZIP. Never enter account numbers or credentials.</p>
@@ -3557,7 +3559,7 @@ function SupportSection() {
   const displayed = showHistory ? closed : open;
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="pixel-page space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

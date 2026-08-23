@@ -249,7 +249,7 @@ export default function CardsPage() {
   };
 
   return (
-    <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto space-y-4">
+    <div className="pixel-page space-y-4">
       <div className="pixel-panel bg-[#10276a] px-3 py-3 space-y-3 sticky top-[68px] z-30">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#725d42]" />
