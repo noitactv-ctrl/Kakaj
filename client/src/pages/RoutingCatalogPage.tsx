@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Landmark, Loader2, Search, ShoppingCart } from "lucide-react";
+import { Landmark, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
@@ -109,25 +109,11 @@ export default function RoutingCatalogPage() {
               <div><span className="md:hidden mr-2 text-[10px] text-white/45">ZIP</span>{item.zip}</div>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-[#ffe177]">${(item.price / 100).toFixed(2)}</span>
-                <Button size="sm" onClick={() => purchaseMutation.mutate([item.id])} disabled={purchaseMutation.isPending}
-                  className="md:hidden h-8 bg-[#43b94e] hover:bg-[#31973a] text-white" data-testid={`button-buy-routing-${item.id}`}>
-                  Buy
-                </Button>
               </div>
             </div>
           );
         })}
       </section>
-
-      {selected.length > 0 && (
-        <div className="sticky bottom-3 flex flex-col sm:flex-row gap-3 sm:items-center justify-between border-[3px] border-[#0a1021] bg-[#43b94e] px-4 py-3 shadow-[4px_4px_0_#0a1021]">
-          <p className="pixel-text text-[9px] text-white">{selected.length} selected · ${(selectedTotal / 100).toFixed(2)}</p>
-          <Button onClick={() => purchaseMutation.mutate(selected)} disabled={purchaseMutation.isPending}
-            className="pixel-button h-9 !bg-[#ffe177] !text-[#171108]" data-testid="button-buy-selected-routings">
-            {purchaseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ShoppingCart className="mr-2 h-4 w-4" />Buy selected</>}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

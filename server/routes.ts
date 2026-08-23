@@ -863,9 +863,13 @@ export async function registerRoutes(
   app.get("/api/admin/orders", async (req, res) => {
     if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
     const allOrders = await storage.getAllOrders();
-    // Show all orders — include CashApp/Chime/Zelle deposit orders so admin can confirm them
+    // Deposit-only payment records belong in Deposits, not the product Orders view.
+    // Orders paid through these methods still remain visible when they contain items.
+    const depositMethods = new Set(["CashApp", "Chime", "Zelle"]);
     const productOrders = allOrders.filter((o: any) =>
-      o.items.length > 0 || o.total > 0 || ["CashApp", "Chime", "Zelle"].includes(o.paymentMethod)
+      Array.isArray(o.items) && o.items.length > 0
+        ? true
+        : !depositMethods.has(o.paymentMethod)
     );
     res.json(productOrders);
   });
