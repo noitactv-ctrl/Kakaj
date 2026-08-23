@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/hooks/use-cart";
+import { CartSidebar } from "@/components/CartSidebar";
 
 type NavItem = {
   href: string;
@@ -44,6 +45,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [navOpen, setNavOpen] = useState(false);
+  const [cartRailOpen, setCartRailOpen] = useState(true);
   const cartItems = useCart(s => s.items);
   const cardItems = useCart(s => s.cardItems);
   const bulkBundle = useCart(s => s.bulkBundle);
@@ -58,6 +60,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isActive = (href: string) =>
     location === href || (href === "/deposit" && location === "/");
+  const showCartRail = location !== "/cart";
 
   const navContent = (
     <>
@@ -147,7 +150,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {navContent}
       </aside>
 
-      <main className="min-h-screen lg:pl-[260px]">
+      <main className={`min-h-screen lg:pl-[260px] ${showCartRail ? "lg:pr-[292px] 2xl:pr-[320px]" : ""}`}>
         <header className="sticky top-0 z-30 flex h-14 items-center border-b-[3px] border-[#183c9d] bg-[#070d25]/95 px-4 shadow-[0_3px_0_#02040d] backdrop-blur lg:px-6">
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
@@ -157,6 +160,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+      {showCartRail && (
+        <CartSidebar
+          open={cartRailOpen}
+          onClose={() => setCartRailOpen(false)}
+          onOpen={() => setCartRailOpen(true)}
+        />
+      )}
     </div>
   );
 }
