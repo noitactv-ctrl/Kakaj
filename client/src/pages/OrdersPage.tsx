@@ -3,8 +3,7 @@ import { useOrders } from "@/hooks/use-orders";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, RefreshCw, CreditCard, Coins, ReceiptText, Send } from "lucide-react";
-import { queryClient } from "@/lib/queryClient";
+import { Loader2, CreditCard, Coins, ReceiptText, Send } from "lucide-react";
 import { Link } from "wouter";
 
 type TabType = "all" | "cards" | "ach";
@@ -57,7 +56,7 @@ function statusBadge(status: string) {
 }
 
 export default function OrdersPage() {
-  const { data: orders, isLoading, isError, refetch, isRefetching } = useOrders();
+  const { data: orders, isLoading, isError } = useOrders();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<TabType>("all");
@@ -74,12 +73,6 @@ export default function OrdersPage() {
     discount: `${rankData?.discountPct ?? 0}% off`,
   };
   const allOrders = orders ?? [];
-
-  const totalSpentCents = useMemo(() => {
-    return allOrders
-      .filter((o: any) => o.status === "fulfilled" || o.status === "delivering" || o.status === "replaced")
-      .reduce((sum: number, o: any) => sum + (o.total ?? 0), 0);
-  }, [allOrders]);
 
   const cardOrders = useMemo(() => allOrders.filter(isCardOrder), [allOrders]);
   const achOrders = useMemo(() => allOrders.filter(isAchOrder), [allOrders]);
@@ -126,40 +119,18 @@ export default function OrdersPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg leading-relaxed text-white sm:text-xl">ORDER HISTORY</h1>
+          <h1 className="text-xl leading-relaxed text-white sm:text-2xl">ORDER HISTORY</h1>
           <p className="mt-2 font-mono text-[10px] text-white/45">{formatDateTime(now)}</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="pixel-button flex items-center gap-1.5 px-3 py-2 text-[8px] disabled:opacity-50"
-            data-testid="btn-refresh"
-          >
-            <RefreshCw className={`h-3 w-3 ${isRefetching ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
-          <Link href="/support">
-            <span className="pixel-button flex items-center gap-1.5 px-3 py-2 text-[8px]" data-testid="btn-support">
-              Support
-            </span>
-          </Link>
-        </div>
-      </div>
-
-      <div className="pixel-panel bg-[#18367f] p-4 flex items-center justify-between">
-        <div>
-          <p className="pixel-label mb-2">TOTAL DEPOSITS</p>
-          <p className="text-2xl font-mono font-bold text-[#ffe177]">${(totalDepositsCents / 100).toFixed(2)}</p>
-        </div>
-        <div className="text-right">
-          <p className="pixel-label mb-2">RANK</p>
-          <p className="text-sm font-bold text-white">{tier.label} <span className="text-[#72df7c] font-mono">· {tier.discount}</span></p>
-        </div>
+        <Link href="/support">
+          <span className="pixel-button flex items-center gap-1.5 px-3 py-2 text-[8px]" data-testid="btn-support">
+            SUPPORT
+          </span>
+        </Link>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-0 border-b-[3px] border-[#e5be35] overflow-x-auto">
+      <div className="flex items-center gap-0 border-b-[3px] border-[#e5be35] overflow-x-auto pt-1">
         {tabs.map(t => (
           <div key={t.key} className="flex items-center gap-1 mr-4">
             <button
