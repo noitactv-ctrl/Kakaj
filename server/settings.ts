@@ -19,15 +19,23 @@ export const API_SETTING_DEFINITIONS: ApiSettingDefinition[] = [
   {
     key: "plisio_api_url",
     label: "Plisio API URL",
-    description: "Official API URL used to create hosted BTC invoices.",
+    description: "Official API URL used to create hosted crypto invoices.",
     kind: "url",
     envKey: "PLISIO_API_BASE_URL",
     defaultValue: "https://api.plisio.net/api/v1",
   },
   {
+    key: "plisio_public_app_url",
+    label: "Crypto Checkout Public App URL",
+    description: "Your trusted public app URL used for Plisio callbacks and return links (for example, https://your-app.example).",
+    kind: "url",
+    envKey: "PLISIO_PUBLIC_APP_URL",
+    required: true,
+  },
+  {
     key: "plisio_api_key",
     label: "Plisio Secret Key",
-    description: "Server-side secret used to create BTC invoices and verify payment callbacks.",
+    description: "Server-side secret used to create crypto invoices and verify payment callbacks.",
     kind: "secret",
     envKey: "PLISIO_API_KEY",
     required: true,
@@ -229,6 +237,9 @@ function validateValue(key: string, kind: ApiSettingKind, value: string): string
       if (parsed.protocol !== "https:") {
         throw new Error("The Plisio API URL must use HTTPS.");
       }
+    }
+    if (key === "plisio_public_app_url" && parsed.protocol !== "https:") {
+      throw new Error("The Crypto Checkout Public App URL must use HTTPS.");
     }
     return trimmed.replace(/\/+$/, "");
   }

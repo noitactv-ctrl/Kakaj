@@ -8,3 +8,4 @@
 - [Retired provider compatibility](retired-provider-compatibility.md) — remove retired integrations from runtime paths while retaining legacy database records unless data deletion is explicitly requested.
 - [Development schema sync](development-schema-sync.md) — when schema push asks to rename unrelated tables, create only the intended development table and retain the schema declaration for publish-time migration.
 - [Crypto invoice reconciliation](crypto-invoice-reconciliation.md) — external invoice creation is ambiguous on network failure; persist a local intent and reconcile provider operations before terminal cleanup.
+- [Plisio currency binding](plisio-currency-binding.md) — only bind or settle an invoice when provider currency matches the selected stored code across response, callback, and reconciliation.

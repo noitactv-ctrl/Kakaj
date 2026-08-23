@@ -21,6 +21,7 @@ import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { CryptoCoinIcon, type CryptoCurrencyOption } from "@/components/CryptoCoinSelector";
 
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
@@ -2050,8 +2051,117 @@ function FeeSettingCard({ method, label, color }: { method: string; label: strin
   );
 }
 
+function CryptoCurrencySettingsRow({ currency }: { currency: CryptoCurrencyOption }) {
+  const { toast } = useToast();
+  const [draft, setDraft] = useState({
+    name: currency.name,
+    ticker: currency.ticker,
+    color: currency.color,
+    sortOrder: String(currency.sortOrder),
+  });
+
+  useEffect(() => {
+    setDraft({
+      name: currency.name,
+      ticker: currency.ticker,
+      color: currency.color,
+      sortOrder: String(currency.sortOrder),
+    });
+  }, [currency]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (updates: Record<string, unknown>) => {
+      const res = await apiRequest("PATCH", `/api/admin/crypto-currencies/${currency.id}`, updates);
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Unable to update crypto currency");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crypto-currencies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-currencies"] });
+    },
+    onError: (error: Error) => toast({ title: "Unable to save currency", description: error.message, variant: "destructive" }),
+  });
+
+  return (
+    <Card className="overflow-hidden border-white/10 bg-[#192337]" data-testid={`card-crypto-currency-${currency.code}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-[#101827]">
+            <CryptoCoinIcon ticker={currency.ticker} color={currency.color} className="h-8 w-8" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-bold text-sm text-white">{currency.name}</p>
+                <p className="font-mono text-[11px] text-[#8fa9eb]">{currency.code} · {currency.enabled ? "Visible to customers" : "Hidden from customers"}</p>
+              </div>
+              <Switch
+                checked={currency.enabled}
+                disabled={saveMutation.isPending}
+                onCheckedChange={(enabled) => saveMutation.mutate({ enabled })}
+                data-testid={`switch-crypto-currency-${currency.code}`}
+              />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <Input
+                value={draft.name}
+                onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                placeholder="Display name"
+                className="h-9 border-white/10 bg-[#101827] text-xs text-white"
+                aria-label={`${currency.code} display name`}
+              />
+              <Input
+                value={draft.ticker}
+                onChange={(event) => setDraft({ ...draft, ticker: event.target.value.toUpperCase() })}
+                placeholder="Ticker"
+                className="h-9 border-white/10 bg-[#101827] text-xs text-white"
+                aria-label={`${currency.code} ticker`}
+              />
+              <Input
+                value={draft.color}
+                onChange={(event) => setDraft({ ...draft, color: event.target.value })}
+                placeholder="#F7931A"
+                className="h-9 border-white/10 bg-[#101827] font-mono text-xs text-white"
+                aria-label={`${currency.code} color`}
+              />
+              <Input
+                type="number"
+                min="0"
+                value={draft.sortOrder}
+                onChange={(event) => setDraft({ ...draft, sortOrder: event.target.value })}
+                placeholder="Order"
+                className="h-9 border-white/10 bg-[#101827] text-xs text-white"
+                aria-label={`${currency.code} display order`}
+              />
+            </div>
+            <div className="mt-2 flex justify-end">
+              <Button
+                size="sm"
+                disabled={saveMutation.isPending}
+                onClick={() => saveMutation.mutate({
+                  name: draft.name,
+                  ticker: draft.ticker,
+                  color: draft.color,
+                  sortOrder: Number(draft.sortOrder),
+                })}
+                data-testid={`button-save-crypto-currency-${currency.code}`}
+              >
+                {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function IntegrationsSection() {
   const { toast } = useToast();
+  const [newCurrencyCode, setNewCurrencyCode] = useState("");
 
   const { data: paymentMethods, isLoading: methodsLoading } = useQuery<Record<string, boolean>>({
     queryKey: ["/api/admin/payment-methods"],
@@ -2069,6 +2179,30 @@ function IntegrationsSection() {
     },
     onError: () => toast({ title: "Failed to update", variant: "destructive" }),
   });
+  const { data: cryptoCurrencies = [], isLoading: currenciesLoading } = useQuery<CryptoCurrencyOption[]>({
+    queryKey: ["/api/admin/crypto-currencies"],
+  });
+  const { data: supportedCurrencies = [] } = useQuery<Array<Pick<CryptoCurrencyOption, "code" | "name" | "ticker" | "color">>>({
+    queryKey: ["/api/admin/crypto-currencies/supported"],
+  });
+  const addCurrencyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/crypto-currencies", { code: newCurrencyCode });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Unable to add crypto currency");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setNewCurrencyCode("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crypto-currencies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-currencies"] });
+      toast({ title: "Crypto currency added" });
+    },
+    onError: (error: Error) => toast({ title: "Unable to add currency", description: error.message, variant: "destructive" }),
+  });
+  const availableToAdd = supportedCurrencies.filter((currency) => !cryptoCurrencies.some((saved) => saved.code === currency.code));
 
   const METHODS = [
     { id: "wallet", label: "Wallet / Balance", icon: <Wallet className="h-4 w-4 text-white" />, bg: "bg-primary" },
@@ -2175,7 +2309,49 @@ function IntegrationsSection() {
       {/* Crypto min deposit */}
       <div>
         <p className="text-xs font-semibold text-muted-foreground mb-3">Crypto Settings</p>
-        <MinDepositCard method="crypto" label="Crypto" color="#F7931A" />
+        <div className="space-y-3">
+          <MinDepositCard method="crypto" label="Crypto" color="#F7931A" />
+          <Card className="border-white/10 bg-[#111827]">
+            <CardContent className="p-4">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-sm text-white">Crypto coin catalog</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Choose which Plisio-supported coins customers can use. Turning a coin off does not change existing payments.</p>
+                </div>
+                <span className="rounded bg-[#20345f] px-2 py-1 font-mono text-[10px] text-[#9ab8ff]">{cryptoCurrencies.filter((currency) => currency.enabled).length} on</span>
+              </div>
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+                <Select value={newCurrencyCode} onValueChange={setNewCurrencyCode}>
+                  <SelectTrigger className="border-white/10 bg-[#101827] text-white">
+                    <SelectValue placeholder={availableToAdd.length ? "Add a supported coin" : "All supported coins added"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableToAdd.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>{currency.name} ({currency.ticker})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  disabled={!newCurrencyCode || addCurrencyMutation.isPending}
+                  onClick={() => addCurrencyMutation.mutate()}
+                  data-testid="button-add-crypto-currency"
+                >
+                  {addCurrencyMutation.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-2 h-3.5 w-3.5" />}
+                  Add coin
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {currenciesLoading ? (
+                  <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+                ) : cryptoCurrencies.length ? (
+                  cryptoCurrencies.map((currency) => <CryptoCurrencySettingsRow key={currency.id} currency={currency} />)
+                ) : (
+                  <p className="border border-dashed border-white/10 px-3 py-4 text-center text-xs text-muted-foreground">No crypto currencies are configured yet.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <ApiSecretsSettings />

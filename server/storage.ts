@@ -1,14 +1,15 @@
 import { db } from "./db";
 import { 
-  users, products, variants, stockItems, orders, orderItems, transactions, redeemCodes, announcements, uploadedImages, cards, cardBases, supportTickets, cryptoPayments, mails, mailReads, siteSettings, discountCodes, sellerApplications, achs, cryptoAddresses,
+  users, products, variants, stockItems, orders, orderItems, transactions, redeemCodes, announcements, uploadedImages, cards, cardBases, supportTickets, cryptoPayments, mails, mailReads, siteSettings, discountCodes, sellerApplications, achs, cryptoAddresses, cryptoCurrencies,
   type User, type InsertUser, type Product, type InsertProduct, type Variant, type InsertVariant,
   type StockItem, type Order, type OrderItem, type Transaction, type RedeemCode, type Announcement, type InsertAnnouncement, type UploadedImage,
-  type Card, type InsertCard, type CardBase, type SellerApplication, type Ach, type InsertAch, type CryptoAddress
+  type Card, type InsertCard, type CardBase, type SellerApplication, type Ach, type InsertAch, type CryptoAddress, type CryptoCurrency
 } from "@shared/schema";
-import { eq, and, sql, desc, lt } from "drizzle-orm";
+import { eq, and, sql, desc, asc, lt } from "drizzle-orm";
 import { pool } from "./db";
 import { calculateDepositCredit } from "@shared/deposit";
 import { decryptSettingValue, encryptSettingValue, isKnownSecretKey } from "./settings";
+import { DEFAULT_CRYPTO_CURRENCIES } from "@shared/crypto-currencies";
 
 export interface IStorage {
   // Users
@@ -103,6 +104,11 @@ export interface IStorage {
   getSetting(key: string, defaultValue?: string): Promise<string>;
   setSetting(key: string, value: string): Promise<void>;
   getPaymentMethodsConfig(): Promise<Record<string, boolean>>;
+  getCryptoCurrencies(enabledOnly?: boolean): Promise<CryptoCurrency[]>;
+  getCryptoCurrencyByCode(code: string): Promise<CryptoCurrency | undefined>;
+  createCryptoCurrency(currency: { code: string; name: string; ticker: string; color: string; enabled?: boolean; sortOrder?: number }): Promise<CryptoCurrency>;
+  updateCryptoCurrency(id: number, currency: Partial<Pick<CryptoCurrency, "name" | "ticker" | "color" | "enabled" | "sortOrder">>): Promise<CryptoCurrency | undefined>;
+  seedCryptoCurrencies(): Promise<void>;
   getUserCards(userId: number): Promise<Card[]>;
   deleteCard(id: number): Promise<void>;
 
@@ -1427,6 +1433,58 @@ export class DatabaseStorage implements IStorage {
       defaults[method] = row.value === "true";
     }
     return defaults;
+  }
+
+  async getCryptoCurrencies(enabledOnly: boolean = false): Promise<CryptoCurrency[]> {
+    return db
+      .select()
+      .from(cryptoCurrencies)
+      .where(enabledOnly ? eq(cryptoCurrencies.enabled, true) : undefined)
+      .orderBy(asc(cryptoCurrencies.sortOrder), asc(cryptoCurrencies.id));
+  }
+
+  async getCryptoCurrencyByCode(code: string): Promise<CryptoCurrency | undefined> {
+    const [currency] = await db
+      .select()
+      .from(cryptoCurrencies)
+      .where(eq(cryptoCurrencies.code, code.trim().toUpperCase()))
+      .limit(1);
+    return currency;
+  }
+
+  async createCryptoCurrency(currency: { code: string; name: string; ticker: string; color: string; enabled?: boolean; sortOrder?: number }): Promise<CryptoCurrency> {
+    const [created] = await db
+      .insert(cryptoCurrencies)
+      .values({
+        code: currency.code.trim().toUpperCase(),
+        name: currency.name.trim(),
+        ticker: currency.ticker.trim().toUpperCase(),
+        color: currency.color,
+        enabled: currency.enabled ?? true,
+        sortOrder: currency.sortOrder ?? 0,
+        updatedAt: new Date(),
+      })
+      .returning();
+    return created;
+  }
+
+  async updateCryptoCurrency(id: number, currency: Partial<Pick<CryptoCurrency, "name" | "ticker" | "color" | "enabled" | "sortOrder">>): Promise<CryptoCurrency | undefined> {
+    const [updated] = await db
+      .update(cryptoCurrencies)
+      .set({ ...currency, updatedAt: new Date() })
+      .where(eq(cryptoCurrencies.id, id))
+      .returning();
+    return updated;
+  }
+
+  async seedCryptoCurrencies(): Promise<void> {
+    for (let sortOrder = 0; sortOrder < DEFAULT_CRYPTO_CURRENCIES.length; sortOrder++) {
+      const currency = DEFAULT_CRYPTO_CURRENCIES[sortOrder];
+      await db
+        .insert(cryptoCurrencies)
+        .values({ ...currency, sortOrder, enabled: true, updatedAt: new Date() })
+        .onConflictDoNothing();
+    }
   }
 
 }

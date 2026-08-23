@@ -376,6 +376,19 @@ export const cryptoPayments = pgTable("crypto_payments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// === CRYPTO CURRENCIES ===
+export const cryptoCurrencies = pgTable("crypto_currencies", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  ticker: text("ticker").notNull(),
+  color: text("color").notNull().default("#4f7cff"),
+  enabled: boolean("enabled").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // === TYPES ===
 export type User = typeof users.$inferSelect;
 export type Product = typeof products.$inferSelect;
@@ -397,6 +410,7 @@ export type InsertRedeemCode = z.infer<typeof insertRedeemCodeSchema>;
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
 export type InsertCard = z.infer<typeof insertCardSchema>;
 export type CryptoPayment = typeof cryptoPayments.$inferSelect;
+export type CryptoCurrency = typeof cryptoCurrencies.$inferSelect;
 
 // === SELLER APPLICATIONS ===
 export const sellerApplications = pgTable("seller_applications", {

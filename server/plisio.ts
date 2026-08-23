@@ -19,6 +19,7 @@ export interface PlisioOperation {
   orderNumber: string;
   status: string;
   invoiceUrl?: string;
+  currency?: string;
 }
 
 export class PlisioInvoiceCreationError extends Error {
@@ -40,6 +41,7 @@ async function getApiBase(): Promise<string> {
 
 export async function createPlisioInvoice(params: {
   amountUsd: number;
+  currency: string;
   orderNumber: string;
   orderName: string;
   callbackUrl: string;
@@ -51,8 +53,8 @@ export async function createPlisioInvoice(params: {
 
   endpoint.searchParams.set("source_currency", "USD");
   endpoint.searchParams.set("source_amount", params.amountUsd.toFixed(2));
-  endpoint.searchParams.set("currency", "BTC");
-  endpoint.searchParams.set("allowed_psys_cids", "BTC");
+  endpoint.searchParams.set("currency", params.currency);
+  endpoint.searchParams.set("allowed_psys_cids", params.currency);
   endpoint.searchParams.set("order_number", params.orderNumber);
   endpoint.searchParams.set("order_name", params.orderName);
   endpoint.searchParams.set("description", params.orderName);
@@ -82,7 +84,7 @@ export async function createPlisioInvoice(params: {
     id,
     url,
     amount: typeof payload.data.amount === "string" ? payload.data.amount : undefined,
-    currency: typeof payload.data.currency === "string" ? payload.data.currency : "BTC",
+    currency: typeof payload.data.currency === "string" ? payload.data.currency : params.currency,
     expiresAt: typeof payload.data.expire_utc === "number" ? payload.data.expire_utc : undefined,
   };
 }
@@ -123,6 +125,11 @@ async function listPlisioOperationsPage(page: number, pageSize: number): Promise
       orderNumber,
       status: String(values.status || ""),
       invoiceUrl: typeof values.invoice_url === "string" ? values.invoice_url : undefined,
+      currency: typeof values.currency === "string"
+        ? values.currency
+        : typeof values.psys_cid === "string"
+          ? values.psys_cid
+          : undefined,
     }];
   });
 }

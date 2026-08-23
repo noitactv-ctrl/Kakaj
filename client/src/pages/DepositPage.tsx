@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +10,8 @@ import {
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { calculateDepositCredit, DEPOSIT_BONUS_TIERS } from "@shared/deposit";
 import { CashAppQrCode } from "@/components/CashAppQrCode";
+import { CryptoCoinSelector, type CryptoCurrencyOption } from "@/components/CryptoCoinSelector";
+import { CryptoPaymentPanel, type CryptoInvoiceData } from "@/components/CryptoPaymentPanel";
 
 type Method = "crypto" | "cashapp" | "chime" | "zelle" | "venmo";
 
@@ -20,6 +22,7 @@ type Deposit = {
   status: string;
   paymentId?: string;
   checkoutUrl?: string;
+  currency?: string;
   paymentNote?: string;
   createdAt: string;
 };
@@ -71,7 +74,9 @@ function DepositRow({ deposit }: { deposit: Deposit }) {
             </span>
             <StatusBadge status={deposit.status} />
           </div>
-          <p className="text-[9px] text-white/20 font-mono">{methodLabel(deposit.type)} · {new Date(deposit.createdAt).toLocaleDateString()}</p>
+          <p className="text-[9px] text-white/20 font-mono">
+            {methodLabel(deposit.type)}{deposit.type === "crypto" && deposit.currency ? ` · ${deposit.currency}` : ""} · {new Date(deposit.createdAt).toLocaleDateString()}
+          </p>
         </div>
       </div>
       {deposit.checkoutUrl && !isCredited && (
@@ -124,8 +129,10 @@ export default function DepositPage() {
   const qc = useQueryClient();
 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [selectedCryptoCode, setSelectedCryptoCode] = useState<string | null>(null);
   const [amountInput, setAmountInput] = useState("");
   const [manualResult, setManualResult] = useState<ManualResult | null>(null);
+  const [cryptoInvoice, setCryptoInvoice] = useState<CryptoInvoiceData | null>(null);
 
   const { data: manualMethods } = useQuery<{
     cashapp: { enabled: boolean; tag: string; url: string; fee: number };
@@ -135,6 +142,9 @@ export default function DepositPage() {
   }>({ queryKey: ["/api/site-settings/manual-payments"] });
   const { data: paymentMethods } = useQuery<Record<string, boolean>>({
     queryKey: ["/api/payment-methods"],
+  });
+  const { data: cryptoCurrencies = [] } = useQuery<CryptoCurrencyOption[]>({
+    queryKey: ["/api/crypto-currencies"],
   });
 
   const { data: minDeposits } = useQuery<Record<string, number>>({
@@ -148,7 +158,17 @@ export default function DepositPage() {
   });
 
   const cashappEnabled = manualMethods?.cashapp.enabled === true;
-  const cryptoEnabled = paymentMethods?.crypto === true;
+  const cryptoEnabled = paymentMethods?.crypto === true && cryptoCurrencies.length > 0;
+
+  useEffect(() => {
+    if (!cryptoCurrencies.length) {
+      setSelectedCryptoCode(null);
+      return;
+    }
+    if (!selectedCryptoCode || !cryptoCurrencies.some((currency) => currency.code === selectedCryptoCode)) {
+      setSelectedCryptoCode(cryptoCurrencies[0].code);
+    }
+  }, [cryptoCurrencies, selectedCryptoCode]);
 
   function minimumForMethod(method: string | null) {
     if (method === "crypto") return Math.max(1, minDeposits?.crypto ?? 0);
@@ -180,16 +200,17 @@ export default function DepositPage() {
       const res = await apiRequest("POST", "/api/payments/crypto/create", {
         amount: String(Math.round(amount * 100)),
         purpose: "deposit",
+        currencyCode: selectedCryptoCode,
       });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Unable to create crypto payment");
+      }
       return res.json();
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["/api/deposits"] });
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      } else {
-        toast({ title: "Error", description: "Payment provider did not return a checkout link.", variant: "destructive" });
-      }
+      setCryptoInvoice(data);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -236,7 +257,7 @@ export default function DepositPage() {
   }
 
   const paymentOptions = [
-    ...(cryptoEnabled ? [{ id: "crypto", label: "Bitcoin", sub: "BTC via Plisio", Icon: SiBitcoin, color: "#F7931A", fee: "0% fee" }] : []),
+    ...(cryptoEnabled ? [{ id: "crypto", label: "Crypto", sub: `${cryptoCurrencies.length} coins via Plisio`, Icon: SiBitcoin, color: "#F7931A", fee: "0% fee" }] : []),
     ...(cashappEnabled ? [{ id: "cashapp", label: "CashApp", sub: "instant", Icon: SiCashapp, color: "#00D632", fee: feeLabel(manualMethods?.cashapp?.fee) }] : []),
     ...(manualMethods?.venmo.enabled ? [{ id: "venmo", label: "Venmo", sub: manualMethods.venmo.handle, Icon: () => <span className="font-black">V</span>, color: "#3D95CE", fee: "0% fee" }] : []),
     ...(manualMethods?.zelle.enabled ? [{ id: "zelle", label: "Zelle", sub: manualMethods.zelle.handle, Icon: () => <span className="font-black">Z</span>, color: "#6D1ED4", fee: feeLabel(manualMethods?.zelle.fee) }] : []),
@@ -245,6 +266,7 @@ export default function DepositPage() {
 
   const selected = paymentOptions.find(o => o.id === selectedOption) || null;
   const isSelectedCrypto = selectedOption === "crypto";
+  const selectedCrypto = cryptoCurrencies.find((currency) => currency.code === selectedCryptoCode) ?? null;
 
   function handleContinue() {
     if (!selectedOption) return;
@@ -252,7 +274,13 @@ export default function DepositPage() {
       toast({ title: "Amount too low", description: `Minimum deposit for ${selected?.label ?? "this method"} is $${selectedMinimum.toFixed(2)}.`, variant: "destructive" });
       return;
     }
-    if (isSelectedCrypto) cryptoMutation.mutate();
+    if (isSelectedCrypto) {
+      if (!selectedCryptoCode) {
+        toast({ title: "Choose a coin", description: "Select a crypto currency before continuing.", variant: "destructive" });
+        return;
+      }
+      cryptoMutation.mutate();
+    }
     else if (selectedOption === "cashapp") manualMutation.mutate({ endpoint: "/api/orders/cashapp", method: "cashapp", amount: parsedAmount });
     else if (selectedOption === "chime") manualMutation.mutate({ endpoint: "/api/deposits/chime", method: "chime", amount: parsedAmount });
     else if (selectedOption === "zelle") manualMutation.mutate({ endpoint: "/api/deposits/zelle", method: "zelle", amount: parsedAmount });
@@ -270,7 +298,21 @@ export default function DepositPage() {
   return (
     <div className="pixel-page min-h-screen flex flex-col">
       <div className="pixel-page flex-1 space-y-4">
-        {manualResult ? (
+        {cryptoInvoice ? (
+          <CryptoPaymentPanel
+            invoice={cryptoInvoice}
+            onPaymentComplete={() => {
+              qc.invalidateQueries({ queryKey: ["/api/user"] });
+              qc.invalidateQueries({ queryKey: ["/api/deposits"] });
+              qc.invalidateQueries({ queryKey: ["/api/wallet/transactions"] });
+            }}
+            onReset={() => {
+              setCryptoInvoice(null);
+              setSelectedOption(null);
+              setAmountInput("");
+            }}
+          />
+        ) : manualResult ? (
           <ManualDepositPanel result={manualResult} onReset={() => { setManualResult(null); setSelectedOption(null); setAmountInput(""); }} />
         ) : (
           <div className="pixel-panel space-y-4 bg-[#10215e] p-4 sm:p-5">
@@ -289,7 +331,7 @@ export default function DepositPage() {
               {selectedOption ? (
                 <p className="font-mono text-[10px] leading-relaxed text-[#abbceb]">
                   {selectedOption === "crypto"
-                    ? `Minimum $${selectedMinimum.toFixed(2)} for BTC (Bitcoin). You must send the exact crypto amount shown (not USD). Wrong amount = no credit.`
+                    ? `Minimum $${selectedMinimum.toFixed(2)} for ${selectedCrypto?.ticker ?? "crypto"} (${selectedCrypto?.name ?? "Crypto"}). You must send the exact crypto amount shown (not USD). Wrong amount = no credit.`
                     : `Minimum $${selectedMinimum.toFixed(2)} for ${selected?.label ?? "this method"}.`}
                 </p>
               ) : (
@@ -345,13 +387,31 @@ export default function DepositPage() {
               )}
             </div>
 
+            {isSelectedCrypto && (
+              <div className="space-y-2 border-[3px] border-black bg-[#0a1645] p-3">
+                <p className="pixel-label">CHOOSE A PAYMENT COIN</p>
+                <CryptoCoinSelector
+                  currencies={cryptoCurrencies}
+                  value={selectedCryptoCode}
+                  onChange={setSelectedCryptoCode}
+                  disabled={isPending}
+                />
+              </div>
+            )}
+
             <button
               onClick={handleContinue}
               disabled={!selectedOption || isPending || !amountInput || parsedAmount <= 0}
               className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[9px] text-white transition-colors hover:bg-[#31973a] disabled:opacity-40"
               data-testid="btn-continue-deposit"
             >
-              {isPending ? "PROCESSING..." : selected ? `TOPUP WITH ${selected.label.toUpperCase()}` : "SELECT A METHOD"}
+              {isPending
+                ? "PROCESSING..."
+                : isSelectedCrypto && selectedCrypto
+                  ? `PAY WITH ${selectedCrypto.ticker}`
+                  : selected
+                    ? `TOPUP WITH ${selected.label.toUpperCase()}`
+                    : "SELECT A METHOD"}
             </button>
           </div>
         )}

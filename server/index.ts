@@ -148,6 +148,7 @@ app.use((req, res, next) => {
         ('payment_method_crypto',  'true')
       ON CONFLICT (key) DO NOTHING
     `);
+    await storage.seedCryptoCurrencies();
     log("Site settings seed complete");
   } catch (e) {
     console.error("Site settings seed failed:", e);

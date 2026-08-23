@@ -14,6 +14,12 @@ import { db } from "./db";
 import { eq, and, ne, desc, sql, inArray } from "drizzle-orm";
 import { calculateDepositCredit } from "@shared/deposit";
 import {
+  cryptoCurrencyCreateSchema,
+  cryptoCurrencyUpdateSchema,
+  getSupportedPlisioCurrency,
+  SUPPORTED_PLISIO_CURRENCIES,
+} from "@shared/crypto-currencies";
+import {
   deleteApiSetting,
   getApiSettingDefinition,
   getRuntimeSetting,
@@ -25,6 +31,72 @@ import {
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
   return req.isAuthenticated() && (u?.role === 'admin' || u?.isWorker === true);
+}
+
+class PlisioCurrencyMismatchError extends PlisioInvoiceCreationError {
+  constructor(message: string) {
+    super(message, false);
+    this.name = "PlisioCurrencyMismatchError";
+  }
+}
+
+function safeCryptoInvoiceDetails(
+  invoice: Awaited<ReturnType<typeof createPlisioInvoice>>,
+  expectedCurrency: string,
+  usdAmountCents: number,
+) {
+  const raw = invoice as Record<string, unknown>;
+  const firstString = (...keys: string[]) => {
+    for (const key of keys) {
+      if (typeof raw[key] === "string" && raw[key]) return raw[key] as string;
+    }
+    return undefined;
+  };
+  return {
+    paymentId: invoice.id,
+    checkoutUrl: invoice.url,
+    currency: expectedCurrency,
+    cryptoAmount: invoice.amount,
+    paymentAddress: firstString("wallet_hash", "wallet_address", "address"),
+    paymentUri: firstString("payment_uri", "pay_url", "qr_code"),
+    expiresAt: invoice.expiresAt,
+    usdAmountCents,
+  };
+}
+
+async function getPlisioPublicAppUrl(): Promise<string> {
+  const configured = await getRuntimeSetting("plisio_public_app_url");
+  if (!configured) {
+    throw new PlisioInvoiceCreationError(
+      "Crypto checkout needs a Public App URL in Admin > Integrations before invoices can be created.",
+      true,
+    );
+  }
+  let publicUrl: URL;
+  try {
+    publicUrl = new URL(configured);
+  } catch {
+    throw new PlisioInvoiceCreationError("Crypto checkout Public App URL is invalid.", true);
+  }
+  if (publicUrl.protocol !== "https:") {
+    throw new PlisioInvoiceCreationError("Crypto checkout Public App URL must use HTTPS.", true);
+  }
+  return publicUrl.origin;
+}
+
+function ensureInvoiceCurrency(invoice: Awaited<ReturnType<typeof createPlisioInvoice>>, expectedCurrency: string) {
+  const providerCurrency = invoice.currency?.trim().toUpperCase();
+  if (providerCurrency && providerCurrency !== expectedCurrency) {
+    throw new PlisioCurrencyMismatchError(
+      `Payment provider returned ${providerCurrency} instead of the requested ${expectedCurrency}; the invoice is being reconciled.`,
+    );
+  }
+}
+
+async function getEnabledCryptoCurrency(currencyCode: unknown) {
+  if (typeof currencyCode !== "string") return undefined;
+  const currency = await storage.getCryptoCurrencyByCode(currencyCode);
+  return currency?.enabled ? currency : undefined;
 }
 
 // BIN lookup cache + throttle queue (binlist.net = ~10 req/min free tier)
@@ -356,6 +428,7 @@ export async function registerRoutes(
         status: p.status,
         paymentId: p.nowPaymentsPaymentId,
         checkoutUrl: p.checkoutUrl,
+        currency: p.currency,
         createdAt: p.createdAt,
       }));
 
@@ -387,7 +460,7 @@ export async function registerRoutes(
       const cryptoRows = await db
         .select({
           id: cryptoPayments.id, userId: cryptoPayments.userId, amount: cryptoPayments.amount,
-          status: cryptoPayments.status, createdAt: cryptoPayments.createdAt,
+          currency: cryptoPayments.currency, status: cryptoPayments.status, createdAt: cryptoPayments.createdAt,
           username: users.username,
         })
         .from(cryptoPayments)
@@ -1484,14 +1557,23 @@ export async function registerRoutes(
     let pendingOrderId: number | null = null;
     let paymentIntentCreated = false;
     let merchantOrderNumber: string | null = null;
+    let requestedCurrency: string | null = null;
     try {
       const methods = await storage.getPaymentMethodsConfig();
       if (methods.crypto !== true) return res.status(400).json({ message: "Crypto payments are not available" });
       if (!(await getRuntimeSetting("plisio_api_key"))) {
         return res.status(503).json({ message: "Crypto checkout is not configured yet." });
       }
+      if (!(await getRuntimeSetting("plisio_public_app_url"))) {
+        return res.status(503).json({ message: "Crypto checkout needs a Public App URL in Admin > Integrations." });
+      }
       const userId = (req.user as any).id;
-      const { items, cardIds, bulkCardIds, discountCodeId } = req.body;
+      const { items, cardIds, bulkCardIds, discountCodeId, currencyCode } = req.body;
+      const cryptoCurrency = await getEnabledCryptoCurrency(currencyCode);
+      if (!cryptoCurrency) {
+        return res.status(400).json({ message: "Select an enabled crypto currency." });
+      }
+      requestedCurrency = cryptoCurrency.code;
       const productItems = (items || []).filter((i: any) => !i.cardId && i.variantId > 0);
       const cardIdList: number[] = cardIds || [];
 
@@ -1504,7 +1586,7 @@ export async function registerRoutes(
       const orderNumber = `order-${order.id}-${randomUUID()}`;
       merchantOrderNumber = orderNumber;
 
-      const origin = (req.headers.origin as string) || `https://${req.headers.host}`;
+      const origin = await getPlisioPublicAppUrl();
       const callbackUrl = new URL("/api/webhooks/plisio", origin);
       callbackUrl.searchParams.set("json", "true");
 
@@ -1515,18 +1597,19 @@ export async function registerRoutes(
         userId,
         nowPaymentsPaymentId: intentId,
         amount: totalWithFee,
-        currency: "USD",
+        currency: cryptoCurrency.code,
         status: "pending",
         purpose: "order",
         orderId: order.id,
         checkoutUrl: null,
-        metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber: orderNumber, state: "intent" }),
+        metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber: orderNumber, currency: cryptoCurrency.code, state: "intent" }),
       });
       paymentIntentCreated = true;
       await db.update(orders).set({ paymentMethod: "Plisio" }).where(eq(orders.id, order.id));
 
       const invoice = await createPlisioInvoice({
         amountUsd,
+        currency: cryptoCurrency.code,
         orderNumber,
         orderName: `Order #${order.orderId}`,
         successInvoiceUrl: `${origin}/orders`,
@@ -1536,6 +1619,7 @@ export async function registerRoutes(
       if (!invoice.id || !invoice.url) {
         return res.status(502).json({ message: "Payment provider error. Please try again." });
       }
+      ensureInvoiceCurrency(invoice, cryptoCurrency.code);
 
       const [boundPayment] = await db
         .update(cryptoPayments)
@@ -1545,8 +1629,8 @@ export async function registerRoutes(
           metadata: JSON.stringify({
             provider: "plisio",
             merchantOrderNumber: orderNumber,
-            bitcoinAmount: invoice.amount,
-            currency: invoice.currency,
+            cryptoAmount: invoice.amount,
+            currency: cryptoCurrency.code,
             expiresAt: invoice.expiresAt,
           }),
           updatedAt: new Date(),
@@ -1558,12 +1642,12 @@ export async function registerRoutes(
       pendingOrderId = null;
       res.status(201).json({
         order,
-        paymentId: invoice.id,
-        checkoutUrl: invoice.url,
+        ...safeCryptoInvoiceDetails(invoice, cryptoCurrency.code, totalWithFee),
       });
     } catch (e: any) {
       console.error("Crypto order creation failed:", e);
       const definitiveProviderFailure = e instanceof PlisioInvoiceCreationError && e.definitive;
+        const currencyMismatch = e instanceof PlisioCurrencyMismatchError;
       if (pendingOrderId != null && (!paymentIntentCreated || definitiveProviderFailure)) {
         try { await storage.cancelPendingOrder(pendingOrderId as number); } catch {}
       }
@@ -1571,13 +1655,20 @@ export async function registerRoutes(
         await db
           .update(cryptoPayments)
           .set({
-            metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber, state: "reconciling" }),
+            metadata: JSON.stringify({
+              provider: "plisio",
+              merchantOrderNumber,
+              currency: requestedCurrency,
+              state: e instanceof PlisioCurrencyMismatchError ? "currency_mismatch" : "reconciling",
+            }),
             updatedAt: new Date(),
           })
           .where(eq(cryptoPayments.orderId, pendingOrderId as number));
       }
       res.status(paymentIntentCreated && !definitiveProviderFailure ? 502 : 400).json({
-        message: paymentIntentCreated && !definitiveProviderFailure
+          message: currencyMismatch
+            ? "The payment provider returned an unexpected currency. Do not send payment; contact support."
+            : paymentIntentCreated && !definitiveProviderFailure
           ? "Your payment setup is being reconciled. Do not retry or send funds; contact support if it does not appear shortly."
           : e.message,
       });
@@ -1593,12 +1684,19 @@ export async function registerRoutes(
       if (!(await getRuntimeSetting("plisio_api_key"))) {
         return res.status(503).json({ message: "Crypto checkout is not configured yet." });
       }
-      const { amount, purpose } = req.body;
+      if (!(await getRuntimeSetting("plisio_public_app_url"))) {
+        return res.status(503).json({ message: "Crypto checkout needs a Public App URL in Admin > Integrations." });
+      }
+      const { amount, purpose, currencyCode } = req.body;
       if (purpose && purpose !== "deposit") {
         return res.status(400).json({ message: "Crypto orders must be created from checkout." });
       }
       // amount arrives in cents from the frontend (e.g. 500 = $5.00)
       const amountUsd = parseFloat(amount) / 100;
+      const cryptoCurrency = await getEnabledCryptoCurrency(currencyCode);
+      if (!cryptoCurrency) {
+        return res.status(400).json({ message: "Select an enabled crypto currency." });
+      }
 
       const configuredCryptoMin = parseFloat(await storage.getSetting("min_deposit_crypto", "0")) || 0;
       const cryptoMin = Math.max(1, configuredCryptoMin);
@@ -1610,7 +1708,7 @@ export async function registerRoutes(
       }
 
       const userId = (req.user as any).id;
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const baseUrl = await getPlisioPublicAppUrl();
       const intentId = `intent-${randomUUID()}`;
       const merchantOrderNumber = `deposit-${userId}-${randomUUID()}`;
       const callbackUrl = new URL("/api/webhooks/plisio", baseUrl);
@@ -1620,18 +1718,19 @@ export async function registerRoutes(
         userId,
         nowPaymentsPaymentId: intentId,
         amount: Math.round(amountUsd * 100),
-        currency: "USD",
+        currency: cryptoCurrency.code,
         status: "pending",
         purpose: "deposit",
         orderId: null,
         checkoutUrl: null,
-        metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber, state: "intent" }),
+        metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber, currency: cryptoCurrency.code, state: "intent" }),
       });
 
       let invoiceCreated = false;
       try {
         const invoice = await createPlisioInvoice({
           amountUsd,
+          currency: cryptoCurrency.code,
           orderNumber: merchantOrderNumber,
           orderName: `Balance deposit for user ${userId}`,
           successInvoiceUrl: `${baseUrl}/deposit`,
@@ -1639,6 +1738,7 @@ export async function registerRoutes(
           callbackUrl: callbackUrl.toString(),
         });
         invoiceCreated = true;
+        ensureInvoiceCurrency(invoice, cryptoCurrency.code);
 
         const [boundPayment] = await db
           .update(cryptoPayments)
@@ -1648,8 +1748,8 @@ export async function registerRoutes(
             metadata: JSON.stringify({
               provider: "plisio",
               merchantOrderNumber,
-              bitcoinAmount: invoice.amount,
-              currency: invoice.currency,
+              cryptoAmount: invoice.amount,
+              currency: cryptoCurrency.code,
               expiresAt: invoice.expiresAt,
             }),
             updatedAt: new Date(),
@@ -1658,24 +1758,34 @@ export async function registerRoutes(
           .returning({ id: cryptoPayments.id });
         if (!boundPayment) throw new Error("Unable to finalize the crypto payment intent.");
 
-        res.json({ paymentId: invoice.id, checkoutUrl: invoice.url });
+        res.json(safeCryptoInvoiceDetails(invoice, cryptoCurrency.code, Math.round(amountUsd * 100)));
       } catch (error: any) {
         const definitiveProviderFailure = error instanceof PlisioInvoiceCreationError && error.definitive;
+        const currencyMismatch = error instanceof PlisioCurrencyMismatchError;
         if (!invoiceCreated && definitiveProviderFailure) {
           await db.delete(cryptoPayments).where(eq(cryptoPayments.nowPaymentsPaymentId, intentId));
           throw error;
         }
-        if (!invoiceCreated) {
+        if (!definitiveProviderFailure) {
           await db
             .update(cryptoPayments)
             .set({
-              metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber, state: "reconciling" }),
+              metadata: JSON.stringify({
+                provider: "plisio",
+                merchantOrderNumber,
+                currency: cryptoCurrency.code,
+                state: error instanceof PlisioCurrencyMismatchError ? "currency_mismatch" : "reconciling",
+              }),
               updatedAt: new Date(),
             })
             .where(eq(cryptoPayments.nowPaymentsPaymentId, intentId));
         }
         console.error("Plisio invoice requires reconciliation:", error);
-        res.status(502).json({ message: "Your payment invoice is being reconciled. Do not send a payment until support confirms it." });
+        res.status(502).json({
+          message: currencyMismatch
+            ? "The payment provider returned an unexpected currency. Do not send payment; contact support."
+            : "Your payment invoice is being reconciled. Do not send a payment until support confirms it.",
+        });
       }
     } catch (error: any) {
       console.error("Plisio invoice creation failed:", error);
@@ -1725,7 +1835,17 @@ export async function registerRoutes(
       }
 
       const merchantOrderNumber = typeof body.order_number === "string" ? body.order_number : undefined;
-      const result = await applyPlisioPaymentStatus(transactionId, mapPlisioStatus(body.status), merchantOrderNumber);
+      const callbackCurrency = typeof body.currency === "string"
+        ? body.currency
+        : typeof body.psys_cid === "string"
+          ? body.psys_cid
+          : undefined;
+      const result = await applyPlisioPaymentStatus(
+        transactionId,
+        mapPlisioStatus(body.status),
+        merchantOrderNumber,
+        callbackCurrency,
+      );
       res.status(200).json({ received: true, knownPayment: result.found, status: result.status });
     } catch (error: any) {
       console.error("Plisio callback processing error:", error);
@@ -1736,8 +1856,21 @@ export async function registerRoutes(
   // ── Payment method config (public) ───────────────────────────────────────
   app.get("/api/payment-methods", async (_req, res) => {
     const config = await storage.getPaymentMethodsConfig();
-    const cryptoConfigured = Boolean(await getRuntimeSetting("plisio_api_key"));
+    const cryptoConfigured = Boolean(
+      (await getRuntimeSetting("plisio_api_key")) &&
+      (await getRuntimeSetting("plisio_public_app_url")),
+    );
     res.json({ ...config, crypto: config.crypto && cryptoConfigured });
+  });
+
+  app.get("/api/crypto-currencies", async (_req, res) => {
+    const methods = await storage.getPaymentMethodsConfig();
+    const cryptoConfigured = Boolean(
+      (await getRuntimeSetting("plisio_api_key")) &&
+      (await getRuntimeSetting("plisio_public_app_url")),
+    );
+    if (!methods.crypto || !cryptoConfigured) return res.json([]);
+    res.json(await storage.getCryptoCurrencies(true));
   });
 
   // ── Payment method admin toggle ───────────────────────────────────────────
@@ -1759,6 +1892,58 @@ export async function registerRoutes(
     }
     await storage.setSetting(`payment_method_${method}`, String(enabled));
     res.json(await storage.getPaymentMethodsConfig());
+  });
+
+  app.get("/api/admin/crypto-currencies", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    res.json(await storage.getCryptoCurrencies());
+  });
+
+  app.get("/api/admin/crypto-currencies/supported", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    res.json(SUPPORTED_PLISIO_CURRENCIES);
+  });
+
+  app.post("/api/admin/crypto-currencies", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const parsed = cryptoCurrencyCreateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid currency" });
+    const providerCurrency = getSupportedPlisioCurrency(parsed.data.code);
+    if (!providerCurrency) return res.status(400).json({ message: "That currency is not supported by the Plisio catalog." });
+    if (await storage.getCryptoCurrencyByCode(providerCurrency.code)) {
+      return res.status(409).json({ message: `${providerCurrency.code} is already in your crypto catalog.` });
+    }
+    const currency = await storage.createCryptoCurrency({
+      code: providerCurrency.code,
+      name: parsed.data.name ?? providerCurrency.name,
+      ticker: parsed.data.ticker ?? providerCurrency.ticker,
+      color: parsed.data.color ?? providerCurrency.color,
+      enabled: parsed.data.enabled ?? true,
+      sortOrder: parsed.data.sortOrder ?? (await storage.getCryptoCurrencies()).length,
+    });
+    res.status(201).json(currency);
+  });
+
+  app.patch("/api/admin/crypto-currencies/:id", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid currency ID." });
+    const parsed = cryptoCurrencyUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid currency" });
+    const updated = await storage.updateCryptoCurrency(id, {
+      ...parsed.data,
+      ticker: parsed.data.ticker?.toUpperCase(),
+    });
+    if (!updated) return res.status(404).json({ message: "Currency not found." });
+    res.json(updated);
   });
 
   // ── Integrations status ──────────────────────────────────────────────────

@@ -10,6 +10,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { api } from "@shared/routes";
 import { CashAppQrCode } from "@/components/CashAppQrCode";
+import { CryptoCoinIcon, CryptoCoinSelector, type CryptoCurrencyOption } from "@/components/CryptoCoinSelector";
+import { CryptoPaymentPanel, type CryptoInvoiceData } from "@/components/CryptoPaymentPanel";
 
 type PaymentMethod = "balance" | "cashapp" | "crypto";
 
@@ -65,6 +67,24 @@ function CashAppModal({ orderId, total, paymentNote, cashappUrl, onClose }: {
   );
 }
 
+function CryptoPaymentModal({ invoice, onClose, onComplete }: {
+  invoice: CryptoInvoiceData;
+  onClose: () => void;
+  onComplete: (orderId?: number) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-6">
+      <div className="mx-auto w-full max-w-xl">
+        <CryptoPaymentPanel
+          invoice={invoice}
+          onReset={onClose}
+          onPaymentComplete={onComplete}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function CartPage() {
   const { items, cardItems, bulkBundle, removeItem, removeCard, total, clearCart } = useCart();
   const { user } = useAuth();
@@ -73,7 +93,9 @@ export default function CartPage() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cashapp");
+  const [selectedCryptoCode, setSelectedCryptoCode] = useState<string | null>(null);
   const [cashappModal, setCashappModal] = useState<{ orderId: string; total: number; paymentNote: string; cashappUrl: string } | null>(null);
+  const [cryptoInvoice, setCryptoInvoice] = useState<CryptoInvoiceData | null>(null);
 
   const productTotal = total();
   const cardSubtotal = cardItems.reduce((sum, card) => sum + card.price, 0);
@@ -95,9 +117,13 @@ export default function CartPage() {
   const { data: enabledMethods } = useQuery<Record<string, boolean>>({
     queryKey: ["/api/payment-methods"],
   });
+  const { data: cryptoCurrencies = [] } = useQuery<CryptoCurrencyOption[]>({
+    queryKey: ["/api/crypto-currencies"],
+  });
+  const selectedCrypto = cryptoCurrencies.find((currency) => currency.code === selectedCryptoCode) ?? null;
   const cashappEnabled = enabledMethods?.cashapp !== false;
   const walletEnabled = enabledMethods?.wallet !== false;
-  const cryptoEnabled = enabledMethods?.crypto !== false;
+  const cryptoEnabled = enabledMethods?.crypto === true && cryptoCurrencies.length > 0;
 
   const { data: manualMethods } = useQuery<{
      cashapp: { enabled: boolean; tag: string; url: string; fee: number };
@@ -120,6 +146,16 @@ export default function CartPage() {
       setSelectedMethod(walletEnabled ? "balance" : cashappEnabled ? "cashapp" : "balance");
     }
   }, [cashappEnabled, walletEnabled, cryptoEnabled, selectedMethod, hasCardPurchase]);
+
+  useEffect(() => {
+    if (!cryptoCurrencies.length) {
+      setSelectedCryptoCode(null);
+      return;
+    }
+    if (!selectedCryptoCode || !cryptoCurrencies.some((currency) => currency.code === selectedCryptoCode)) {
+      setSelectedCryptoCode(cryptoCurrencies[0].code);
+    }
+  }, [cryptoCurrencies, selectedCryptoCode]);
 
   // Clear discount if cart changes
   useEffect(() => {
@@ -227,6 +263,7 @@ export default function CartPage() {
         cardIds: selectedCardIds,
         bulkCardIds: bulkBundle?.cardIds ?? [],
         discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
+        currencyCode: selectedCryptoCode,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -237,9 +274,7 @@ export default function CartPage() {
     onSuccess: (data) => {
       clearCart();
       refreshPurchaseData();
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      }
+      setCryptoInvoice({ ...data, orderId: data.order?.id });
     },
     onError: handleCheckoutError,
   });
@@ -272,7 +307,7 @@ export default function CartPage() {
     validateDiscountMutation.mutate(trimmed);
   };
 
-  if (items.length === 0 && cardItems.length === 0 && !bulkBundle && !cashappModal) {
+  if (items.length === 0 && cardItems.length === 0 && !bulkBundle && !cashappModal && !cryptoInvoice) {
     return (
       <div className="pixel-page flex flex-col items-center justify-center py-24 space-y-6 max-w-sm mx-auto text-center">
         <div className="grid h-20 w-20 place-items-center border-[3px] border-black bg-[#10215e]">
@@ -300,6 +335,20 @@ export default function CartPage() {
           paymentNote={cashappModal.paymentNote}
           cashappUrl={cashappModal.cashappUrl}
           onClose={() => { setCashappModal(null); setLocation("/orders"); }}
+        />
+      )}
+      {cryptoInvoice && (
+        <CryptoPaymentModal
+          invoice={cryptoInvoice}
+          onClose={() => {
+            setCryptoInvoice(null);
+            setLocation("/orders");
+          }}
+          onComplete={(orderId) => {
+            queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+            if (orderId) setLocation(`/order/${orderId}`);
+          }}
         />
       )}
 
@@ -505,22 +554,35 @@ export default function CartPage() {
             )}
 
             {!hasCardPurchase && cryptoEnabled && (
-              <button
-                onClick={() => setSelectedMethod("crypto")}
-                data-testid="button-payment-crypto"
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
-                  selectedMethod === "crypto"
-                    ? "border-white/15 bg-[#0d0d0d]"
-                    : "border-white/10 bg-[#111] hover:border-white/10"
-                }`}
-              >
-                <div className={`h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${selectedMethod === "crypto" ? "border-primary" : "border-white/15"}`}>
-                  {selectedMethod === "crypto" && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                </div>
-                <SiBitcoin className="h-4 w-4 text-[#f7931a] flex-shrink-0" />
-                <span className="flex-1 text-left text-xs font-bold text-white">Crypto</span>
-                <span className="text-[11px] font-semibold text-white/45">0% Fee</span>
-              </button>
+              <div className={`rounded-xl border p-1.5 ${selectedMethod === "crypto" ? "border-primary/50 bg-[#0d0d0d]" : "border-white/10 bg-[#111]"}`}>
+                <button
+                  onClick={() => setSelectedMethod("crypto")}
+                  data-testid="button-payment-crypto"
+                  className="w-full flex items-center gap-3 px-1.5 py-1"
+                >
+                  <div className={`h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${selectedMethod === "crypto" ? "border-primary" : "border-white/15"}`}>
+                    {selectedMethod === "crypto" && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                  </div>
+                  {selectedCrypto ? (
+                    <CryptoCoinIcon ticker={selectedCrypto.ticker} color={selectedCrypto.color} className="h-5 w-5 flex-shrink-0" />
+                  ) : (
+                    <SiBitcoin className="h-4 w-4 text-[#f7931a] flex-shrink-0" />
+                  )}
+                  <span className="flex-1 text-left text-xs font-bold text-white">Crypto</span>
+                  <span className="text-[11px] font-semibold text-white/45">0% Fee</span>
+                </button>
+                {selectedMethod === "crypto" && (
+                  <div className="mt-2 border-t border-white/10 pt-2">
+                    <p className="mb-2 px-1 text-[10px] font-mono font-bold text-white/55">CHOOSE A PAYMENT COIN</p>
+                    <CryptoCoinSelector
+                      currencies={cryptoCurrencies}
+                      value={selectedCryptoCode}
+                      onChange={setSelectedCryptoCode}
+                      compact
+                    />
+                  </div>
+                )}
+              </div>
             )}
 
             {walletEnabled && (

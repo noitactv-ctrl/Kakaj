@@ -15,6 +15,16 @@ function merchantOrderNumber(metadata: string | null): string | null {
   }
 }
 
+function requestedCurrency(metadata: string | null): string | null {
+  if (!metadata) return null;
+  try {
+    const parsed = JSON.parse(metadata) as { currency?: unknown };
+    return typeof parsed.currency === "string" ? parsed.currency.trim().toUpperCase() : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Network timeouts during invoice creation are ambiguous: the provider can
  * create the invoice while the response is lost. Reconcile those persisted
@@ -45,6 +55,14 @@ export async function reconcilePlisioIntents(): Promise<void> {
       if (!orderNumber) continue;
       const operation = operationsByOrder.get(orderNumber);
       if (operation) {
+        const expectedCurrency = requestedCurrency(intent.metadata);
+        const providerCurrency = operation.currency?.trim().toUpperCase();
+        if (!expectedCurrency || !providerCurrency || providerCurrency !== expectedCurrency) {
+          console.error(
+            `[plisio-reconciler] Currency mismatch or missing provider currency for payment intent ${intent.id}; leaving it for manual resolution.`,
+          );
+          continue;
+        }
         if (intent.nowPaymentsPaymentId.startsWith("intent-")) {
           await db
             .update(cryptoPayments)
@@ -62,7 +80,7 @@ export async function reconcilePlisioIntents(): Promise<void> {
         // Keep the reconciliation marker until settlement reaches a terminal
         // status. A restart or transient failure after binding will therefore
         // be retried instead of stranding a verified provider operation.
-        await applyPlisioPaymentStatus(operation.id, mapPlisioStatus(operation.status), orderNumber);
+        await applyPlisioPaymentStatus(operation.id, mapPlisioStatus(operation.status), orderNumber, providerCurrency);
         continue;
       }
 

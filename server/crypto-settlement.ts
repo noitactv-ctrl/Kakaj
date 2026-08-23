@@ -128,6 +128,7 @@ export async function applyPlisioPaymentStatus(
   providerTransactionId: string,
   nextStatus: CryptoPaymentStatus,
   merchantOrderNumber?: string,
+  providerCurrency?: string,
 ): Promise<{ found: boolean; status?: CryptoPaymentStatus; settled?: boolean }> {
   return db.transaction(async (transaction) => {
     let [existing] = await transaction
@@ -135,13 +136,29 @@ export async function applyPlisioPaymentStatus(
       .from(cryptoPayments)
       .where(eq(cryptoPayments.nowPaymentsPaymentId, providerTransactionId))
       .limit(1);
+    if (existing && providerCurrency && existing.currency.trim().toUpperCase() !== providerCurrency.trim().toUpperCase()) {
+      console.error(`[plisio-settlement] Ignoring currency-mismatched callback for payment ${existing.id}.`);
+      return { found: true, status: existing.status as CryptoPaymentStatus, settled: false };
+    }
     if (!existing && merchantOrderNumber) {
       const [intent] = await transaction
         .select()
         .from(cryptoPayments)
         .where(sql`${cryptoPayments.metadata}::jsonb ->> 'merchantOrderNumber' = ${merchantOrderNumber}`)
         .limit(1);
-      if (intent && intent.nowPaymentsPaymentId.startsWith("intent-")) {
+      const intentState = (() => {
+        try {
+          return intent?.metadata ? (JSON.parse(intent.metadata) as { state?: unknown }).state : undefined;
+        } catch {
+          return undefined;
+        }
+      })();
+      const currencyMatches = Boolean(
+        providerCurrency &&
+        intent &&
+        intent.currency.trim().toUpperCase() === providerCurrency.trim().toUpperCase(),
+      );
+      if (intent && intent.nowPaymentsPaymentId.startsWith("intent-") && intentState !== "currency_mismatch" && currencyMatches) {
         const [boundIntent] = await transaction
           .update(cryptoPayments)
           .set({ nowPaymentsPaymentId: providerTransactionId, updatedAt: new Date() })
