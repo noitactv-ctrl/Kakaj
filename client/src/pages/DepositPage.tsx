@@ -8,7 +8,7 @@ import {
   RefreshCw, ExternalLink
 } from "lucide-react";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
-import { calculateDepositCredit, DEPOSIT_BONUS_TIERS } from "@shared/deposit";
+import { calculateDepositCredit } from "@shared/deposit";
 import { CashAppQrCode } from "@/components/CashAppQrCode";
 
 type Method = "crypto" | "cashapp";
@@ -139,9 +139,6 @@ export default function DepositPage() {
   const amountCents = Math.max(0, Math.round(parsedAmount * 100));
   const selectedFeePercent = selectedOption === "cashapp" ? (manualMethods?.cashapp?.fee ?? 0) : 0;
   const depositCredit = calculateDepositCredit(amountCents, selectedFeePercent);
-  const activeTier = DEPOSIT_BONUS_TIERS.find(tier =>
-    amountCents >= tier.minCents && (tier.maxCents === null || amountCents <= tier.maxCents)
-  );
 
   const recentDeposits = deposits?.slice(0, 15) ?? [];
 
@@ -260,18 +257,6 @@ export default function DepositPage() {
                   <span className="font-mono text-sm font-bold text-[#ffe177]">${(depositCredit.creditCents / 100).toFixed(2)}</span>
                 </div>
               )}
-            </div>
-
-              <div className="border-[3px] border-black bg-[#0a1645] p-4">
-              <p className="pixel-label">BONUS TIERS</p>
-              <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
-                {DEPOSIT_BONUS_TIERS.map(tier => (
-                  <div key={tier.minCents} className={`border-[3px] border-black px-2 py-1.5 text-center ${activeTier?.minCents === tier.minCents ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
-                    <p className="font-mono text-[9px] text-white/75">${tier.minCents / 100}+</p>
-                    <p className={`pixel-text mt-1 text-[7px] ${activeTier?.minCents === tier.minCents ? "text-white" : "text-[#72df7c]"}`}>+{tier.bonusPercent}%</p>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div className="space-y-2">
