@@ -60,6 +60,47 @@ function lookupBin(bin: string): Promise<any> {
   return new Promise(resolve => { binQueue.push({ bin, resolve }); processBinQueue(); });
 }
 
+function findPaymentCardNumber(value: string): string {
+  const tokens = value.split(/[|\t:;,\s]+/).map(token => token.trim()).filter(Boolean);
+  for (const token of tokens) {
+    const digits = token.replace(/\D/g, "");
+    if (digits.length >= 13 && digits.length <= 19 && /^[3456]/.test(digits)) return digits;
+  }
+  const noGaps = value.replace(/[\s-]/g, "");
+  return noGaps.match(/[3456]\d{12,18}/)?.[0] ?? "";
+}
+
+function hasAccountAndRoutingDetails(value: string): boolean {
+  return /\baccount(?:\s+number)?\s*[:=]/i.test(value)
+    && /\brouting(?:\s+number)?\s*[:=]/i.test(value);
+}
+
+function formatStockAmount(value: unknown): string {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? `$${amount.toFixed(2)}` : "unpriced";
+}
+
+function missingCardFields(value: string): string[] {
+  const pipeFields = value.split("|").map(field => field.trim());
+  const expiryIndex = pipeFields.findIndex(field => /^(0[1-9]|1[0-2])[/\-]\d{2,4}$/.test(field));
+  const hasExpiry = expiryIndex !== -1 || /\b(?:expiry|expiration|exp)\s*[:=]\s*(?:0[1-9]|1[0-2])[/\-]\d{2,4}\b/i.test(value);
+  const hasCvv = /\b(?:cvv|cvc|security\s*code)\s*[:=]\s*\d{3,4}\b/i.test(value)
+    || (expiryIndex >= 0 && /^\d{3,4}$/.test(pipeFields[expiryIndex + 1] ?? ""));
+  const hasName = /\b(?:name|cardholder)\s*[:=]\s*[A-Za-z]/i.test(value)
+    || (expiryIndex >= 0 && /[A-Za-z]/.test(pipeFields[expiryIndex + 2] ?? ""));
+  const hasAddress = /\b(?:address|street)\s*[:=]\s*\S+/i.test(value)
+    || (expiryIndex >= 0 && /[A-Za-z]/.test(pipeFields[expiryIndex + 3] ?? ""));
+  const hasZip = /\b\d{5}(?:-\d{4})?\b/.test(value);
+  return [
+    !findPaymentCardNumber(value) && "card number",
+    !hasExpiry && "expiration",
+    !hasCvv && "CVV",
+    !hasName && "cardholder name",
+    !hasAddress && "billing address",
+    !hasZip && "ZIP",
+  ].filter(Boolean) as string[];
+}
+
 const gameLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -1243,27 +1284,6 @@ export async function registerRoutes(
     }
     const rawInput: string = req.body.extras || "";
 
-    // Robust card number extractor — works with any delimiter or spacing
-    function findCardNumber(line: string): string {
-      if (!line) return "";
-      const tokens = line.split(/[|\t:;,\s]+/).map((t: string) => t.trim()).filter(Boolean);
-      // First pass: token whose digits are 13-19 long and starts with 3/4/5/6
-      for (const token of tokens) {
-        const digits = token.replace(/\D/g, "");
-        if (digits.length >= 13 && digits.length <= 19 && /^[3456]/.test(digits)) return digits;
-      }
-      // Second pass: scan concatenated string for a 13-19 digit run starting with 3/4/5/6
-      const noGaps = line.replace(/[\s\-]/g, "");
-      const m = noGaps.match(/[3456]\d{12,18}/);
-      if (m) return m[0];
-      // Fallback: first numeric token >= 6 digits
-      for (const token of tokens) {
-        const digits = token.replace(/\D/g, "");
-        if (digits.length >= 6) return digits;
-      }
-      return "";
-    }
-
     // Multiple cards can be pasted at once, separated by a blank line
     const entries = rawInput.split(/\n\s*\n/).map((e: string) => e.trim()).filter(Boolean);
     if (entries.length === 0) {
@@ -1272,11 +1292,23 @@ export async function registerRoutes(
 
     const baseId = req.body.baseId ? Number(req.body.baseId) : undefined;
     const priceCents = Math.round(parseFloat(req.body.price || "0") * 100);
+    const stockAmount = formatStockAmount(req.body.price);
 
     const createdCards: any[] = [];
 
     for (const fullItem of entries) {
-      const cardNumber = findCardNumber(fullItem) || req.body.cardNumber || "";
+      if (hasAccountAndRoutingDetails(fullItem)) {
+        return res.status(400).json({
+          message: `Flagged card (${stockAmount}): account and routing details were detected. Do not stock banking-account data as a card.`,
+        });
+      }
+      const missingFields = missingCardFields(fullItem);
+      if (missingFields.length > 0) {
+        return res.status(400).json({
+          message: `Flagged card (${stockAmount}) is missing: ${missingFields.join(", ")}.`,
+        });
+      }
+      const cardNumber = findPaymentCardNumber(fullItem);
       const masked = cardNumber.length >= 4
         ? cardNumber.substring(0, 6) + "*".repeat(Math.max(0, cardNumber.length - 10)) + cardNumber.slice(-4)
         : cardNumber;
@@ -2328,11 +2360,11 @@ export async function registerRoutes(
     return hasLabeledFields || lines.length === 1 ? [trimmed] : lines;
   };
 
-  const parseRoutingRecord = (record: string, defaultPrice: number) => {
+  const extractRoutingFields = (record: string, defaultPrice: number) => {
     const pipeFields = record.split("|").map(part => part.trim());
     if (pipeFields.length > 1) {
       const [bankName, routingNumber, state, zip, bin, issuer, recordPrice] = pipeFields;
-      return routingInputSchema.safeParse({
+      return {
         bankName,
         routingNumber,
         state,
@@ -2340,7 +2372,7 @@ export async function registerRoutes(
         bin,
         issuer,
         price: recordPrice || defaultPrice,
-      });
+      };
     }
 
     const labeledFields: Record<string, string> = {};
@@ -2357,7 +2389,26 @@ export async function registerRoutes(
       else if (["issuer", "issuer name"].includes(key)) labeledFields.issuer = value;
       else if (["price"].includes(key)) labeledFields.price = value;
     }
-    return routingInputSchema.safeParse({ ...labeledFields, price: labeledFields.price || defaultPrice });
+    return { ...labeledFields, price: labeledFields.price || defaultPrice };
+  };
+
+  const parseRoutingRecord = (record: string, defaultPrice: number) => {
+    return routingInputSchema.safeParse(extractRoutingFields(record, defaultPrice));
+  };
+
+  const missingRoutingFields = (record: string, defaultPrice: number) => {
+    const fields = extractRoutingFields(record, defaultPrice);
+    const required: Array<[keyof typeof fields, string]> = [
+      ["bankName", "bank name"],
+      ["routingNumber", "9-digit routing number"],
+      ["state", "state"],
+      ["zip", "ZIP"],
+      ["bin", "BIN"],
+      ["issuer", "issuer"],
+    ];
+    return required
+      .filter(([key]) => !String(fields[key] ?? "").trim())
+      .map(([, label]) => label);
   };
 
   const routingPurchaseSchema = z.object({
@@ -2423,9 +2474,29 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Provide between 1 and 500 routing records" });
     }
     const defaultPrice = Number(req.body?.price ?? 5);
+    const stockAmount = formatStockAmount(defaultPrice);
+    const flaggedAccountRecord = rawRecords.find(record => hasAccountAndRoutingDetails(record));
+    if (flaggedAccountRecord) {
+      return res.status(400).json({
+        message: `Flagged bank (${stockAmount}): account and routing details are not public bank metadata and cannot be stocked here.`,
+      });
+    }
+    const flaggedCardRecord = rawRecords.find(record => Boolean(findPaymentCardNumber(record)));
+    if (flaggedCardRecord) {
+      return res.status(400).json({
+        message: `Flagged bank (${stockAmount}): card details were detected. Use only public bank routing metadata here.`,
+      });
+    }
     const staged = rawRecords.map(record => parseRoutingRecord(record, defaultPrice));
     const invalid = staged.find(result => !result.success);
-    if (invalid && !invalid.success) return res.status(400).json({ message: invalid.error.issues[0]?.message ?? "Invalid routing record" });
+    if (invalid && !invalid.success) {
+      const recordIndex = staged.indexOf(invalid);
+      const missing = missingRoutingFields(rawRecords[recordIndex], defaultPrice);
+      if (missing.length > 0) {
+        return res.status(400).json({ message: `Bank record ${recordIndex + 1} is missing: ${missing.join(", ")}.` });
+      }
+      return res.status(400).json({ message: invalid.error.issues[0]?.message ?? "Invalid routing record" });
+    }
     const data = staged.map(result => (result as z.SafeParseSuccess<z.infer<typeof routingInputSchema>>).data);
     const seen = new Set<string>();
     const duplicateInBatch = data.find(item => seen.has(item.routingNumber) || !seen.add(item.routingNumber));
