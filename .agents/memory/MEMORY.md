@@ -1,5 +1,6 @@
 - [Order fee/discount model](order-fee-discount-model.md) — cashapp/crypto checkout must go through createPendingOrder with server-side fee+discount calc; never trust client-computed totals.
 - [Bulk card bundle pricing](bulk-card-bundle-pricing.md) — exactly 20 unique cards earn 50% each; validate the selection and calculate price server-side for every payment route.
+- [Bank bulk bundle pricing](bank-bulk-bundle-pricing.md) — exactly 20 unique banks cost a fixed $1 each; server-side bulk settlement ignores item prices and rank discounts.
 - [Storage interface removal pitfall](storage-interface-removal.md) — bulk removal from IStorage can silently drop closing `}`, causing esbuild failure in prod while tsx dev stays happy.
 - [Auth-gated screenshot testing](auth-gated-screenshot-testing.md) — login requires a captcha, so the screenshot tool can't get past sign-in to visually verify pages behind auth.
 - [Plinko transactional settlement](plinko-transactional-settlement.md) — settle Plinko wager, ledger entries, and payout in one transaction so a game cannot leave a partial wallet result.

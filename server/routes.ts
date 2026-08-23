@@ -2262,6 +2262,11 @@ export async function registerRoutes(
   }).refine(value => new Set(value.itemIds).size === value.itemIds.length, {
     message: "Each routing item can only be purchased once",
   });
+  const routingBulkPurchaseSchema = z.object({
+    itemIds: z.array(z.coerce.number().int().positive()).length(20, "Bank bulk bundles must contain exactly 20 banks"),
+  }).refine(value => new Set(value.itemIds).size === value.itemIds.length, {
+    message: "Each bank can only be selected once",
+  });
 
   app.get("/api/routings", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
@@ -2403,6 +2408,59 @@ export async function registerRoutes(
       res.json({ success: true, orderId: result.order.id, total: result.total, discountPct: result.discountPct, balance: result.balance });
     } catch (error: any) {
       res.status(400).json({ message: error.message || "Unable to complete routing purchase" });
+    }
+  });
+
+  app.post("/api/routings/bulk-purchase", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    const parsed = routingBulkPurchaseSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Select exactly 20 banks" });
+    const userId = (req.user as any).id as number;
+    const bulkTotal = 20 * 100;
+
+    try {
+      const result = await db.transaction(async (tx) => {
+        const selected = await tx.select().from(bankRoutingItems)
+          .where(and(inArray(bankRoutingItems.id, parsed.data.itemIds), eq(bankRoutingItems.isSold, false)))
+          .for("update");
+        if (selected.length !== 20) throw new Error("One or more selected banks are no longer available");
+
+        const [buyer] = await tx.update(users)
+          .set({ balance: sql`${users.balance} - ${bulkTotal}` })
+          .where(and(eq(users.id, userId), sql`${users.balance} >= ${bulkTotal}`))
+          .returning();
+        if (!buyer) throw new Error("Insufficient balance for the $20 bank bulk bundle");
+
+        const routingRows = selected.map(item => [
+          item.bankName,
+          `Routing: ${item.routingNumber}`,
+          `State: ${item.state}`,
+          `ZIP: ${item.zip}`,
+        ].join("\n")).join("\n\n---\n\n");
+        const publicOrderId = Math.random().toString(36).substring(2, 15);
+        const [order] = await tx.insert(orders).values({
+          userId,
+          orderId: `ROUTING-BULK-${publicOrderId}`,
+          total: bulkTotal,
+          paidAmount: bulkTotal,
+          status: "fulfilled",
+          deliveryContent: routingRows,
+          paymentMethod: "wallet",
+        }).returning();
+        await tx.update(bankRoutingItems).set({ isSold: true, purchasedBy: userId, soldAt: new Date() })
+          .where(and(inArray(bankRoutingItems.id, selected.map(item => item.id)), eq(bankRoutingItems.isSold, false)));
+        await tx.insert(transactions).values({
+          userId,
+          amount: -bulkTotal,
+          type: "purchase",
+          description: "Purchased 20 bank routing bulk bundle ($1 each)",
+          paymentMethod: "wallet",
+        });
+        return { order, balance: buyer.balance };
+      });
+      res.json({ success: true, orderId: result.order.id, total: bulkTotal, balance: result.balance });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Unable to complete bank bulk purchase" });
     }
   });
 
