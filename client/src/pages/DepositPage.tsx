@@ -262,13 +262,13 @@ export default function DepositPage() {
               )}
             </div>
 
-            <div className="border-[3px] border-black bg-[#0a1645] p-3">
+            <div className="border-[3px] border-black bg-[#0a1645] p-4">
               <p className="pixel-label">BONUS TIERS</p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2.5">
                 {DEPOSIT_BONUS_TIERS.slice(0, 5).map(tier => (
-                  <div key={tier.minCents} className={`border-[3px] border-black px-3 py-2 text-center ${activeTier?.minCents === tier.minCents ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
-                    <p className="font-mono text-[9px] text-white/75">${tier.minCents / 100}{tier.maxCents ? "+" : ""}</p>
-                    <p className={`pixel-text mt-1 text-[7px] ${activeTier?.minCents === tier.minCents ? "text-white" : "text-[#72df7c]"}`}>+{tier.bonusPercent}%</p>
+                  <div key={tier.minCents} className={`border-[3px] border-black px-4 py-3 text-center ${activeTier?.minCents === tier.minCents ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
+                    <p className="font-mono text-[10px] text-white/75">${tier.minCents / 100}{tier.maxCents ? "+" : ""}</p>
+                    <p className={`pixel-text mt-1 text-[8px] ${activeTier?.minCents === tier.minCents ? "text-white" : "text-[#72df7c]"}`}>+{tier.bonusPercent}%</p>
                   </div>
                 ))}
               </div>
