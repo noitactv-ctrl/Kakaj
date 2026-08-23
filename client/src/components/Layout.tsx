@@ -45,7 +45,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [navOpen, setNavOpen] = useState(false);
-  const [cartRailOpen, setCartRailOpen] = useState(true);
+  const [cartRailOpen, setCartRailOpen] = useState(false);
   const cartItems = useCart(s => s.items);
   const cardItems = useCart(s => s.cardItems);
   const bulkBundle = useCart(s => s.bulkBundle);
@@ -60,8 +60,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isActive = (href: string) =>
     location === href || (href === "/deposit" && location === "/");
-  const showCartRail = location !== "/cart";
-
   const navContent = (
     <>
       <div className="px-3 pt-3 pb-2 space-y-3">
@@ -115,12 +113,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </nav>
 
       <div className="mx-3 border-t-[4px] border-dashed border-[#0a1021] pt-3 pb-3 space-y-2">
-        <Link href="/cart">
-          <div className={`pixel-button flex min-h-9 items-center gap-2 px-2.5 py-2 text-[9px] ${isActive("/cart") ? "!bg-[#ee292b] !text-white" : ""}`}>
+        <button
+          type="button"
+          onClick={() => {
+            setCartRailOpen(true);
+            setNavOpen(false);
+          }}
+          className="pixel-button flex min-h-9 w-full items-center gap-2 px-2.5 py-2 text-left text-[9px]"
+        >
             <ShoppingCart className="h-3 w-3" />
             <span>Cart{cartCount ? ` (${cartCount})` : ""}</span>
-          </div>
-        </Link>
+        </button>
         {user && (
           <>
             <button
@@ -155,27 +158,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
-          {showCartRail && (
-            <button
-              onClick={() => setCartRailOpen(true)}
-              className="pixel-button ml-auto flex min-h-8 items-center gap-1.5 px-2 text-[8px]"
-              aria-label="Open cart panel"
-            >
-              <ShoppingCart className="h-3 w-3" />
-              <span>Cart{cartCount ? ` (${cartCount})` : ""}</span>
-            </button>
-          )}
         </header>
         <div className="pixel-content-gutter min-h-[calc(100vh-56px)] py-4 lg:py-5">
           {children}
         </div>
       </main>
-      {showCartRail && (
-        <CartSidebar
-          open={cartRailOpen}
-          onClose={() => setCartRailOpen(false)}
-        />
-      )}
+      <CartSidebar
+        open={cartRailOpen}
+        onClose={() => setCartRailOpen(false)}
+      />
     </div>
   );
 }
