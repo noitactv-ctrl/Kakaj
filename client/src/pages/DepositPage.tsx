@@ -236,7 +236,7 @@ export default function DepositPage() {
   }
 
   const paymentOptions = [
-    ...(cryptoEnabled ? [{ id: "crypto", label: "Crypto", sub: "BTC · ETH · LTC · SOL · USDT", Icon: SiBitcoin, color: "#F7931A", fee: "0% fee" }] : []),
+    ...(cryptoEnabled ? [{ id: "crypto", label: "Bitcoin", sub: "BTC via Plisio", Icon: SiBitcoin, color: "#F7931A", fee: "0% fee" }] : []),
     ...(cashappEnabled ? [{ id: "cashapp", label: "CashApp", sub: "instant", Icon: SiCashapp, color: "#00D632", fee: feeLabel(manualMethods?.cashapp?.fee) }] : []),
     ...(manualMethods?.venmo.enabled ? [{ id: "venmo", label: "Venmo", sub: manualMethods.venmo.handle, Icon: () => <span className="font-black">V</span>, color: "#3D95CE", fee: "0% fee" }] : []),
     ...(manualMethods?.zelle.enabled ? [{ id: "zelle", label: "Zelle", sub: manualMethods.zelle.handle, Icon: () => <span className="font-black">Z</span>, color: "#6D1ED4", fee: feeLabel(manualMethods?.zelle.fee) }] : []),

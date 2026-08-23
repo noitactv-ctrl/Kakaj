@@ -82,9 +82,9 @@ export function CryptoPaymentModal({ open, onOpenChange, total, purpose = "depos
           {createPaymentMutation.isPending ? (
             <div className="text-center space-y-3 py-4">
               <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
-              <p className="font-medium text-foreground">Creating Payment...</p>
+                <p className="font-medium text-foreground">Creating BTC invoice...</p>
               <p className="text-sm text-muted-foreground">
-                Opening checkout page in a new tab...
+                  Opening secure crypto checkout...
               </p>
             </div>
           ) : checkoutUrl ? (

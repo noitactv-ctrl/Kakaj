@@ -7,8 +7,8 @@ import { storage } from "./storage";
 import { pool, db } from "./db";
 import { users } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
-import { pollPendingCryptoPayments } from "./crypto-poller";
 import { ensureApiSettingsSchema, migrateLegacySecretSettings, removeRetiredApiSettings } from "./settings";
+import { reconcilePlisioIntents } from "./plisio-reconciler";
 
 const app = express();
 const httpServer = createServer(app);
@@ -167,24 +167,17 @@ app.use((req, res, next) => {
   cancelStaleOrders();
   setInterval(cancelStaleOrders, 5 * 60 * 1000);
 
-  // Expire stale crypto payments after 2 hours (CashApp stays pending until admin confirms)
-  const expireStaleCrypto = async () => {
+  // Reconcile only ambiguous Plisio invoice-creation attempts. Completed and
+  // terminal payments are still driven by Plisio's signed callbacks.
+  const reconcileCryptoIntents = async () => {
     try {
-      const expired = await storage.expireStaleCryptoPayments(2 * 60 * 60 * 1000);
-      if (expired > 0) {
-        log(`Expired ${expired} stale crypto payment(s) older than 2 hours`);
-      }
+      await reconcilePlisioIntents();
     } catch (err) {
-      console.error("Error in crypto expiry job:", err);
+      console.error("Error reconciling Plisio payment intents:", err);
     }
   };
-  expireStaleCrypto();
-  setInterval(expireStaleCrypto, 5 * 60 * 1000);
-
-  // Poll NOWPayments every 30 seconds to auto-credit completed crypto payments
-  // This runs server-side so balance is credited even if user closes their browser
-  pollPendingCryptoPayments();
-  setInterval(pollPendingCryptoPayments, 30 * 1000);
+  reconcileCryptoIntents();
+  setInterval(reconcileCryptoIntents, 60 * 1000);
 
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {

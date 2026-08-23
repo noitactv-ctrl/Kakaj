@@ -2345,7 +2345,7 @@ function ApiSecretsSettings() {
   return (
     <section className="space-y-3">
       <div>
-        <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><KeyRound className="h-3.5 w-3.5 text-primary" /> NOWPayments API</p>
+        <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><KeyRound className="h-3.5 w-3.5 text-primary" /> Plisio API</p>
         <p className="text-xs text-white/45 mt-1">Secrets are encrypted on the server and never sent back to this page.</p>
       </div>
 

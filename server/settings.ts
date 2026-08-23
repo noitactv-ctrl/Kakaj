@@ -17,27 +17,19 @@ export type ApiSettingDefinition = {
 
 export const API_SETTING_DEFINITIONS: ApiSettingDefinition[] = [
   {
-    key: "nowpayments_api_url",
-    label: "NOWPayments API URL",
-    description: "Base URL used for hosted crypto invoices and payment status checks.",
+    key: "plisio_api_url",
+    label: "Plisio API URL",
+    description: "Official API URL used to create hosted BTC invoices.",
     kind: "url",
-    envKey: "NOWPAYMENTS_API_BASE_URL",
-    defaultValue: "https://api.nowpayments.io/v1",
+    envKey: "PLISIO_API_BASE_URL",
+    defaultValue: "https://api.plisio.net/api/v1",
   },
   {
-    key: "nowpayments_api_key",
-    label: "NOWPayments API Key",
-    description: "Server-side API key used to create and check crypto invoices.",
+    key: "plisio_api_key",
+    label: "Plisio Secret Key",
+    description: "Server-side secret used to create BTC invoices and verify payment callbacks.",
     kind: "secret",
-    envKey: "NOWPAYMENTS_API_KEY",
-    required: true,
-  },
-  {
-    key: "nowpayments_ipn_secret",
-    label: "NOWPayments IPN Secret",
-    description: "Secret used to verify payment webhook signatures.",
-    kind: "secret",
-    envKey: "NOWPAYMENTS_IPN_SECRET",
+    envKey: "PLISIO_API_KEY",
     required: true,
   },
 ];
@@ -45,6 +37,9 @@ export const API_SETTING_DEFINITIONS: ApiSettingDefinition[] = [
 const definitionsByKey = new Map(API_SETTING_DEFINITIONS.map((definition) => [definition.key, definition]));
 const ENCRYPTED_PREFIX = "enc:v1:";
 const RETIRED_API_SETTING_KEYS = [
+  "nowpayments_api_url",
+  "nowpayments_api_key",
+  "nowpayments_ipn_secret",
   "telegram_bot_token",
   "telegram_group_id",
   "stripe_secret_key",
@@ -227,12 +222,12 @@ function validateValue(key: string, kind: ApiSettingKind, value: string): string
     if (!["http:", "https:"].includes(parsed.protocol)) {
       throw new Error("API URL must use http or https.");
     }
-    if (key === "nowpayments_api_url") {
-      if (parsed.hostname !== "api.nowpayments.io") {
-        throw new Error("The NOWPayments API URL must use the official api.nowpayments.io host.");
+    if (key === "plisio_api_url") {
+      if (parsed.hostname !== "api.plisio.net") {
+        throw new Error("The Plisio API URL must use the official api.plisio.net host.");
       }
       if (parsed.protocol !== "https:") {
-        throw new Error("The NOWPayments API URL must use HTTPS.");
+        throw new Error("The Plisio API URL must use HTTPS.");
       }
     }
     return trimmed.replace(/\/+$/, "");

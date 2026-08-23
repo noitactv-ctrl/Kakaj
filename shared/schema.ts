@@ -363,6 +363,7 @@ export type Mail = typeof mails.$inferSelect;
 export const cryptoPayments = pgTable("crypto_payments", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
+  // Historical database column retained for legacy NOWPayments records; stores the active provider transaction ID.
   nowPaymentsPaymentId: text("forebit_payment_id").notNull().unique(),
   amount: integer("amount").notNull(),
   currency: text("currency").default("USD").notNull(),

@@ -1,0 +1,196 @@
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { db } from "./db";
+import { calculateDepositCredit } from "@shared/deposit";
+import {
+  cards,
+  cryptoPayments,
+  orderItems,
+  orders,
+  stockItems,
+  transactions,
+  users,
+} from "@shared/schema";
+import type { CryptoPaymentStatus } from "./plisio";
+
+const PAYABLE_STATUSES: CryptoPaymentStatus[] = ["pending", "underpaid"];
+
+async function settleCompletedPayment(transaction: any, payment: typeof cryptoPayments.$inferSelect) {
+  if (payment.purpose === "order" && payment.orderId) {
+    const [order] = await transaction
+      .select()
+      .from(orders)
+      .where(and(eq(orders.id, payment.orderId), eq(orders.status, "pending")))
+      .limit(1);
+    if (!order) throw new Error("The pending order is no longer available for payment.");
+
+    const items = await transaction.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+    const deliveryParts: Record<string, string[]> = {};
+
+    for (const item of items) {
+      if (item.cardId) {
+        const [card] = await transaction
+          .update(cards)
+          .set({ isSold: true, userId: order.userId })
+          .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
+          .returning();
+        if (!card) throw new Error("A card in this order is no longer available.");
+        (deliveryParts.cards ??= []).push(
+          [card.cardNumber, card.expiry, card.cvv, card.country, card.extras].filter(Boolean).join("|"),
+        );
+        continue;
+      }
+
+      if (!item.variantId || !item.stockItemId) {
+        throw new Error("The pending order has an invalid stock reservation.");
+      }
+
+      const [stock] = await transaction
+        .update(stockItems)
+        .set({ isSold: true, isReserved: false })
+        .where(and(
+          eq(stockItems.id, item.stockItemId),
+          eq(stockItems.orderId, order.id),
+          eq(stockItems.isReserved, true),
+          eq(stockItems.isSold, false),
+        ))
+        .returning();
+      if (!stock) throw new Error("Reserved stock is no longer available.");
+      (deliveryParts[String(item.variantId)] ??= []).push(stock.content);
+    }
+
+    const deliveryContent = JSON.stringify(
+      Object.fromEntries(Object.entries(deliveryParts).map(([key, value]) => [key, value.join("\n\n")])),
+    );
+    const [fulfilledOrder] = await transaction
+      .update(orders)
+      .set({ status: "delivering", deliveryContent, paidAmount: order.total, paymentMethod: "Plisio" })
+      .where(and(eq(orders.id, order.id), eq(orders.status, "pending")))
+      .returning();
+    if (!fulfilledOrder) throw new Error("The pending order changed while the payment was being settled.");
+
+    await transaction.insert(transactions).values({
+      userId: payment.userId,
+      amount: -payment.amount,
+      type: "purchase",
+      description: `Crypto order payment ($${(payment.amount / 100).toFixed(2)})`,
+      paymentMethod: "Plisio",
+    });
+    return;
+  }
+
+  const credit = calculateDepositCredit(payment.amount);
+  const [updatedUser] = await transaction
+    .update(users)
+    .set({
+      balance: sql`${users.balance} + ${credit.creditCents}`,
+      protectedBalance: sql`${users.protectedBalance} + ${credit.creditCents}`,
+    })
+    .where(eq(users.id, payment.userId))
+    .returning({ id: users.id });
+  if (!updatedUser) throw new Error("The payment user no longer exists.");
+
+  await transaction.insert(transactions).values({
+    userId: payment.userId,
+    amount: payment.amount,
+    type: "deposit",
+    description: `Crypto deposit ($${(payment.amount / 100).toFixed(2)})`,
+    paymentMethod: "Plisio",
+  });
+  if (credit.bonusCents > 0) {
+    await transaction.insert(transactions).values({
+      userId: payment.userId,
+      amount: credit.bonusCents,
+      type: "deposit_bonus",
+      description: `Deposit bonus (+${credit.bonusPercent}%)`,
+      paymentMethod: "NYCHQ",
+    });
+  }
+}
+
+async function releaseFailedOrder(transaction: any, payment: typeof cryptoPayments.$inferSelect) {
+  if (payment.purpose !== "order" || !payment.orderId) return;
+
+  const [order] = await transaction
+    .update(orders)
+    .set({ status: "waiting_payment" })
+    .where(and(eq(orders.id, payment.orderId), eq(orders.status, "pending")))
+    .returning();
+  if (!order) return;
+
+  await transaction
+    .update(stockItems)
+    .set({ isReserved: false, orderId: null })
+    .where(and(eq(stockItems.orderId, order.id), eq(stockItems.isReserved, true), eq(stockItems.isSold, false)));
+  await transaction.delete(orderItems).where(eq(orderItems.orderId, order.id));
+}
+
+export async function applyPlisioPaymentStatus(
+  providerTransactionId: string,
+  nextStatus: CryptoPaymentStatus,
+  merchantOrderNumber?: string,
+): Promise<{ found: boolean; status?: CryptoPaymentStatus; settled?: boolean }> {
+  return db.transaction(async (transaction) => {
+    let [existing] = await transaction
+      .select()
+      .from(cryptoPayments)
+      .where(eq(cryptoPayments.nowPaymentsPaymentId, providerTransactionId))
+      .limit(1);
+    if (!existing && merchantOrderNumber) {
+      const [intent] = await transaction
+        .select()
+        .from(cryptoPayments)
+        .where(sql`${cryptoPayments.metadata}::jsonb ->> 'merchantOrderNumber' = ${merchantOrderNumber}`)
+        .limit(1);
+      if (intent && intent.nowPaymentsPaymentId.startsWith("intent-")) {
+        const [boundIntent] = await transaction
+          .update(cryptoPayments)
+          .set({ nowPaymentsPaymentId: providerTransactionId, updatedAt: new Date() })
+          .where(and(
+            eq(cryptoPayments.id, intent.id),
+            eq(cryptoPayments.nowPaymentsPaymentId, intent.nowPaymentsPaymentId),
+            inArray(cryptoPayments.status, PAYABLE_STATUSES),
+          ))
+          .returning();
+        existing = boundIntent;
+      }
+    }
+    if (!existing) return { found: false };
+    if (existing.status === "completed") return { found: true, status: "completed", settled: false };
+    if (!PAYABLE_STATUSES.includes(existing.status as CryptoPaymentStatus)) {
+      return { found: true, status: existing.status as CryptoPaymentStatus, settled: false };
+    }
+
+    if (nextStatus === "completed") {
+      const [payment] = await transaction
+        .update(cryptoPayments)
+        .set({ status: "completed", updatedAt: new Date() })
+        .where(and(
+          eq(cryptoPayments.id, existing.id),
+          inArray(cryptoPayments.status, PAYABLE_STATUSES),
+        ))
+        .returning();
+      if (!payment) return { found: true, status: existing.status as CryptoPaymentStatus, settled: false };
+
+      await settleCompletedPayment(transaction, payment);
+      return { found: true, status: "completed" as const, settled: true };
+    }
+
+    if (nextStatus === "pending" && existing.status === "underpaid") {
+      return { found: true, status: "underpaid", settled: false };
+    }
+
+    const [payment] = await transaction
+      .update(cryptoPayments)
+      .set({ status: nextStatus, updatedAt: new Date() })
+      .where(and(
+        eq(cryptoPayments.id, existing.id),
+        inArray(cryptoPayments.status, PAYABLE_STATUSES),
+      ))
+      .returning();
+    if (!payment) return { found: true, status: existing.status as CryptoPaymentStatus, settled: false };
+    if (nextStatus === "failed" || nextStatus === "expired") {
+      await releaseFailedOrder(transaction, payment);
+    }
+    return { found: true, status: nextStatus, settled: false };
+  });
+}

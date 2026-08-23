@@ -31,7 +31,7 @@ A dark-themed digital marketplace for selling digital items (logs, cards, accoun
 | Backend | Node.js, Express 5, TypeScript |
 | Database | PostgreSQL (Drizzle ORM) |
 | Auth | Passport.js (local strategy), express-session, connect-pg-simple |
-| Payments | CashApp (manual), Crypto via NOWPayments |
+| Payments | CashApp (manual), Bitcoin via Plisio |
 
 ---
 
@@ -56,8 +56,7 @@ Set these in the Replit **Secrets** panel:
 |---|---|---|
 | `DATABASE_URL` | Auto-set | Set automatically when you create a Replit DB |
 | `SESSION_SECRET` | Recommended | Random string for signing session cookies. Defaults to a placeholder if missing. |
-| `NOWPAYMENTS_API_KEY` | Required for crypto | API key for NOWPayments crypto payment processing |
-| `NOWPAYMENTS_IPN_SECRET` | Required for webhooks | Secret used to verify NOWPayments payment notifications |
+| `PLISIO_API_KEY` | Required for crypto | Plisio secret key for BTC invoice creation and callback verification |
 
 ### 3. Admin Account
 
@@ -167,7 +166,7 @@ npm run build      # Build for production
 - **Transactions** — wallet history (top-ups, purchases, game wins/losses)
 - **Redeem Codes** — one-time codes for wallet top-up
 - **Site Settings** — key/value store for CashApp tag, payment method toggles, announcements
-- **Crypto Payments** — NOWPayments payment tracking
+- **Crypto Payments** — Plisio payment tracking; the historical provider-ID column is retained for existing records
 
 ### Build System
 - Dev: Vite HMR proxied through Express

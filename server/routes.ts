@@ -5,9 +5,10 @@ import { storage } from "./storage";
 import { setupAuth, isFounderIdentity } from "./auth";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { createNowPaymentsInvoice, getNowPaymentsInvoice, mapNowPaymentsStatus, verifyNowPaymentsWebhook } from "./nowpayments";
+import { createPlisioInvoice, mapPlisioStatus, PlisioInvoiceCreationError, verifyPlisioWebhook } from "./plisio";
+import { applyPlisioPaymentStatus } from "./crypto-settlement";
 import { hashPassword, comparePassword } from "./auth";
-import { randomInt } from "crypto";
+import { randomInt, randomUUID } from "crypto";
 import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, bankRoutingItems, products, redeemCodes } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, desc, sql, inArray } from "drizzle-orm";
@@ -1481,9 +1482,14 @@ export async function registerRoutes(
   app.post("/api/orders/crypto", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     let pendingOrderId: number | null = null;
+    let paymentIntentCreated = false;
+    let merchantOrderNumber: string | null = null;
     try {
       const methods = await storage.getPaymentMethodsConfig();
       if (methods.crypto !== true) return res.status(400).json({ message: "Crypto payments are not available" });
+      if (!(await getRuntimeSetting("plisio_api_key"))) {
+        return res.status(503).json({ message: "Crypto checkout is not configured yet." });
+      }
       const userId = (req.user as any).id;
       const { items, cardIds, bulkCardIds, discountCodeId } = req.body;
       const productItems = (items || []).filter((i: any) => !i.cardId && i.variantId > 0);
@@ -1494,33 +1500,60 @@ export async function registerRoutes(
 
       const totalWithFee = order.total;
       const amountUsd = totalWithFee / 100;
+      const intentId = `intent-${randomUUID()}`;
+      const orderNumber = `order-${order.id}-${randomUUID()}`;
+      merchantOrderNumber = orderNumber;
 
       const origin = (req.headers.origin as string) || `https://${req.headers.host}`;
-      const invoice = await createNowPaymentsInvoice({
-        amount: amountUsd,
-        orderId: `order-${order.id}`,
-        successUrl: `${origin}/orders`,
-        cancelUrl: `${origin}/orders`,
-        ipnCallbackUrl: `${origin}/api/webhooks/nowpayments`,
-      });
+      const callbackUrl = new URL("/api/webhooks/plisio", origin);
+      callbackUrl.searchParams.set("json", "true");
 
-      if (!invoice.id || !invoice.url) {
-        await storage.cancelPendingOrder(order.id);
-        pendingOrderId = null;
-        return res.status(502).json({ message: "Payment provider error. Please try again." });
-      }
-
+      // Persist an intent before creating an external invoice. The intent keeps
+      // a signed callback reconcilable if the provider request succeeds but the
+      // transaction-ID binding fails immediately afterward.
       await db.insert(cryptoPayments).values({
         userId,
-        nowPaymentsPaymentId: invoice.id,
+        nowPaymentsPaymentId: intentId,
         amount: totalWithFee,
         currency: "USD",
         status: "pending",
         purpose: "order",
         orderId: order.id,
-        checkoutUrl: invoice.url,
-        metadata: null,
+        checkoutUrl: null,
+        metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber: orderNumber, state: "intent" }),
       });
+      paymentIntentCreated = true;
+      await db.update(orders).set({ paymentMethod: "Plisio" }).where(eq(orders.id, order.id));
+
+      const invoice = await createPlisioInvoice({
+        amountUsd,
+        orderNumber,
+        orderName: `Order #${order.orderId}`,
+        successInvoiceUrl: `${origin}/orders`,
+        failInvoiceUrl: `${origin}/orders`,
+        callbackUrl: callbackUrl.toString(),
+      });
+      if (!invoice.id || !invoice.url) {
+        return res.status(502).json({ message: "Payment provider error. Please try again." });
+      }
+
+      const [boundPayment] = await db
+        .update(cryptoPayments)
+        .set({
+          nowPaymentsPaymentId: invoice.id,
+          checkoutUrl: invoice.url,
+          metadata: JSON.stringify({
+            provider: "plisio",
+            merchantOrderNumber: orderNumber,
+            bitcoinAmount: invoice.amount,
+            currency: invoice.currency,
+            expiresAt: invoice.expiresAt,
+          }),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(cryptoPayments.nowPaymentsPaymentId, intentId), eq(cryptoPayments.orderId, order.id)))
+        .returning({ id: cryptoPayments.id });
+      if (!boundPayment) throw new Error("Unable to finalize the crypto payment intent.");
 
       pendingOrderId = null;
       res.status(201).json({
@@ -1530,10 +1563,24 @@ export async function registerRoutes(
       });
     } catch (e: any) {
       console.error("Crypto order creation failed:", e);
-      if (pendingOrderId != null) {
+      const definitiveProviderFailure = e instanceof PlisioInvoiceCreationError && e.definitive;
+      if (pendingOrderId != null && (!paymentIntentCreated || definitiveProviderFailure)) {
         try { await storage.cancelPendingOrder(pendingOrderId as number); } catch {}
       }
-      res.status(400).json({ message: e.message });
+      if (paymentIntentCreated && !definitiveProviderFailure) {
+        await db
+          .update(cryptoPayments)
+          .set({
+            metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber, state: "reconciling" }),
+            updatedAt: new Date(),
+          })
+          .where(eq(cryptoPayments.orderId, pendingOrderId as number));
+      }
+      res.status(paymentIntentCreated && !definitiveProviderFailure ? 502 : 400).json({
+        message: paymentIntentCreated && !definitiveProviderFailure
+          ? "Your payment setup is being reconciled. Do not retry or send funds; contact support if it does not appear shortly."
+          : e.message,
+      });
     }
   });
 
@@ -1543,7 +1590,13 @@ export async function registerRoutes(
     try {
       const methods = await storage.getPaymentMethodsConfig();
       if (methods.crypto !== true) return res.status(400).json({ message: "Crypto payments are not available" });
-      const { amount, purpose, orderId } = req.body;
+      if (!(await getRuntimeSetting("plisio_api_key"))) {
+        return res.status(503).json({ message: "Crypto checkout is not configured yet." });
+      }
+      const { amount, purpose } = req.body;
+      if (purpose && purpose !== "deposit") {
+        return res.status(400).json({ message: "Crypto orders must be created from checkout." });
+      }
       // amount arrives in cents from the frontend (e.g. 500 = $5.00)
       const amountUsd = parseFloat(amount) / 100;
 
@@ -1558,35 +1611,74 @@ export async function registerRoutes(
 
       const userId = (req.user as any).id;
       const baseUrl = `${req.protocol}://${req.get("host")}`;
-      const successUrl = purpose === "order" ? `${baseUrl}/orders` : `${baseUrl}/deposit`;
-
-      const invoice = await createNowPaymentsInvoice({
-        amount: amountUsd,
-        orderId: orderId ? `order-${orderId}` : `deposit-${userId}-${Date.now()}`,
-        successUrl,
-        cancelUrl: successUrl,
-        ipnCallbackUrl: `${baseUrl}/api/webhooks/nowpayments`,
-      });
-
-      if (!invoice.id || !invoice.url) {
-        return res.status(502).json({ message: "Payment provider returned an invalid response. Please try again." });
-      }
+      const intentId = `intent-${randomUUID()}`;
+      const merchantOrderNumber = `deposit-${userId}-${randomUUID()}`;
+      const callbackUrl = new URL("/api/webhooks/plisio", baseUrl);
+      callbackUrl.searchParams.set("json", "true");
 
       await db.insert(cryptoPayments).values({
         userId,
-        nowPaymentsPaymentId: invoice.id,
+        nowPaymentsPaymentId: intentId,
         amount: Math.round(amountUsd * 100),
         currency: "USD",
         status: "pending",
-        purpose: purpose || "deposit",
-        orderId: orderId ? Number(orderId) : null,
-        checkoutUrl: invoice.url,
-        metadata: JSON.stringify({ nowpaymentsResponse: invoice }),
+        purpose: "deposit",
+        orderId: null,
+        checkoutUrl: null,
+        metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber, state: "intent" }),
       });
 
-      res.json({ paymentId: invoice.id, checkoutUrl: invoice.url });
+      let invoiceCreated = false;
+      try {
+        const invoice = await createPlisioInvoice({
+          amountUsd,
+          orderNumber: merchantOrderNumber,
+          orderName: `Balance deposit for user ${userId}`,
+          successInvoiceUrl: `${baseUrl}/deposit`,
+          failInvoiceUrl: `${baseUrl}/deposit`,
+          callbackUrl: callbackUrl.toString(),
+        });
+        invoiceCreated = true;
+
+        const [boundPayment] = await db
+          .update(cryptoPayments)
+          .set({
+            nowPaymentsPaymentId: invoice.id,
+            checkoutUrl: invoice.url,
+            metadata: JSON.stringify({
+              provider: "plisio",
+              merchantOrderNumber,
+              bitcoinAmount: invoice.amount,
+              currency: invoice.currency,
+              expiresAt: invoice.expiresAt,
+            }),
+            updatedAt: new Date(),
+          })
+          .where(eq(cryptoPayments.nowPaymentsPaymentId, intentId))
+          .returning({ id: cryptoPayments.id });
+        if (!boundPayment) throw new Error("Unable to finalize the crypto payment intent.");
+
+        res.json({ paymentId: invoice.id, checkoutUrl: invoice.url });
+      } catch (error: any) {
+        const definitiveProviderFailure = error instanceof PlisioInvoiceCreationError && error.definitive;
+        if (!invoiceCreated && definitiveProviderFailure) {
+          await db.delete(cryptoPayments).where(eq(cryptoPayments.nowPaymentsPaymentId, intentId));
+          throw error;
+        }
+        if (!invoiceCreated) {
+          await db
+            .update(cryptoPayments)
+            .set({
+              metadata: JSON.stringify({ provider: "plisio", merchantOrderNumber, state: "reconciling" }),
+              updatedAt: new Date(),
+            })
+            .where(eq(cryptoPayments.nowPaymentsPaymentId, intentId));
+        }
+        console.error("Plisio invoice requires reconciliation:", error);
+        res.status(502).json({ message: "Your payment invoice is being reconciled. Do not send a payment until support confirms it." });
+      }
     } catch (error: any) {
-      console.error("NOWPayments invoice creation failed:", error);
+      console.error("Plisio invoice creation failed:", error);
       res.status(500).json({ message: "Failed to create payment. Please try again later." });
     }
   });
@@ -1608,132 +1700,44 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Payment not found" });
       }
 
-      if (localPayment.status === "completed") {
-        return res.json({ status: "completed", amount: localPayment.amount, purpose: localPayment.purpose, orderId: localPayment.orderId });
-      }
-
-      try {
-        const invoice = await getNowPaymentsInvoice(paymentId);
-        const newStatus = mapNowPaymentsStatus(invoice.payment_status || invoice.status || "");
-
-        if (newStatus !== localPayment.status) {
-          const [updated] = await db
-            .update(cryptoPayments)
-            .set({ status: newStatus, updatedAt: new Date() })
-            .where(and(eq(cryptoPayments.id, localPayment.id), ne(cryptoPayments.status, "completed")))
-            .returning();
-
-          if (newStatus === "completed" && updated) {
-            await processCryptoCompletion(localPayment);
-          }
-          if ((newStatus === "failed" || newStatus === "expired") && updated && localPayment.purpose === "order" && localPayment.orderId) {
-            await storage.cancelPendingOrder(localPayment.orderId);
-          }
-        }
-
-        res.json({ status: newStatus, amount: localPayment.amount, purpose: localPayment.purpose, orderId: localPayment.orderId });
-      } catch {
-        res.json({ status: localPayment.status, amount: localPayment.amount });
-      }
+      res.json({
+        status: localPayment.status,
+        amount: localPayment.amount,
+        purpose: localPayment.purpose,
+        orderId: localPayment.orderId,
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  app.post("/api/webhooks/nowpayments", async (req, res) => {
+  app.post("/api/webhooks/plisio", async (req, res) => {
     try {
-      console.log("NOWPayments IPN received:", JSON.stringify(req.body, null, 2));
-      const body = req.body || {};
-      const sig = req.headers["x-nowpayments-sig"] as string || "";
-      const ipnSecret = await getRuntimeSetting("nowpayments_ipn_secret");
-
-      if (!ipnSecret || !sig || !(await verifyNowPaymentsWebhook(body, sig))) {
-        console.warn("NOWPayments IPN: missing or invalid signature");
-        return res.status(200).json({ received: true });
+      const body = req.body && typeof req.body === "object" ? req.body as Record<string, unknown> : {};
+      if (!(await verifyPlisioWebhook(body))) {
+        console.warn("Plisio callback rejected because its signature was invalid.");
+        return res.status(401).json({ message: "Invalid signature" });
       }
 
-      // IPN body contains invoice_id and payment_status
-      const invoiceId = String(body.invoice_id || body.id || "");
-      const status = body.payment_status || body.status || "";
-
-      if (!invoiceId) {
-        console.warn("NOWPayments IPN: no invoice_id in body:", JSON.stringify(body));
-        return res.status(200).json({ received: true });
+      const transactionId = typeof body.txn_id === "string" ? body.txn_id : "";
+      if (!transactionId) {
+        return res.status(400).json({ message: "Missing Plisio transaction ID" });
       }
 
-      const [payment] = await db
-        .select()
-        .from(cryptoPayments)
-        .where(eq(cryptoPayments.nowPaymentsPaymentId, invoiceId))
-        .limit(1);
-
-      if (!payment) {
-        console.warn("NOWPayments IPN: payment not found for invoice:", invoiceId);
-        return res.status(200).json({ received: true });
-      }
-
-      if (payment.status === "completed") {
-        return res.status(200).json({ received: true, alreadyProcessed: true });
-      }
-
-      const newStatus = mapNowPaymentsStatus(status);
-      const [updated] = await db
-        .update(cryptoPayments)
-        .set({ status: newStatus, updatedAt: new Date() })
-        .where(and(eq(cryptoPayments.id, payment.id), ne(cryptoPayments.status, "completed")))
-        .returning();
-
-      if (newStatus === "completed" && updated) {
-        await processCryptoCompletion(payment);
-      }
-      if ((newStatus === "failed" || newStatus === "expired") && updated && payment.purpose === "order" && payment.orderId) {
-        await storage.cancelPendingOrder(payment.orderId);
-      }
-
-      res.status(200).json({ received: true });
+      const merchantOrderNumber = typeof body.order_number === "string" ? body.order_number : undefined;
+      const result = await applyPlisioPaymentStatus(transactionId, mapPlisioStatus(body.status), merchantOrderNumber);
+      res.status(200).json({ received: true, knownPayment: result.found, status: result.status });
     } catch (error: any) {
-      console.error("NOWPayments IPN error:", error);
-      res.status(200).json({ received: true });
+      console.error("Plisio callback processing error:", error);
+      res.status(500).json({ message: "Unable to process callback" });
     }
   });
-
-  async function processCryptoCompletion(payment: typeof cryptoPayments.$inferSelect) {
-    if (payment.purpose === "order" && payment.orderId) {
-      await storage.fulfillPendingOrder(payment.orderId);
-      await storage.createTransactionWithMethod(
-        payment.userId,
-        -payment.amount,
-        "purchase",
-        `Crypto order payment ($${(payment.amount / 100).toFixed(2)})`,
-        "NOWPayments"
-      );
-    } else {
-      const credit = calculateDepositCredit(payment.amount);
-      await storage.updateUserBalance(payment.userId, credit.creditCents);
-      await storage.updateProtectedBalance(payment.userId, credit.creditCents);
-      await storage.createTransactionWithMethod(
-        payment.userId,
-        payment.amount,
-        "deposit",
-        `Crypto deposit ($${(payment.amount / 100).toFixed(2)})`,
-        "NOWPayments"
-      );
-      if (credit.bonusCents > 0) {
-        await storage.createTransactionWithMethod(
-          payment.userId,
-          credit.bonusCents,
-          "deposit_bonus",
-          `Deposit bonus (+${credit.bonusPercent}%)`,
-          "NYCHQ"
-        );
-      }
-    }
-  }
 
   // ── Payment method config (public) ───────────────────────────────────────
   app.get("/api/payment-methods", async (_req, res) => {
     const config = await storage.getPaymentMethodsConfig();
-    res.json(config);
+    const cryptoConfigured = Boolean(await getRuntimeSetting("plisio_api_key"));
+    res.json({ ...config, crypto: config.crypto && cryptoConfigured });
   });
 
   // ── Payment method admin toggle ───────────────────────────────────────────
@@ -1762,13 +1766,9 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const [nowPaymentsKey, nowPaymentsSecret] = await Promise.all([
-      getRuntimeSetting("nowpayments_api_key"),
-      getRuntimeSetting("nowpayments_ipn_secret"),
-    ]);
+    const plisioKey = await getRuntimeSetting("plisio_api_key");
     res.json({
-      NOWPAYMENTS_API_KEY: !!nowPaymentsKey,
-      NOWPAYMENTS_IPN_SECRET: !!nowPaymentsSecret,
+      PLISIO_API_KEY: !!plisioKey,
     });
   });
 

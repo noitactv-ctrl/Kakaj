@@ -986,8 +986,10 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(orders.status, "pending"), lt(orders.createdAt, cutoff)));
     let cancelled = 0;
     for (const order of staleOrders) {
-      // Never auto-cancel CashApp orders — they need up to 4 hours
-      if (order.paymentMethod === "CashApp") continue;
+      // Payment providers issue their own signed terminal status. Releasing
+      // Plisio-held stock based only on a local timer can reject a confirmed
+      // blockchain payment whose callback arrives late.
+      if (order.paymentMethod === "CashApp" || order.paymentMethod === "Plisio") continue;
       await this.cancelPendingOrder(order.id);
       cancelled++;
     }
