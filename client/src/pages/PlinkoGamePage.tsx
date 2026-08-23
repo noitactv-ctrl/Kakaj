@@ -41,6 +41,15 @@ export default function PlinkoGamePage() {
   const totalBetCents = betCents * dropCount;
   const validBet = Number.isInteger(betCents) && betCents > 0 && totalBetCents <= balanceCents;
   const isDropping = playPlinko.isPending || (dropResults.length > 0 && !isSettled);
+  const normalizeBet = () => {
+    const value = bet.trim();
+    if (!value) {
+      setBet("5.00");
+      return;
+    }
+    const amount = Number(value);
+    if (Number.isFinite(amount)) setBet(Math.max(5, amount).toFixed(2));
+  };
   const resultText = useMemo(() => {
     if (isDropping) {
       return dropResults.length > 1
@@ -210,12 +219,18 @@ export default function PlinkoGamePage() {
           <div className="mt-2 flex border-[3px] border-black bg-[#080c20]">
             <span className="px-3 py-3 font-mono text-sm text-[#ffe177]">$</span>
             <input
-              type="number"
-              min="0.01"
-              step="0.01"
+               type="text"
               inputMode="decimal"
               value={bet}
               onChange={event => setBet(event.target.value)}
+               onBlur={normalizeBet}
+               onKeyDown={event => {
+                 if (event.key === "Enter") {
+                   event.preventDefault();
+                   normalizeBet();
+                   event.currentTarget.blur();
+                 }
+               }}
               className="min-w-0 flex-1 bg-transparent py-3 pr-3 font-mono text-sm text-white outline-none"
               aria-label="Bet amount"
             />
