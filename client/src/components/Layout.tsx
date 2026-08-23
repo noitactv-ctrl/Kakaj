@@ -159,13 +159,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="hidden sm:inline">SUPPORT</span>
               <Ticket className="h-3.5 w-3.5 sm:hidden" />
             </Link>
-            <Link href="/cart" className="pixel-button flex items-center gap-1.5 px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
-              <ShoppingCart className="h-3.5 w-3.5" />
-              <span>CART{cartCount ? ` (${cartCount})` : ""}</span>
-            </Link>
-            <Link href="/deposit" className="pixel-button hidden items-center gap-1.5 px-3 py-2 text-[8px] !bg-[#ee292b] !text-white sm:flex">
+            <Link href="/deposit" className="pixel-button flex items-center gap-1.5 px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
               <Coins className="h-3.5 w-3.5" />
-              DEPOSIT · ${balance}
+              <span>${balance}</span>
             </Link>
           </div>
         </header>

@@ -65,8 +65,6 @@ export default function RoutingCatalogPage() {
       <Link href="/deposit">
         <span className="store-action store-deposit">
           <span>◉ DEPOSIT</span>
-          <span className="hidden text-[8px] opacity-75 sm:inline">ADD BALANCE TO BUY BANKS</span>
-          <span>↗</span>
         </span>
       </Link>
       <section className="space-y-3">

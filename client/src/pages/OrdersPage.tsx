@@ -122,8 +122,6 @@ export default function OrdersPage() {
     <div className="pixel-page max-w-5xl px-1 py-2 space-y-5">
       <a href="https://t.me" target="_blank" rel="noreferrer" className="store-action store-telegram">
         <span className="flex items-center gap-2"><Send className="h-4 w-4" />JOIN OUR TELEGRAM</span>
-        <span className="hidden text-[8px] opacity-80 sm:inline">UPDATES, DELIVERY STATUS & SUPPORT</span>
-        <span>↗</span>
       </a>
 
       <div className="flex items-center justify-between">

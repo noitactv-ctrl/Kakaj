@@ -253,8 +253,6 @@ export default function CardsPage() {
       <Link href="/deposit">
         <span className="store-action store-deposit">
           <span>◉ DEPOSIT</span>
-          <span className="hidden text-[8px] opacity-75 sm:inline">ADD BALANCE TO BUY CARDS</span>
-          <span>↗</span>
         </span>
       </Link>
 
