@@ -498,14 +498,16 @@ export class DatabaseStorage implements IStorage {
     let activeDiscount: typeof discountCodes.$inferSelect | null = null;
     if (discountCodeId && !isBulkBundle) {
       const [dc] = await db.select().from(discountCodes).where(eq(discountCodes.id, discountCodeId));
-      if (dc && dc.isActive && !(dc.maxUses !== null && dc.usedCount >= dc.maxUses) && !(dc.expiresAt && new Date(dc.expiresAt) < new Date())) {
-        const discountAmount = dc.type === "percent"
-          ? Math.round(rawTotal * dc.value / 100)
-          : Math.min(dc.value, rawTotal);
-        total = Math.max(0, rawTotal - discountAmount);
-        activeDiscount = dc;
-        discountApplied = true;
-      }
+      if (!dc || !dc.isActive) throw new Error("Discount code is no longer active");
+      if (dc.expiresAt && new Date(dc.expiresAt) < new Date()) throw new Error("Discount code has expired");
+      if (dc.maxUses !== null && dc.usedCount >= dc.maxUses) throw new Error("Discount code has reached its usage limit");
+      if (dc.minOrder && rawTotal < dc.minOrder) throw new Error(`Minimum order of $${(dc.minOrder / 100).toFixed(2)} required`);
+      const discountAmount = dc.type === "percent"
+        ? Math.round(rawTotal * dc.value / 100)
+        : Math.min(dc.value, rawTotal);
+      total = Math.max(0, rawTotal - discountAmount);
+      activeDiscount = dc;
+      discountApplied = true;
     }
 
     // Apply rank discount automatically
@@ -526,6 +528,7 @@ export class DatabaseStorage implements IStorage {
 
     // ── Step 2: Reserve stock atomically ──
     const reservedStockItems: { variantId: number, stockItemId: number, price: number, content: string }[] = [];
+    let discountClaimed = false;
 
     try {
       for (const item of items) {
@@ -543,6 +546,14 @@ export class DatabaseStorage implements IStorage {
           });
         }
       }
+      if (activeDiscount) {
+        const claimed = await db.update(discountCodes)
+          .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
+          .where(sql`${discountCodes.id} = ${activeDiscount.id} AND ${discountCodes.isActive} = true AND (${discountCodes.maxUses} IS NULL OR ${discountCodes.usedCount} < ${discountCodes.maxUses}) AND (${discountCodes.expiresAt} IS NULL OR ${discountCodes.expiresAt} >= NOW())`)
+          .returning({ id: discountCodes.id });
+        if (claimed.length === 0) throw new Error("Discount code is no longer available");
+        discountClaimed = true;
+      }
     } catch (err) {
       // Release any stock we already reserved before re-throwing
       for (const res of reservedStockItems) {
@@ -550,17 +561,17 @@ export class DatabaseStorage implements IStorage {
           .set({ isSold: false })
           .where(eq(stockItems.id, res.stockItemId));
       }
+      if (discountClaimed && activeDiscount) {
+        await db.update(discountCodes)
+          .set({ usedCount: sql`GREATEST(${discountCodes.usedCount} - 1, 0)` })
+          .where(eq(discountCodes.id, activeDiscount.id));
+      }
       throw err;
     }
 
     // ── Step 3: Deduct balance and create the order ──
     await this.updateUserBalance(userId, -total);
     await this.createTransaction(userId, -total, "purchase", `Order purchase`);
-
-    // Increment discount code usage
-    if (discountApplied && activeDiscount) {
-      await db.update(discountCodes).set({ usedCount: activeDiscount.usedCount + 1 }).where(eq(discountCodes.id, activeDiscount.id));
-    }
 
     // Build delivery content from reserved stock
     const deliveryParts: Record<string, string[]> = {};
@@ -654,13 +665,15 @@ export class DatabaseStorage implements IStorage {
     let activeDiscount: typeof discountCodes.$inferSelect | null = null;
     if (discountCodeId && !isBulkBundle) {
       const [dc] = await db.select().from(discountCodes).where(eq(discountCodes.id, discountCodeId));
-      if (dc && dc.isActive && !(dc.maxUses !== null && dc.usedCount >= dc.maxUses) && !(dc.expiresAt && new Date(dc.expiresAt) < new Date())) {
-        const discountAmount = dc.type === "percent"
-          ? Math.round(rawTotal * dc.value / 100)
-          : Math.min(dc.value, rawTotal);
-        total = Math.max(0, rawTotal - discountAmount);
-        activeDiscount = dc;
-      }
+      if (!dc || !dc.isActive) throw new Error("Discount code is no longer active");
+      if (dc.expiresAt && new Date(dc.expiresAt) < new Date()) throw new Error("Discount code has expired");
+      if (dc.maxUses !== null && dc.usedCount >= dc.maxUses) throw new Error("Discount code has reached its usage limit");
+      if (dc.minOrder && rawTotal < dc.minOrder) throw new Error(`Minimum order of $${(dc.minOrder / 100).toFixed(2)} required`);
+      const discountAmount = dc.type === "percent"
+        ? Math.round(rawTotal * dc.value / 100)
+        : Math.min(dc.value, rawTotal);
+      total = Math.max(0, rawTotal - discountAmount);
+      activeDiscount = dc;
     }
 
     // Apply rank discount automatically
@@ -683,7 +696,16 @@ export class DatabaseStorage implements IStorage {
 
     // Hold one stock item per unit ordered — release everything and cancel the order if any hold fails
     const variantCache: Record<number, typeof variants.$inferSelect> = {};
+    let discountClaimed = false;
     try {
+      if (activeDiscount) {
+        const claimed = await db.update(discountCodes)
+          .set({ usedCount: sql`${discountCodes.usedCount} + 1` })
+          .where(sql`${discountCodes.id} = ${activeDiscount.id} AND ${discountCodes.isActive} = true AND (${discountCodes.maxUses} IS NULL OR ${discountCodes.usedCount} < ${discountCodes.maxUses}) AND (${discountCodes.expiresAt} IS NULL OR ${discountCodes.expiresAt} >= NOW())`)
+          .returning({ id: discountCodes.id });
+        if (claimed.length === 0) throw new Error("Discount code is no longer available");
+        discountClaimed = true;
+      }
       for (const item of items) {
         const [variant] = await db.select().from(variants).where(eq(variants.id, item.variantId));
         if (!variant) throw new Error("Variant not found");
@@ -699,12 +721,12 @@ export class DatabaseStorage implements IStorage {
       // Release any stock we already held and delete the skeleton order
       await this.releaseHeldStock(order.id);
       await db.delete(orders).where(eq(orders.id, order.id));
+      if (discountClaimed && activeDiscount) {
+        await db.update(discountCodes)
+          .set({ usedCount: sql`GREATEST(${discountCodes.usedCount} - 1, 0)` })
+          .where(eq(discountCodes.id, activeDiscount.id));
+      }
       throw err;
-    }
-
-    // Only increment discount usage after stock holds succeed — prevents count leaking on failed orders
-    if (activeDiscount) {
-      await db.update(discountCodes).set({ usedCount: activeDiscount.usedCount + 1 }).where(eq(discountCodes.id, activeDiscount.id));
     }
 
     // Create one order item per held stock item (each unit gets its own row)

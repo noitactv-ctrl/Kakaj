@@ -865,7 +865,7 @@ export async function registerRoutes(
     const allOrders = await storage.getAllOrders();
     // Deposit-only payment records belong in Deposits, not the product Orders view.
     // Orders paid through these methods still remain visible when they contain items.
-    const depositMethods = new Set(["CashApp", "Chime", "Zelle"]);
+    const depositMethods = new Set(["CashApp", "Chime", "Zelle", "Venmo"]);
     const productOrders = allOrders.filter((o: any) =>
       Array.isArray(o.items) && o.items.length > 0
         ? true
@@ -1053,17 +1053,32 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
     try {
       const { code, type, value, minOrder, maxUses, expiresAt } = req.body;
-      if (!code || !type || !value) return res.status(400).json({ message: "Code, type, and value required" });
+      const normalizedCode = typeof code === "string" ? code.toUpperCase().trim() : "";
+      const numericValue = Number(value);
+      const numericMinOrder = minOrder === "" || minOrder === undefined || minOrder === null ? 0 : Number(minOrder);
+      const numericMaxUses = maxUses === "" || maxUses === undefined || maxUses === null ? null : Number(maxUses);
+      const expiry = expiresAt ? new Date(expiresAt) : null;
+
+      if (!normalizedCode || !type || !Number.isFinite(numericValue) || numericValue <= 0) {
+        return res.status(400).json({ message: "Code, type, and a positive value are required" });
+      }
       if (!["percent", "fixed"].includes(type)) return res.status(400).json({ message: "Type must be percent or fixed" });
-      if (type === "percent" && (value < 1 || value > 100)) return res.status(400).json({ message: "Percent must be 1–100" });
+      if (type === "percent" && (numericValue < 1 || numericValue > 100)) return res.status(400).json({ message: "Percent must be 1–100" });
+      if (!Number.isFinite(numericMinOrder) || numericMinOrder < 0) return res.status(400).json({ message: "Minimum order must be zero or greater" });
+      if (numericMaxUses !== null && (!Number.isInteger(numericMaxUses) || numericMaxUses < 1)) {
+        return res.status(400).json({ message: "Usage limit must be a whole number of at least 1" });
+      }
+      if (expiry && (Number.isNaN(expiry.getTime()) || expiry <= new Date())) {
+        return res.status(400).json({ message: "Expiration must be a future date" });
+      }
 
       const [dc] = await db.insert(discountCodes).values({
-        code: code.toUpperCase().trim(),
+        code: normalizedCode,
         type,
-        value: type === "fixed" ? Math.round(parseFloat(value) * 100) : parseInt(value),
-        minOrder: minOrder ? Math.round(parseFloat(minOrder) * 100) : 0,
-        maxUses: maxUses ? parseInt(maxUses) : null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        value: type === "fixed" ? Math.round(numericValue * 100) : Math.round(numericValue),
+        minOrder: Math.round(numericMinOrder * 100),
+        maxUses: numericMaxUses,
+        expiresAt: expiry,
       }).returning();
       res.status(201).json(dc);
     } catch (e: any) {
@@ -1435,6 +1450,8 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     let pendingOrderId: number | null = null;
     try {
+      const methods = await storage.getPaymentMethodsConfig();
+      if (methods.crypto !== true) return res.status(400).json({ message: "Crypto payments are not available" });
       const userId = (req.user as any).id;
       const { items, cardIds, bulkCardIds, discountCodeId } = req.body;
       const productItems = (items || []).filter((i: any) => !i.cardId && i.variantId > 0);
@@ -1492,6 +1509,8 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
 
     try {
+      const methods = await storage.getPaymentMethodsConfig();
+      if (methods.crypto !== true) return res.status(400).json({ message: "Crypto payments are not available" });
       const { amount, purpose, orderId } = req.body;
       // amount arrives in cents from the frontend (e.g. 500 = $5.00)
       const amountUsd = parseFloat(amount) / 100;
@@ -1914,10 +1933,10 @@ export async function registerRoutes(
       storage.getSetting("zelle_fee", "0"),
     ]);
     res.json({
-      cashapp: { enabled: methods.cashapp !== false, tag: cashappTag, url: getCashAppUrl(cashappTag), fee: parseFloat(cashappFee) || 0 },
-      chime:   { enabled: methods.chime === true,   handle: chimeHandle, fee: parseFloat(chimeFee) || 0 },
-      zelle:   { enabled: methods.zelle === true,   handle: zelleHandle, fee: parseFloat(zelleFee) || 0 },
-      venmo:   { enabled: (methods as any).venmo === true, handle: venmoHandle, fee: 0 },
+      cashapp: { enabled: methods.cashapp === true && !!cashappTag.trim(), tag: cashappTag, url: getCashAppUrl(cashappTag), fee: parseFloat(cashappFee) || 0 },
+      chime:   { enabled: methods.chime === true && !!chimeHandle.trim(), handle: chimeHandle, fee: parseFloat(chimeFee) || 0 },
+      zelle:   { enabled: methods.zelle === true && !!zelleHandle.trim(), handle: zelleHandle, fee: parseFloat(zelleFee) || 0 },
+      venmo:   { enabled: methods.venmo === true && !!venmoHandle.trim(), handle: venmoHandle, fee: 0 },
     });
   });
 
@@ -1960,6 +1979,10 @@ export async function registerRoutes(
       const cardIdList: number[] = cardIds || [];
       const paymentNote = generateNote();
       const cashappTag = await storage.getSetting("cashapp_tag", "");
+      const methods = await storage.getPaymentMethodsConfig();
+      if (methods.cashapp !== true || !cashappTag.trim()) {
+        return res.status(400).json({ message: "CashApp payments are not available" });
+      }
 
       // Deposit-only mode: user specifies how much they want to deposit
       if (productItems.length === 0 && cardIdList.length === 0) {
@@ -2022,16 +2045,19 @@ export async function registerRoutes(
   app.post("/api/deposits/chime", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     try {
-      const enabled = await storage.getSetting("payment_method_chime", "false");
-      if (enabled !== "true") return res.status(400).json({ message: "Chime deposits are not available" });
+      const methods = await storage.getPaymentMethodsConfig();
+      const handle = await storage.getSetting("chime_handle", "");
+      if (methods.chime !== true || !handle.trim()) return res.status(400).json({ message: "Chime deposits are not available" });
       const userId = (req.user as any).id;
       const { amount } = req.body;
-      if (!amount || isNaN(parseFloat(String(amount))) || parseFloat(String(amount)) <= 0) {
+      const amountUsd = parseFloat(String(amount));
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
         return res.status(400).json({ message: "Valid amount required" });
       }
-      const depositAmount = Math.round(parseFloat(String(amount)) * 100);
+      const minimum = Math.max(0.01, parseFloat(await storage.getSetting("min_deposit_chime", "0")) || 0);
+      if (amountUsd < minimum) return res.status(400).json({ message: `Minimum deposit is $${minimum.toFixed(2)}` });
+      const depositAmount = Math.round(amountUsd * 100);
       const paymentNote = generateNote();
-      const handle = await storage.getSetting("chime_handle", "");
       const publicOrderId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       const [order] = await db.insert(orders).values({
         userId, orderId: publicOrderId, total: depositAmount, paidAmount: 0,
@@ -2047,20 +2073,52 @@ export async function registerRoutes(
   app.post("/api/deposits/zelle", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     try {
-      const enabled = await storage.getSetting("payment_method_zelle", "false");
-      if (enabled !== "true") return res.status(400).json({ message: "Zelle deposits are not available" });
+      const methods = await storage.getPaymentMethodsConfig();
+      const handle = await storage.getSetting("zelle_handle", "");
+      if (methods.zelle !== true || !handle.trim()) return res.status(400).json({ message: "Zelle deposits are not available" });
       const userId = (req.user as any).id;
       const { amount } = req.body;
-      if (!amount || isNaN(parseFloat(String(amount))) || parseFloat(String(amount)) <= 0) {
+      const amountUsd = parseFloat(String(amount));
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
         return res.status(400).json({ message: "Valid amount required" });
       }
-      const depositAmount = Math.round(parseFloat(String(amount)) * 100);
+      const minimum = Math.max(0.01, parseFloat(await storage.getSetting("min_deposit_zelle", "0")) || 0);
+      if (amountUsd < minimum) return res.status(400).json({ message: `Minimum deposit is $${minimum.toFixed(2)}` });
+      const depositAmount = Math.round(amountUsd * 100);
       const paymentNote = generateNote();
-      const handle = await storage.getSetting("zelle_handle", "");
       const publicOrderId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       const [order] = await db.insert(orders).values({
         userId, orderId: publicOrderId, total: depositAmount, paidAmount: 0,
         status: "pending", paymentMethod: "Zelle", paymentNote, deliveryContent: "",
+      }).returning();
+      res.status(201).json({ order, paymentNote, handle });
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  // ── Venmo deposit ─────────────────────────────────────────────────────────
+  app.post("/api/deposits/venmo", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const methods = await storage.getPaymentMethodsConfig();
+      const handle = await storage.getSetting("venmo_handle", "");
+      if (methods.venmo !== true || !handle.trim()) return res.status(400).json({ message: "Venmo deposits are not available" });
+      const amountUsd = parseFloat(String(req.body.amount));
+      if (!Number.isFinite(amountUsd) || amountUsd <= 0) return res.status(400).json({ message: "Valid amount required" });
+      const minimum = Math.max(0.01, parseFloat(await storage.getSetting("min_deposit_venmo", "0")) || 0);
+      if (amountUsd < minimum) return res.status(400).json({ message: `Minimum deposit is $${minimum.toFixed(2)}` });
+
+      const paymentNote = generateNote();
+      const [order] = await db.insert(orders).values({
+        userId: (req.user as any).id,
+        orderId: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+        total: Math.round(amountUsd * 100),
+        paidAmount: 0,
+        status: "pending",
+        paymentMethod: "Venmo",
+        paymentNote,
+        deliveryContent: "",
       }).returning();
       res.status(201).json({ order, paymentNote, handle });
     } catch (e: any) {

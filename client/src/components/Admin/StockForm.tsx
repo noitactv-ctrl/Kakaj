@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 const schema = z.object({
   productId: z.string().min(1, "Select a product"),
   variantId: z.string().min(1, "Select a variant"),
-  rawContent: z.string().min(1, "Enter content"),
+  rawContent: z.string().trim().min(1, "Paste at least one stock item"),
 });
 
 export function StockForm() {
@@ -96,16 +96,16 @@ export function StockForm() {
           name="rawContent"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Stock Content</FormLabel>
+                <FormLabel>Stock Content (required)</FormLabel>
               <FormControl>
                 <Textarea 
                   {...field} 
                   rows={8} 
-                  placeholder={`Format:\nUser:pass:token\nUser2:pass2:token2\n\n(3 lines automatically grouped as 1 item if configured)`} 
+                  placeholder={`One item per line:\nusername:password:token\nusername2:password2:token2\n\nUse a blank line only when one item spans multiple lines.`}
                   className="font-mono text-sm"
                 />
               </FormControl>
-              <FormDescription>Paste bulk items here. The system will process them automatically.</FormDescription>
+              <FormDescription>Each non-empty line is added as one item. Duplicate entries are skipped, and the available count updates after submission.</FormDescription>
               <FormMessage />
             </FormItem>
           )}

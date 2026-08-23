@@ -374,8 +374,8 @@ function ProductsSection() {
 
   const variantSchema = z.object({
     name: z.string().min(1, "Name required"),
-    price: z.string().min(1, "Price required"),
-    minQuantity: z.string().default("1"),
+    price: z.string().refine(value => Number.isFinite(Number(value)) && Number(value) > 0, "Enter a price greater than $0"),
+    minQuantity: z.string().refine(value => Number.isInteger(Number(value)) && Number(value) >= 1, "Minimum quantity must be at least 1"),
   });
 
   const addForm = useForm<z.infer<typeof productSchema>>({
@@ -625,7 +625,7 @@ function ProductsSection() {
                         <div className="flex items-center justify-between bg-[#0d0d0d] rounded-lg px-3 py-2 border border-white/10">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="text-sm font-medium truncate">{v.name}</span>
-                            <span className="text-xs text-muted-foreground">${(v.price / 100).toFixed(2)}</span>
+                            <span className="text-xs text-muted-foreground">${(v.price / 100).toFixed(2)} · min {v.minQuantity || 1}</span>
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${v.stockCount > 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
                               {v.stockCount || 0} in stock
                             </span>
@@ -843,11 +843,11 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
         ? input.split(/\n\s*\n/).filter(b => b.trim()).length
         : input.split(/\n/).filter(l => l.trim()).length
       : 0;
+  const canSubmit = pendingCount > 0 && input.trim().length > 0;
 
   return (
     <div className="mt-1 mb-2 bg-[#111]/5 rounded-lg border border-white/10 p-3 space-y-3">
 
-      {/* Header row — available in stock + pending count */}
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-white/40">
           {isLoading ? "..." : `${items?.length || 0} in stock`}
@@ -861,6 +861,9 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
       </div>
 
       <div className="space-y-1.5">
+        <p className="text-[10px] leading-relaxed text-white/45">
+          Paste one deliverable item per line. For multi-line items, separate each item with a blank line. Existing duplicates are skipped automatically.
+        </p>
         <div className="relative">
           <Textarea
             value={input}
@@ -873,7 +876,7 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
         <Button
           size="sm"
           className="w-full h-7 text-xs gap-1"
-          disabled={!input.trim() || addMutation.isPending}
+          disabled={!canSubmit || addMutation.isPending}
           onClick={() => addMutation.mutate()}
         >
           {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}

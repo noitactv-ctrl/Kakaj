@@ -4,10 +4,9 @@ import { ShoppingCart, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/hooks/use-cart";
 
-export function CartSidebar({ open, onClose, onOpen }: {
+export function CartSidebar({ open, onClose }: {
   open: boolean;
   onClose: () => void;
-  onOpen: () => void;
 }) {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
@@ -34,8 +33,7 @@ export function CartSidebar({ open, onClose, onOpen }: {
   const openCheckout = () => setLocation("/cart");
 
   return (
-    <>
-      <aside
+    <aside
         className={`fixed inset-y-0 right-0 z-40 hidden w-[292px] flex-col border-l-[3px] border-black bg-[#14276b] text-[#fff0c5] shadow-[-5px_0_0_rgba(0,0,0,0.45)] transition-transform duration-200 lg:flex 2xl:w-[320px] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
@@ -170,16 +168,5 @@ export function CartSidebar({ open, onClose, onOpen }: {
           </button>
         </div>
       </aside>
-
-      {!open && (
-        <button
-          onClick={onOpen}
-          className="fixed right-0 top-20 z-40 hidden border-[3px] border-r-0 border-black bg-[#162d78] px-2 py-3 pixel-text text-[8px] text-[#ffe177] lg:block"
-          aria-label="Open cart panel"
-        >
-          CART
-        </button>
-      )}
-    </>
   );
 }

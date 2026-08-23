@@ -11,7 +11,7 @@ import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { calculateDepositCredit, DEPOSIT_BONUS_TIERS } from "@shared/deposit";
 import { CashAppQrCode } from "@/components/CashAppQrCode";
 
-type Method = "crypto" | "cashapp";
+type Method = "crypto" | "cashapp" | "chime" | "zelle" | "venmo";
 
 type Deposit = {
   id: string;
@@ -28,10 +28,16 @@ type ManualResult = { note: string; handle: string; url: string; amount: number;
 
 function methodColor(type: string) {
   if (type === "cashapp") return "#00D632";
+  if (type === "chime") return "#7BC67E";
+  if (type === "zelle") return "#6D1ED4";
+  if (type === "venmo") return "#3D95CE";
   return "#F7931A";
 }
 function methodLabel(type: string) {
   if (type === "cashapp") return "CashApp";
+  if (type === "chime") return "Chime";
+  if (type === "zelle") return "Zelle";
+  if (type === "venmo") return "Venmo";
   return "Crypto";
 }
 
@@ -86,12 +92,21 @@ function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset
     <div className="overflow-hidden border-[3px] border-[#080f2c] bg-[#18296d] text-[#fff0c5]">
       <div className="flex items-center gap-2 border-b-[2px] border-[#0e1b4e] bg-[#18296d] px-4 py-3">
         <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#00D632] text-[#071509]">
-          <SiCashapp className="h-4 w-4" aria-label="Cash App" />
+          {result.method === "cashapp" ? <SiCashapp className="h-4 w-4" aria-label="Cash App" /> : <span className="text-xs font-black">{result.method.charAt(0).toUpperCase()}</span>}
         </div>
         <p className="text-sm font-bold text-[#fff0c5]">Send via {name}</p>
       </div>
       <div className="space-y-3 bg-[#18296d] p-4">
-        {result.url && <CashAppQrCode url={result.url} amountCents={result.amount} note={result.note} />}
+        {result.url ? (
+          <CashAppQrCode url={result.url} amountCents={result.amount} note={result.note} />
+        ) : (
+          <div className="border-[2px] border-black bg-[#0a1645] p-3 text-center">
+            <p className="pixel-label">SEND TO</p>
+            <p className="mt-2 break-all font-mono text-xs font-bold text-[#ffe177]">{result.handle}</p>
+            <p className="mt-2 font-mono text-[10px] text-white/70">Amount: ${(result.amount / 100).toFixed(2)}</p>
+            <p className="mt-1 font-mono text-[10px] text-white/70">Note: {result.note}</p>
+          </div>
+        )}
         <p className="text-[10px] text-white/20 font-mono text-center">include the exact note · admin will confirm and credit balance</p>
         <button onClick={onReset} className="w-full text-[11px] text-white/25 hover:text-white/50 transition-colors font-mono pt-1" data-testid="btn-new-deposit">
           ← create new deposit
@@ -114,7 +129,13 @@ export default function DepositPage() {
 
   const { data: manualMethods } = useQuery<{
     cashapp: { enabled: boolean; tag: string; url: string; fee: number };
+    chime: { enabled: boolean; handle: string; fee: number };
+    zelle: { enabled: boolean; handle: string; fee: number };
+    venmo: { enabled: boolean; handle: string; fee: number };
   }>({ queryKey: ["/api/site-settings/manual-payments"] });
+  const { data: paymentMethods } = useQuery<Record<string, boolean>>({
+    queryKey: ["/api/payment-methods"],
+  });
 
   const { data: minDeposits } = useQuery<Record<string, number>>({
     queryKey: ["/api/site-settings/min-deposits"],
@@ -126,7 +147,8 @@ export default function DepositPage() {
     refetchInterval: 20000,
   });
 
-  const cashappEnabled = manualMethods?.cashapp.enabled !== false;
+  const cashappEnabled = manualMethods?.cashapp.enabled === true;
+  const cryptoEnabled = paymentMethods?.crypto === true;
 
   function minimumForMethod(method: string | null) {
     if (method === "crypto") return Math.max(1, minDeposits?.crypto ?? 0);
@@ -137,7 +159,11 @@ export default function DepositPage() {
   const selectedMinimum = minimumForMethod(selectedOption);
   const parsedAmount = parseFloat(amountInput) || 0;
   const amountCents = Math.max(0, Math.round(parsedAmount * 100));
-  const selectedFeePercent = selectedOption === "cashapp" ? (manualMethods?.cashapp?.fee ?? 0) : 0;
+  const selectedFeePercent = selectedOption ? (
+    selectedOption === "cashapp" ? manualMethods?.cashapp?.fee :
+    selectedOption === "chime" ? manualMethods?.chime?.fee :
+    selectedOption === "zelle" ? manualMethods?.zelle?.fee : 0
+  ) : 0;
   const depositCredit = calculateDepositCredit(amountCents, selectedFeePercent);
   const activeTier = DEPOSIT_BONUS_TIERS.find(tier =>
     amountCents >= tier.minCents && (tier.maxCents === null || amountCents <= tier.maxCents)
@@ -169,31 +195,39 @@ export default function DepositPage() {
   });
 
   /* ── Manual mutations ── */
-  async function createManual(endpoint: string, method: Method) {
-    const amount = parsedAmount;
+  async function createManual(endpoint: string, method: Method, amount: number) {
     if (!amount || amount < 0.01) throw new Error("Enter the amount you want to deposit");
     const min = minDeposits?.[method] ?? 0;
     if (min > 0 && amount < min) throw new Error(`Minimum deposit for ${methodLabel(method)} is $${min.toFixed(2)}`);
     const res = await apiRequest("POST", endpoint, { amount });
+    if (!res.ok) {
+      const error = await res.json().catch(() => null);
+      throw new Error(error?.message || "Unable to create deposit");
+    }
     return res.json();
   }
 
-  const cashappMutation = useMutation({
-    mutationFn: () => createManual("/api/orders/cashapp", "cashapp"),
-    onSuccess: (data) => {
+  const manualMutation = useMutation({
+    mutationFn: ({ endpoint, method, amount }: { endpoint: string; method: Exclude<Method, "crypto">; amount: number }) =>
+      createManual(endpoint, method, amount),
+    onSuccess: (data, variables) => {
+      const method = variables.method;
+      const config = method === "cashapp"
+        ? manualMethods?.cashapp
+        : manualMethods?.[method];
       setManualResult({
         note: data.paymentNote,
-        handle: data.cashappTag || manualMethods?.cashapp.tag || "",
-        url: data.cashappUrl || manualMethods?.cashapp.url || "",
-        amount: Math.round(parsedAmount * 100),
-        method: "cashapp",
+        handle: data.cashappTag || data.handle || (config && ("tag" in config ? config.tag : config.handle)) || "",
+        url: data.cashappUrl || (method === "cashapp" ? manualMethods?.cashapp.url : "") || "",
+        amount: Math.round(variables.amount * 100),
+        method,
       });
       qc.invalidateQueries({ queryKey: ["/api/deposits"] });
       qc.invalidateQueries({ queryKey: ["/api/orders"] });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-  const isManualPending = cashappMutation.isPending;
+  const isManualPending = manualMutation.isPending;
   const isPending = cryptoMutation.isPending || isManualPending;
 
   function feeLabel(fee: number | undefined) {
@@ -202,8 +236,11 @@ export default function DepositPage() {
   }
 
   const paymentOptions = [
-    { id: "crypto", label: "Crypto", sub: "BTC · ETH · LTC · SOL · USDT", Icon: SiBitcoin, color: "#F7931A", fee: "0% fee" },
+    ...(cryptoEnabled ? [{ id: "crypto", label: "Crypto", sub: "BTC · ETH · LTC · SOL · USDT", Icon: SiBitcoin, color: "#F7931A", fee: "0% fee" }] : []),
     ...(cashappEnabled ? [{ id: "cashapp", label: "CashApp", sub: "instant", Icon: SiCashapp, color: "#00D632", fee: feeLabel(manualMethods?.cashapp?.fee) }] : []),
+    ...(manualMethods?.venmo.enabled ? [{ id: "venmo", label: "Venmo", sub: manualMethods.venmo.handle, Icon: () => <span className="font-black">V</span>, color: "#3D95CE", fee: "0% fee" }] : []),
+    ...(manualMethods?.zelle.enabled ? [{ id: "zelle", label: "Zelle", sub: manualMethods.zelle.handle, Icon: () => <span className="font-black">Z</span>, color: "#6D1ED4", fee: feeLabel(manualMethods?.zelle.fee) }] : []),
+    ...(manualMethods?.chime.enabled ? [{ id: "chime", label: "Chime", sub: manualMethods.chime.handle, Icon: () => <span className="font-black">C</span>, color: "#7BC67E", fee: feeLabel(manualMethods?.chime.fee) }] : []),
   ];
 
   const selected = paymentOptions.find(o => o.id === selectedOption) || null;
@@ -211,12 +248,15 @@ export default function DepositPage() {
 
   function handleContinue() {
     if (!selectedOption) return;
-    if (parsedAmount < 5) {
-      setAmountInput("5.00");
+    if (parsedAmount < selectedMinimum) {
+      toast({ title: "Amount too low", description: `Minimum deposit for ${selected?.label ?? "this method"} is $${selectedMinimum.toFixed(2)}.`, variant: "destructive" });
       return;
     }
     if (isSelectedCrypto) cryptoMutation.mutate();
-    else if (selectedOption === "cashapp") cashappMutation.mutate();
+    else if (selectedOption === "cashapp") manualMutation.mutate({ endpoint: "/api/orders/cashapp", method: "cashapp", amount: parsedAmount });
+    else if (selectedOption === "chime") manualMutation.mutate({ endpoint: "/api/deposits/chime", method: "chime", amount: parsedAmount });
+    else if (selectedOption === "zelle") manualMutation.mutate({ endpoint: "/api/deposits/zelle", method: "zelle", amount: parsedAmount });
+    else if (selectedOption === "venmo") manualMutation.mutate({ endpoint: "/api/deposits/venmo", method: "venmo", amount: parsedAmount });
   }
 
   function handlePaymentMethodSelect(method: string) {
@@ -241,6 +281,7 @@ export default function DepositPage() {
                  inputMode="decimal"
                 placeholder={selectedOption ? `Minimum $${selectedMinimum.toFixed(2)}` : "Enter amount in USD"}
                 value={amountInput}
+                 disabled={isPending}
                 onChange={e => handleAmountChange(e.target.value)}
                 className="pixel-input h-12"
                 data-testid="input-amount"
@@ -283,6 +324,7 @@ export default function DepositPage() {
                     <button
                       key={opt.id}
                       onClick={() => handlePaymentMethodSelect(opt.id)}
+                      disabled={isPending}
                       className={`flex min-h-20 flex-col items-center justify-center gap-1.5 border-[3px] border-black px-2 py-2 transition-all ${isActive ? "bg-[#2555c5] shadow-[2px_2px_0_#ffe177]" : "bg-[#0b1849] hover:bg-[#17337d]"}`}
                       style={{
                         outline: isActive ? `2px solid ${opt.color}` : "none",
@@ -296,6 +338,11 @@ export default function DepositPage() {
                   );
                 })}
               </div>
+              {paymentOptions.length === 0 && (
+                <p className="border-[2px] border-black bg-[#0a1645] px-3 py-3 font-mono text-[10px] text-[#abbceb]">
+                  No deposit method is currently available. Please check back later.
+                </p>
+              )}
             </div>
 
             <button

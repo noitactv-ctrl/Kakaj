@@ -150,11 +150,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {navContent}
       </aside>
 
-      <main className={`min-h-screen lg:pl-[260px] ${showCartRail ? "lg:pr-[292px] 2xl:pr-[320px]" : ""}`}>
+      <main className="min-h-screen lg:pl-[260px]">
         <header className="pixel-content-gutter sticky top-0 z-30 flex h-14 items-center border-b-[3px] border-[#183c9d] bg-[#070d25]/95 shadow-[0_3px_0_#02040d] backdrop-blur">
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
+          {showCartRail && (
+            <button
+              onClick={() => setCartRailOpen(true)}
+              className="pixel-button ml-auto flex min-h-8 items-center gap-1.5 px-2 text-[8px]"
+              aria-label="Open cart panel"
+            >
+              <ShoppingCart className="h-3 w-3" />
+              <span>Cart{cartCount ? ` (${cartCount})` : ""}</span>
+            </button>
+          )}
         </header>
         <div className="pixel-content-gutter min-h-[calc(100vh-56px)] py-4 lg:py-5">
           {children}
@@ -164,7 +174,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <CartSidebar
           open={cartRailOpen}
           onClose={() => setCartRailOpen(false)}
-          onOpen={() => setCartRailOpen(true)}
         />
       )}
     </div>
