@@ -36,7 +36,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
     label: "FEATURED",
     items: [
       { href: "/cards", label: "Cards", icon: CreditCard },
-      { href: "/routings", label: "Bank", icon: Landmark },
+      { href: "/routings", label: "Banks", icon: Landmark },
     ],
   },
 ];
@@ -158,7 +158,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="min-h-screen lg:pl-[260px]">
         <div className="border-b-[3px] border-[#183c9d] bg-[#245cdb] px-4 py-2 text-center">
           <p className="pixel-text text-[8px] text-white">
-            {activeAnnouncement?.text || "WELCOME TO NYCHQ"}
+            {activeAnnouncement?.text || "WELCOME TO NYCHQ, JOIN OUR TELEGRAM"}
           </p>
         </div>
         <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-white/10 bg-[#050505]/95 px-4 backdrop-blur lg:px-6">

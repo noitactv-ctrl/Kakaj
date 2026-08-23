@@ -30,6 +30,10 @@ export default function RoutingCatalogPage() {
     return items.filter(item => [item.bankName, item.routingNumber, item.state, item.zip]
       .some(value => value.toLowerCase().includes(search)));
   }, [items, query]);
+  const selectRandom = () => {
+    const randomItems = [...items].sort(() => Math.random() - 0.5).slice(0, Math.min(5, items.length));
+    setSelected(current => Array.from(new Set([...current, ...randomItems.map(item => item.id)])));
+  };
 
   const purchaseMutation = useMutation({
     mutationFn: async (itemIds: number[]) => {
@@ -57,21 +61,26 @@ export default function RoutingCatalogPage() {
   const selectedTotal = items.filter(item => selected.includes(item.id)).reduce((sum, item) => sum + item.price, 0);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
-      <section className="pixel-card overflow-hidden">
-        <div className="bg-[#173b99] border-b-[3px] border-[#0a1021] px-5 py-4 flex items-center gap-3">
-          <Landmark className="h-6 w-6 text-[#ffe177]" />
-          <div>
-            <h1 className="pixel-text text-[13px] text-white">Banks</h1>
-            <p className="mt-1 text-xs text-white/75">Public routing directory — bank, routing, state, and ZIP only.</p>
-          </div>
+    <div className="max-w-6xl mx-auto space-y-4">
+      <section className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#725d42]" />
+          <Input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by bank, routing, state, zip..."
+            className="h-10 pl-9 bg-[#ffe1aa] border-[3px] border-black rounded-none text-[#171108] placeholder:text-[#725d42]" data-testid="input-routing-search" />
         </div>
-        <div className="p-4 bg-[#081332]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/45" />
-            <Input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search bank, routing number, state, or ZIP"
-              className="h-10 pl-9 bg-[#020715] border-[#3457a5] text-white placeholder:text-white/35" data-testid="input-routing-search" />
-          </div>
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={() => purchaseMutation.mutate(selected)} disabled={purchaseMutation.isPending || selected.length === 0}
+            className="pixel-button h-8 rounded-none !bg-[#ffe1aa] !text-[#171108] !shadow-[3px_3px_0_#000] text-[8px]" data-testid="button-add-selected-routings">
+            + add selected ({selected.length})
+          </Button>
+          <Button onClick={selectRandom} disabled={items.length === 0}
+            className="pixel-button h-8 rounded-none !bg-[#ffe1aa] !text-[#171108] !shadow-[3px_3px_0_#000] text-[8px]" data-testid="button-bulk-random-routings">
+            × bulk add random
+          </Button>
+        </div>
+        <div className="flex items-center justify-between text-[10px] font-mono text-white/45">
+          <span>{visibleItems.length} banks available</span>
+          <span>{selected.length} selected · ${(selectedTotal / 100).toFixed(2)}</span>
         </div>
       </section>
 
@@ -91,7 +100,7 @@ export default function RoutingCatalogPage() {
           const isSelected = selected.includes(item.id);
           return (
             <div key={item.id} className={`grid grid-cols-1 md:grid-cols-[42px_1.6fr_1fr_.7fr_.8fr_.6fr] gap-2 md:gap-4 items-center px-5 py-4 border-t border-[#1b3065] bg-[#07102a] ${isSelected ? "bg-[#102b6a]" : ""}`}>
-              <label className="hidden md:flex items-center">
+              <label className="flex items-center">
                 <input type="checkbox" checked={isSelected} onChange={() => toggleSelected(item.id)} className="accent-[#ffe177]" aria-label={`Select ${item.bankName}`} />
               </label>
               <div><span className="md:hidden mr-2 text-[10px] text-white/45">Bank</span><span className="font-semibold text-white">{item.bankName}</span></div>

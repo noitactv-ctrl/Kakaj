@@ -3247,6 +3247,7 @@ function AdminRoutingSection() {
 
   const available = routings.filter((item: any) => !item.isSold);
   const sold = routings.length - available.length;
+  const availableValue = available.reduce((sum: number, item: any) => sum + (item.price || 0), 0);
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -3282,7 +3283,7 @@ function AdminRoutingSection() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <div>
             <h2 className="font-semibold text-white">Inventory</h2>
-            <p className="text-xs text-white/40">{available.length} available · {sold} sold</p>
+            <p className="text-xs text-white/40">{available.length} available · ${(availableValue / 100).toFixed(2)} stock value · {sold} sold</p>
           </div>
         </div>
         {isLoading ? (
