@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -144,14 +144,6 @@ export default function DepositPage() {
     amountCents >= tier.minCents && (tier.maxCents === null || amountCents <= tier.maxCents)
   );
 
-  useEffect(() => {
-    if (!selectedOption || !amountInput) return;
-    const amount = parseFloat(amountInput);
-    if (Number.isFinite(amount) && amount < selectedMinimum) {
-      setAmountInput(selectedMinimum.toFixed(2));
-    }
-  }, [selectedOption, selectedMinimum, amountInput]);
-
   const recentDeposits = deposits?.slice(0, 15) ?? [];
 
   /* ── Crypto mutation ── */
@@ -220,29 +212,19 @@ export default function DepositPage() {
 
   function handleContinue() {
     if (!selectedOption) return;
+    if (parsedAmount < 5) {
+      setAmountInput("5.00");
+      return;
+    }
     if (isSelectedCrypto) cryptoMutation.mutate();
     else if (selectedOption === "cashapp") cashappMutation.mutate();
   }
 
   function handlePaymentMethodSelect(method: string) {
     setSelectedOption(method);
-    const minimum = minimumForMethod(method);
-    const amount = parseFloat(amountInput);
-    if (!Number.isFinite(amount) || amount < minimum) {
-      setAmountInput(minimum.toFixed(2));
-    }
   }
 
   function handleAmountChange(value: string) {
-    if (value === "") {
-      setAmountInput("");
-      return;
-    }
-    const amount = parseFloat(value);
-    if (Number.isFinite(amount) && amount < selectedMinimum) {
-      setAmountInput(selectedMinimum.toFixed(2));
-      return;
-    }
     setAmountInput(value);
   }
 
@@ -268,18 +250,11 @@ export default function DepositPage() {
             <div className="space-y-2">
               <p className="pixel-label">ENTER AMOUNT</p>
               <input
-                type="number"
-                step="0.01"
-                min={selectedMinimum}
+                 type="text"
+                 inputMode="decimal"
                 placeholder={selectedOption ? `Minimum $${selectedMinimum.toFixed(2)}` : "Enter amount in USD"}
                 value={amountInput}
                 onChange={e => handleAmountChange(e.target.value)}
-                onBlur={() => {
-                  const amount = parseFloat(amountInput);
-                  if (Number.isFinite(amount) && amount < selectedMinimum) {
-                    setAmountInput(selectedMinimum.toFixed(2));
-                  }
-                }}
                 className="pixel-input h-12"
                 data-testid="input-amount"
               />
