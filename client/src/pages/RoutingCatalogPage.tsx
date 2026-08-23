@@ -62,7 +62,7 @@ export default function RoutingCatalogPage() {
         <div className="bg-[#173b99] border-b-[3px] border-[#0a1021] px-5 py-4 flex items-center gap-3">
           <Landmark className="h-6 w-6 text-[#ffe177]" />
           <div>
-            <h1 className="pixel-text text-[13px] text-white">Bank</h1>
+            <h1 className="pixel-text text-[13px] text-white">Banks</h1>
             <p className="mt-1 text-xs text-white/75">Public routing directory — bank, routing, state, and ZIP only.</p>
           </div>
         </div>

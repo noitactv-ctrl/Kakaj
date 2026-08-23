@@ -1091,7 +1091,7 @@ function OrdersSection() {
 
           {groupedEntries.length === 0 && current.deliveryContent && (current.orderId?.startsWith("ACH-") || current.orderId?.startsWith("ROUTING-")) && (
             <div className="space-y-2">
-              <p className="text-[10px] text-white/45">{current.orderId?.startsWith("ROUTING-") ? "Bank Routing Delivered" : "ACH Account Delivered"}</p>
+              <p className="text-[10px] text-white/45">{current.orderId?.startsWith("ROUTING-") ? "Bank Delivered" : "ACH Account Delivered"}</p>
               <div className="px-3 py-2.5 rounded-xl bg-[#0d0d0d] border border-white/10">
                 <p className="text-xs font-mono text-white/70 whitespace-pre-wrap break-all">{current.deliveryContent}</p>
               </div>
@@ -2968,8 +2968,10 @@ function AdminCardsSection() {
           />
           <p className="text-[10px] text-white/30">Leave one blank line between cards to add multiple at once.</p>
           <div className="flex gap-3">
-            {cardEntries.length > 1 && (
-              <p className="text-[10px] text-white/50 font-mono">{cardEntries.length} cards detected</p>
+            {cardEntries.length > 0 && (
+              <span className="inline-flex w-fit items-center rounded border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-mono text-primary" data-testid="text-card-entry-count">
+                {cardEntries.length} card{cardEntries.length === 1 ? "" : "s"} entered
+              </span>
             )}
             {previewBin.length === 6 && (
               <p className="text-[10px] text-primary/60 font-mono">BIN: {previewBin}</p>
@@ -3205,6 +3207,11 @@ function AdminRoutingSection() {
   const [fullItem, setFullItem] = useState("");
   const [price, setPrice] = useState("");
   const { data: routings = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/admin/routings"] });
+  const bankEntries = fullItem.trim()
+    ? (/\r?\n\s*\r?\n/.test(fullItem)
+      ? fullItem.split(/\r?\n\s*\r?\n/)
+      : fullItem.split(/\r?\n/)).map(entry => entry.trim()).filter(Boolean)
+    : [];
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/admin/routings"] });
@@ -3244,7 +3251,7 @@ function AdminRoutingSection() {
   return (
     <div className="max-w-5xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Bank Inventory</h1>
+        <h1 className="text-2xl font-semibold text-white">Banks</h1>
         <p className="mt-1 text-sm text-white/45">Add public bank information only: bank, routing number, state, and ZIP. Never enter account numbers or credentials.</p>
       </div>
 
@@ -3259,10 +3266,15 @@ function AdminRoutingSection() {
           data-testid="input-bank-full-item"
         />
         <p className="text-[10px] text-white/30">Enter: Bank | 9-digit routing number | State | ZIP | optional price. Leave one blank line between banks to add multiple at once.</p>
+        {bankEntries.length > 0 && (
+          <span className="inline-flex w-fit items-center rounded border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-mono text-primary" data-testid="text-bank-entry-count">
+            {bankEntries.length} bank{bankEntries.length === 1 ? "" : "s"} entered
+          </span>
+        )}
         <Input value={price} onChange={event => setPrice(event.target.value)} placeholder="Price per bank (5.00)" type="number" min="0.01" step="0.01" className="bg-[#0d0d0d] border-white/10" data-testid="input-bank-price" />
         <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending || !fullItem.trim() || !price}
           className="w-full" data-testid="button-add-bank">
-          {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Bank"}
+          {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : bankEntries.length > 1 ? `Add ${bankEntries.length} Banks` : "Add Bank"}
         </Button>
       </section>
 

@@ -75,14 +75,14 @@ export default function OrderDetailPageNew() {
           : isAchItem
           ? "ACH Account"
           : isRoutingItem
-          ? "Bank Routing"
+          ? "Bank"
           : (item.productName || "Product"),
         variantName: isCard
           ? (item.card?.country ?? "—")
           : isAchItem
           ? "Bank Account"
           : isRoutingItem
-          ? "Public routing details"
+          ? "Public details"
           : (item.variant?.name || item.variantName || "—"),
         qty: item.quantity ?? 1,
         unitPrice: item.price,
