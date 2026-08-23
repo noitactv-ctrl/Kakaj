@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Landmark, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,13 @@ export default function RoutingCatalogPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
+      <Link href="/deposit">
+        <span className="store-action store-deposit">
+          <span>◉ DEPOSIT</span>
+          <span className="hidden text-[8px] opacity-75 sm:inline">ADD BALANCE TO BUY BANKS</span>
+          <span>↗</span>
+        </span>
+      </Link>
       <section className="space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#725d42]" />

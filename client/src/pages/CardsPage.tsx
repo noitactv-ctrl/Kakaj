@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, Loader2 } from "lucide-react";
-import { useLocation } from "wouter";
+import { ShoppingCart, Loader2, Search } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -125,6 +125,7 @@ export default function CardsPage() {
   const [selectedType, setSelectedType] = useState<"DEBIT" | "CREDIT" | null>(null);
   const [cartCardIds, setCartCardIds] = useState<Set<number>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
+  const [search, setSearch] = useState("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -170,8 +171,21 @@ export default function CardsPage() {
 
   const filteredCards = useMemo(() => {
     if (!cards) return [];
-    return cards.filter((card: any) => !selectedType || formatType(card.binData) === selectedType);
-  }, [cards, selectedType]);
+    const term = search.trim().toLowerCase();
+    return cards.filter((card: any) => {
+      if (selectedType && formatType(card.binData) !== selectedType) return false;
+      if (!term) return true;
+      return [
+        extractBin(card.cardNumber),
+        formatBrand(card.binData),
+        formatType(card.binData),
+        formatBank(card.binData),
+        card.baseName,
+        extractState(card.extras ?? ""),
+        extractZip(card.extras ?? ""),
+      ].filter(Boolean).some(value => String(value).toLowerCase().includes(term));
+    });
+  }, [cards, selectedType, search]);
 
   const cartCards = useMemo(() => (cards ?? []).filter((c: any) => cartCardIds.has(c.id)), [cards, cartCardIds]);
   const toggleCart = (card: any) => {
@@ -235,9 +249,26 @@ export default function CardsPage() {
   };
 
   return (
-    <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto">
+    <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto space-y-4">
+      <Link href="/deposit">
+        <span className="store-action store-deposit">
+          <span>◉ DEPOSIT</span>
+          <span className="hidden text-[8px] opacity-75 sm:inline">ADD BALANCE TO BUY CARDS</span>
+          <span>↗</span>
+        </span>
+      </Link>
 
-      <div className="pixel-panel bg-[#0e1c50] px-3 py-3 space-y-3 sticky top-[60px] z-30">
+      <div className="pixel-panel bg-[#10276a] px-3 py-3 space-y-3 sticky top-[68px] z-30">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#725d42]" />
+          <input
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder="SEARCH BIN, ISSUER, BASE, STATE OR ZIP..."
+            className="pixel-input h-11 pl-10 text-xs"
+            data-testid="input-card-search"
+          />
+        </div>
         <div className="flex flex-wrap gap-2">
           {(["DEBIT", "CREDIT"] as const).map(type => (
             <button

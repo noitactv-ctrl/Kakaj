@@ -83,6 +83,7 @@ export default function CartPage() {
   const discountAmount = appliedDiscount?.discountAmount ?? 0;
   const discountedTotal = Math.max(0, cartTotal - bundleDiscount - discountAmount);
   const userBalance = user?.balance || 0;
+  const hasCardPurchase = cardItems.length > 0 || !!bulkBundle;
 
   const { data: rankData } = useQuery<any>({ queryKey: ["/api/user/rank"], enabled: !!user });
   const rankDiscountPct = rankData?.discountPct ?? 0;
@@ -105,6 +106,10 @@ export default function CartPage() {
   const feePercentFor = (m: PaymentMethod) => m === "cashapp" ? (manualMethods?.cashapp?.fee ?? 0) : 0;
 
   useEffect(() => {
+    if (hasCardPurchase && selectedMethod !== "balance") {
+      setSelectedMethod("balance");
+      return;
+    }
     if (selectedMethod === "cashapp" && !cashappEnabled) {
       setSelectedMethod(walletEnabled ? "balance" : cryptoEnabled ? "crypto" : "balance");
     }
@@ -114,7 +119,7 @@ export default function CartPage() {
     if (selectedMethod === "crypto" && !cryptoEnabled) {
       setSelectedMethod(walletEnabled ? "balance" : cashappEnabled ? "cashapp" : "balance");
     }
-  }, [cashappEnabled, walletEnabled, cryptoEnabled, selectedMethod]);
+  }, [cashappEnabled, walletEnabled, cryptoEnabled, selectedMethod, hasCardPurchase]);
 
   // Clear discount if cart changes
   useEffect(() => {
@@ -298,7 +303,7 @@ export default function CartPage() {
         />
       )}
 
-      <div className="pixel-page max-w-4xl mx-auto w-full space-y-4 pb-20">
+      <div className="pixel-page max-w-5xl mx-auto w-full space-y-4 pb-20">
 
         {/* Products header */}
         <div className="flex items-center justify-between">
@@ -309,6 +314,8 @@ export default function CartPage() {
           <span className="font-mono text-[10px] text-white/45">Review your order</span>
         </div>
 
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <div className="space-y-4">
         {/* Product list */}
         <div className="pixel-panel bg-[#10215e] overflow-hidden divide-y-2 divide-black">
           {bulkBundle && (
@@ -418,8 +425,15 @@ export default function CartPage() {
           )}
         </div>
 
+          </div>
+
+          <aside className="pixel-panel bg-[#162b71] p-4 space-y-5 lg:sticky lg:top-[72px]">
+            <div className="flex items-center justify-between border-b-2 border-black/60 pb-3">
+              <h3 className="pixel-text text-[10px] text-[#fff0c5]">YOUR CART</h3>
+              <span className="font-mono text-[10px] text-[#b9cfff]">{items.reduce((count, item) => count + item.quantity, 0) + cardItems.length + (bulkBundle?.cardIds.length ?? 0)} ITEMS</span>
+            </div>
         {/* Checkout summary */}
-        <div className="pixel-panel bg-[#10215e] p-4 space-y-0">
+        <div className="space-y-0">
           <h3 className="pixel-text mb-3 text-[9px] text-[#ffe177]">ORDER SUMMARY</h3>
 
           <div className="space-y-0 divide-y divide-white/[0.04]">
@@ -464,9 +478,12 @@ export default function CartPage() {
 
         {/* Payment processor */}
         <div>
-          <p className="pixel-label mb-2">SELECT PAYMENT PROCESSOR</p>
+          <p className="pixel-label mb-2">{hasCardPurchase ? "CARD PAYOUT · BALANCE ONLY" : "SELECT PAYMENT PROCESSOR"}</p>
+          {hasCardPurchase && (
+            <p className="mb-2 text-[10px] font-mono text-[#b9cfff]">Cards are paid from your available balance.</p>
+          )}
           <div className="space-y-1.5">
-            {cashappEnabled && (
+            {!hasCardPurchase && cashappEnabled && (
               <button
                 onClick={() => setSelectedMethod("cashapp")}
                 data-testid="button-payment-cashapp"
@@ -487,7 +504,7 @@ export default function CartPage() {
               </button>
             )}
 
-            {cryptoEnabled && (
+            {!hasCardPurchase && cryptoEnabled && (
               <button
                 onClick={() => setSelectedMethod("crypto")}
                 data-testid="button-payment-crypto"
@@ -538,9 +555,10 @@ export default function CartPage() {
           data-testid="button-proceed-payment"
         >
           {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          Proceed to Payment
+          {hasCardPurchase ? "CHECKOUT WITH BALANCE" : "PROCEED TO PAYMENT"}
         </button>
-
+          </aside>
+        </div>
       </div>
     </>
   );

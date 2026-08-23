@@ -3,7 +3,7 @@ import { useOrders } from "@/hooks/use-orders";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, RefreshCw, CreditCard, Coins, ReceiptText } from "lucide-react";
+import { Loader2, RefreshCw, CreditCard, Coins, ReceiptText, Send } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
 
@@ -120,6 +120,11 @@ export default function OrdersPage() {
 
   return (
     <div className="pixel-page max-w-5xl px-1 py-2 space-y-5">
+      <a href="https://t.me" target="_blank" rel="noreferrer" className="store-action store-telegram">
+        <span className="flex items-center gap-2"><Send className="h-4 w-4" />JOIN OUR TELEGRAM</span>
+        <span className="hidden text-[8px] opacity-80 sm:inline">UPDATES, DELIVERY STATUS & SUPPORT</span>
+        <span>↗</span>
+      </a>
 
       <div className="flex items-center justify-between">
         <div>

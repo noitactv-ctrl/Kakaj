@@ -5,7 +5,6 @@ import {
   Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck, Landmark,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useCart } from "@/hooks/use-cart";
 
 type NavItem = {
@@ -50,11 +49,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const bulkBundle = useCart(s => s.bulkBundle);
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0) + cardItems.length + (bulkBundle?.cardIds.length ?? 0);
   const balance = user ? (user.balance / 100).toFixed(2) : "0.00";
-  const { data: announcements } = useQuery<{ id: number; text: string; active: boolean }[]>({
-    queryKey: ["/api/announcements"],
-    staleTime: 60000,
-  });
-  const activeAnnouncement = announcements?.find(item => item.active);
 
   useEffect(() => setNavOpen(false), [location]);
   useEffect(() => {
@@ -156,22 +150,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="min-h-screen lg:pl-[260px]">
-        <div className="border-b-[3px] border-[#183c9d] bg-[#245cdb] px-4 py-2 text-center">
-          <p className="pixel-text text-[8px] text-white">
-            {activeAnnouncement?.text || "WELCOME TO NYCHQ, JOIN OUR TELEGRAM"}
-          </p>
-        </div>
-        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-white/10 bg-[#050505]/95 px-4 backdrop-blur lg:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b-[3px] border-[#183c9d] bg-[#070d25]/95 px-4 shadow-[0_3px_0_#02040d] backdrop-blur lg:px-6">
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="ml-auto flex items-center gap-3">
-            <Link href="/deposit" className="pixel-button px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
-              ${balance}
+          <div className="ml-auto flex items-center gap-2">
+            <Link href="/support" className="pixel-button px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
+              <span className="hidden sm:inline">SUPPORT</span>
+              <Ticket className="h-3.5 w-3.5 sm:hidden" />
+            </Link>
+            <Link href="/cart" className="pixel-button flex items-center gap-1.5 px-2.5 py-2 text-[8px] !bg-[#ffe1aa]">
+              <ShoppingCart className="h-3.5 w-3.5" />
+              <span>CART{cartCount ? ` (${cartCount})` : ""}</span>
+            </Link>
+            <Link href="/deposit" className="pixel-button hidden items-center gap-1.5 px-3 py-2 text-[8px] !bg-[#ee292b] !text-white sm:flex">
+              <Coins className="h-3.5 w-3.5" />
+              DEPOSIT · ${balance}
             </Link>
           </div>
         </header>
-        <div className="min-h-[calc(100vh-84px)] px-3 py-3 sm:px-4 lg:px-6 lg:py-4">
+        <div className="min-h-[calc(100vh-56px)] px-3 py-4 sm:px-4 lg:px-6 lg:py-5">
           {children}
         </div>
       </main>
