@@ -68,6 +68,8 @@ const gameLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const recentPlinkoDrops: Array<{ username: string; multiplier: number; createdAt: string }> = [];
+
 const walletLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -504,10 +506,24 @@ export async function registerRoutes(
       if (!settledUser) {
         return res.status(400).json({ message: "Insufficient balance" });
       }
+      const createdAt = new Date().toISOString();
+      recentPlinkoDrops.unshift(
+        ...results.map(result => ({
+          username: user.username,
+          multiplier: result.multiplier,
+          createdAt,
+        })),
+      );
+      recentPlinkoDrops.splice(50);
       res.json({ ...results[0], newBalance: settledUser.balance, results });
     } catch (e: any) {
       res.status(500).json({ message: e.message });
     }
+  });
+
+  app.get(api.games.plinkoRecent.path, async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    res.json(recentPlinkoDrops);
   });
 
   app.post(api.games.spin.path, gameLimiter, async (req, res) => {

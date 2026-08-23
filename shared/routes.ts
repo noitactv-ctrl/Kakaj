@@ -241,6 +241,18 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
+    plinkoRecent: {
+      method: 'GET' as const,
+      path: '/api/games/plinko/recent',
+      responses: {
+        200: z.array(z.object({
+          username: z.string(),
+          multiplier: z.number(),
+          createdAt: z.string(),
+        })),
+        401: errorSchemas.unauthorized,
+      },
+    },
     spin: {
       method: 'POST' as const,
       path: '/api/games/spin',

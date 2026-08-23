@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Loader2, RotateCcw, Trophy } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useGames } from "@/hooks/use-games";
 import { useAuth } from "@/hooks/use-auth";
+import { api } from "@shared/routes";
 
 const BOARD_ROWS = 16;
 const PEG_STEP = 5.8;
 const multipliers = [20, 10, 5, 5, 2, 1, 0.75, 0.5, 0.3, 0.5, 0.75, 1, 2, 5, 5, 10, 20];
 type DropResult = { slot: number; multiplier: number; payout: number; newBalance?: number; path: number[] };
+type RecentDrop = { username: string; multiplier: number; createdAt: string };
 
 export default function PlinkoGamePage() {
   const { user } = useAuth();
@@ -19,8 +22,17 @@ export default function PlinkoGamePage() {
   const [dropResults, setDropResults] = useState<DropResult[]>([]);
   const [ballPositions, setBallPositions] = useState<Record<number, { x: number; top: number }>>({});
   const [batchPayoutTotal, setBatchPayoutTotal] = useState(0);
-  const [recentDrops, setRecentDrops] = useState<DropResult[]>([]);
   const [isSettled, setIsSettled] = useState(false);
+  const { data: recentDrops = [] } = useQuery<RecentDrop[]>({
+    queryKey: [api.games.plinkoRecent.path],
+    queryFn: async () => {
+      const response = await fetch(api.games.plinkoRecent.path);
+      if (!response.ok) throw new Error("Unable to load live drops");
+      return api.games.plinkoRecent.responses[200].parse(await response.json());
+    },
+    refetchInterval: 3000,
+    staleTime: 0,
+  });
 
   const balanceCents = user?.balance ?? 0;
   const balance = balanceCents / 100;
@@ -77,7 +89,6 @@ export default function PlinkoGamePage() {
       ])));
       setLandedSlots(dropResults.map(drop => drop.slot));
       setLastPayout(dropResults[dropResults.length - 1].payout);
-      setRecentDrops(previous => [...dropResults.slice().reverse(), ...previous].slice(0, 6));
       setIsSettled(true);
     }, BOARD_ROWS * 75 + 160));
 
@@ -173,15 +184,20 @@ export default function PlinkoGamePage() {
 
         <aside className="space-y-4">
           <section className="pixel-panel bg-[#101b4c] p-4">
-            <p className="pixel-text text-[9px] text-[#ffe177]">RECENT DROPS</p>
+            <div className="flex items-center justify-between">
+              <p className="pixel-text text-[9px] text-[#ffe177]">RECENT DROPS</p>
+              <span className="flex items-center gap-1 font-mono text-[8px] text-[#76e27b]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#76e27b]" />
+                LIVE
+              </span>
+            </div>
             <div className="mt-3 max-h-36 overflow-y-auto border-[3px] border-black bg-[#0a1235]">
               {recentDrops.length === 0 ? (
-                <p className="p-3 text-[10px] text-white/50">No drops yet. Your results will appear here.</p>
+                <p className="p-3 text-[10px] text-white/50">Waiting for live drops...</p>
               ) : (
-                recentDrops.map((drop, index) => (
-                  <div key={`${drop.slot}-${index}`} className="flex items-center justify-between border-b border-white/10 px-2.5 py-2 font-mono text-[9px] last:border-0">
-                    <span className="text-white/65">DROP {recentDrops.length - index}</span>
-                    <span className="text-[#76e27b]">x{drop.multiplier}</span>
+                recentDrops.slice(0, 6).map((drop, index) => (
+                  <div key={`${drop.createdAt}-${drop.username}-${index}`} className="border-b border-white/10 px-2.5 py-2 font-mono text-[9px] last:border-0">
+                    <span className="text-white/80">{drop.username} dropped <span className="font-bold text-[#76e27b]">x{drop.multiplier}</span></span>
                   </div>
                 ))
               )}
