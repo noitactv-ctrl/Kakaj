@@ -231,10 +231,6 @@ export default function DepositPage() {
   return (
     <div className="pixel-page min-h-screen flex flex-col">
       <div className="mx-auto flex-1 w-full max-w-4xl px-1 py-1 space-y-4">
-        <div className="store-action store-deposit">
-          <span>◉ DEPOSIT</span>
-        </div>
-
         <div className="flex justify-end px-1">
           <Link href="/support" className="pixel-button px-3 py-2 text-[8px]">SUPPORT</Link>
         </div>
