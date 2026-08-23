@@ -8,9 +8,9 @@ import { z } from "zod";
 import { createNowPaymentsInvoice, getNowPaymentsInvoice, mapNowPaymentsStatus, verifyNowPaymentsWebhook } from "./nowpayments";
 import { hashPassword, comparePassword } from "./auth";
 import { randomInt } from "crypto";
-import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, products, redeemCodes } from "@shared/schema";
+import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, bankRoutingItems, products, redeemCodes } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, ne, desc, sql } from "drizzle-orm";
+import { eq, and, ne, desc, sql, inArray } from "drizzle-orm";
 import { calculateDepositCredit } from "@shared/deposit";
 import {
   deleteApiSetting,
@@ -2242,6 +2242,159 @@ export async function registerRoutes(
     }
     await storage.deleteAch(Number(req.params.id));
     res.json({ success: true });
+  });
+
+  // ── Public Bank Routing Catalog ──────────────────────────────
+  const routingInputSchema = z.object({
+    bankName: z.string().trim().min(1).max(120),
+    routingNumber: z.string().trim().regex(/^\d{9}$/, "Routing number must contain exactly 9 digits"),
+    state: z.string().trim().regex(/^[A-Za-z]{2}$/, "State must be a two-letter abbreviation").transform(value => value.toUpperCase()),
+    zip: z.string().trim().regex(/^\d{5}(?:-\d{4})?$/, "ZIP must be 5 digits or ZIP+4"),
+    price: z.coerce.number().min(0.01).max(100000).default(5),
+  });
+
+  const routingPurchaseSchema = z.object({
+    itemIds: z.array(z.coerce.number().int().positive()).min(1).max(100),
+  }).refine(value => new Set(value.itemIds).size === value.itemIds.length, {
+    message: "Each routing item can only be purchased once",
+  });
+
+  app.get("/api/routings", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    const items = await db.select({
+      id: bankRoutingItems.id,
+      bankName: bankRoutingItems.bankName,
+      routingNumber: bankRoutingItems.routingNumber,
+      state: bankRoutingItems.state,
+      zip: bankRoutingItems.zip,
+      price: bankRoutingItems.price,
+      createdAt: bankRoutingItems.createdAt,
+    }).from(bankRoutingItems)
+      .where(eq(bankRoutingItems.isSold, false))
+      .orderBy(desc(bankRoutingItems.createdAt));
+    res.json(items);
+  });
+
+  app.get("/api/admin/routings", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    const items = await db.select().from(bankRoutingItems).orderBy(desc(bankRoutingItems.createdAt));
+    res.json(items);
+  });
+
+  app.post("/api/admin/routings", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    const parsed = routingInputSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid routing item" });
+    const [existing] = await db.select({ id: bankRoutingItems.id }).from(bankRoutingItems)
+      .where(eq(bankRoutingItems.routingNumber, parsed.data.routingNumber));
+    if (existing) return res.status(409).json({ message: "This routing number is already in inventory" });
+    const [item] = await db.insert(bankRoutingItems).values({
+      ...parsed.data,
+      price: Math.round(parsed.data.price * 100),
+    }).returning();
+    res.status(201).json(item);
+  });
+
+  app.post("/api/admin/routings/bulk", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    const rawRecords = String(req.body?.rawContent ?? "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (rawRecords.length === 0 || rawRecords.length > 500) {
+      return res.status(400).json({ message: "Provide between 1 and 500 routing records" });
+    }
+    const defaultPrice = Number(req.body?.price ?? 5);
+    const staged = rawRecords.map((record) => {
+      const [bankName, routingNumber, state, zip, price] = record.split("|").map(part => part.trim());
+      return routingInputSchema.safeParse({ bankName, routingNumber, state, zip, price: price || defaultPrice });
+    });
+    const invalid = staged.find(result => !result.success);
+    if (invalid && !invalid.success) return res.status(400).json({ message: invalid.error.issues[0]?.message ?? "Invalid routing record" });
+    const data = staged.map(result => (result as z.SafeParseSuccess<z.infer<typeof routingInputSchema>>).data);
+    const seen = new Set<string>();
+    const duplicateInBatch = data.find(item => seen.has(item.routingNumber) || !seen.add(item.routingNumber));
+    if (duplicateInBatch) return res.status(400).json({ message: `Routing number ${duplicateInBatch.routingNumber} appears more than once` });
+    const current = await db.select({ routingNumber: bankRoutingItems.routingNumber }).from(bankRoutingItems)
+      .where(inArray(bankRoutingItems.routingNumber, data.map(item => item.routingNumber)));
+    if (current.length > 0) return res.status(409).json({ message: `Routing number ${current[0].routingNumber} is already in inventory` });
+    const inserted = await db.insert(bankRoutingItems).values(data.map(item => ({
+      ...item,
+      price: Math.round(item.price * 100),
+    }))).returning();
+    res.status(201).json({ addedCount: inserted.length });
+  });
+
+  app.delete("/api/admin/routings/:id", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid routing item" });
+    await db.delete(bankRoutingItems).where(and(eq(bankRoutingItems.id, id), eq(bankRoutingItems.isSold, false)));
+    res.json({ success: true });
+  });
+
+  app.post("/api/routings/purchase", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    const parsed = routingPurchaseSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid purchase" });
+    const userId = (req.user as any).id as number;
+    try {
+      const result = await db.transaction(async (tx) => {
+        const selected = await tx.select().from(bankRoutingItems)
+          .where(and(inArray(bankRoutingItems.id, parsed.data.itemIds), eq(bankRoutingItems.isSold, false)))
+          .for("update");
+        if (selected.length !== parsed.data.itemIds.length) throw new Error("One or more routing items are no longer available");
+
+        const grossTotal = selected.reduce((total, item) => total + item.price, 0);
+        const depositRows = await tx.select({ total: sql<number>`COALESCE(SUM(amount), 0)` })
+          .from(transactions)
+          .where(and(eq(transactions.userId, userId), sql`amount > 0`, sql`type IN ('deposit', 'manual_deposit')`));
+        const deposited = Number(depositRows[0]?.total ?? 0);
+        const discountPct = deposited >= 100000 ? 10 : deposited >= 50000 ? 5 : deposited >= 10000 ? 2 : 0;
+        const total = discountPct ? Math.round(grossTotal * (1 - discountPct / 100)) : grossTotal;
+
+        const [buyer] = await tx.update(users)
+          .set({ balance: sql`${users.balance} - ${total}` })
+          .where(and(eq(users.id, userId), sql`${users.balance} >= ${total}`))
+          .returning();
+        if (!buyer) throw new Error("Insufficient balance");
+
+        const routingRows = selected.map(item => [
+          item.bankName,
+          `Routing: ${item.routingNumber}`,
+          `State: ${item.state}`,
+          `ZIP: ${item.zip}`,
+        ].join("\n")).join("\n\n---\n\n");
+        const publicOrderId = Math.random().toString(36).substring(2, 15);
+        const [order] = await tx.insert(orders).values({
+          userId,
+          orderId: `ROUTING-${publicOrderId}`,
+          total,
+          paidAmount: total,
+          status: "fulfilled",
+          deliveryContent: routingRows,
+          paymentMethod: "wallet",
+        }).returning();
+        await tx.update(bankRoutingItems).set({ isSold: true, purchasedBy: userId, soldAt: new Date() })
+          .where(and(inArray(bankRoutingItems.id, selected.map(item => item.id)), eq(bankRoutingItems.isSold, false)));
+        await tx.insert(transactions).values({
+          userId,
+          amount: -total,
+          type: "purchase",
+          description: `Purchased ${selected.length} bank routing ${selected.length === 1 ? "record" : "records"}`,
+          paymentMethod: "wallet",
+        });
+        return { order, total, discountPct, balance: buyer.balance };
+      });
+      res.json({ success: true, orderId: result.order.id, total: result.total, discountPct: result.discountPct, balance: result.balance });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message || "Unable to complete routing purchase" });
+    }
   });
 
   // === SELLER APPLICATIONS ===

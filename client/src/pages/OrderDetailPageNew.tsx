@@ -64,7 +64,8 @@ export default function OrderDetailPageNew() {
   for (const item of allItems) {
     const isCard = item.itemType === "card";
     const isAchItem = item.itemType === "ach";
-    const key = isCard ? `card-${item.cardId ?? item.id}` : isAchItem ? `ach-${item.id}` : String(item.variantId || item.id);
+    const isRoutingItem = item.itemType === "routing";
+    const key = isCard ? `card-${item.cardId ?? item.id}` : isAchItem ? `ach-${item.id}` : isRoutingItem ? `routing-${item.id}` : String(item.variantId || item.id);
     if (seen[key] === undefined) {
       seen[key] = grouped.length;
       grouped.push({
@@ -73,11 +74,15 @@ export default function OrderDetailPageNew() {
           ? (item.card?.maskedCard ? `Card ${item.card.maskedCard}` : "Card")
           : isAchItem
           ? "ACH Account"
+          : isRoutingItem
+          ? "Bank Routing"
           : (item.productName || "Product"),
         variantName: isCard
           ? (item.card?.country ?? "—")
           : isAchItem
           ? "Bank Account"
+          : isRoutingItem
+          ? "Public routing details"
           : (item.variant?.name || item.variantName || "—"),
         qty: item.quantity ?? 1,
         unitPrice: item.price,
@@ -97,7 +102,7 @@ export default function OrderDetailPageNew() {
   const getStockForKey = (item: typeof grouped[0]): string | null => {
     if (!isFulfilled) return null;
     if (item.itemType === "card") return item.cardContent || null;
-    if (item.itemType === "ach") return order.deliveryContent || null;
+    if (item.itemType === "ach" || item.itemType === "routing") return order.deliveryContent || null;
     if (deliveryMap) return deliveryMap[item.key] || null;
     return order.deliveryContent || null;
   };
@@ -166,8 +171,9 @@ export default function OrderDetailPageNew() {
               const isOpen = !!stockVisible[key];
               const wasCopied = !!copied[key];
               const isAch = (order.orderId ?? "").startsWith("ACH-");
+              const isRouting = (order.orderId ?? "").startsWith("ROUTING-");
               const isCard = (order.orderId ?? "").startsWith("CARD-");
-              const label = isAch ? "ACH Account" : isCard ? "Card" : "Item";
+              const label = isRouting ? "Bank Routing" : isAch ? "ACH Account" : isCard ? "Card" : "Item";
               return (
                 <div className="space-y-4">
                   <InfoRow label="Type" value={<span className="font-bold text-sm text-white">{label}</span>} />

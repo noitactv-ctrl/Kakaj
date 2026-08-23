@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Gift, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2, KeyRound } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Gift, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2, KeyRound, Landmark } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { id: "cards", label: "Cards",      Icon: CreditCard },
+  { id: "routings", label: "Bank Routing", Icon: Landmark },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
@@ -132,6 +133,7 @@ export default function AdminPage() {
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
           {activeSection === "dashboard"    && <DashboardSection />}
           {activeSection === "cards"        && <AdminCardsSection />}
+          {activeSection === "routings"     && <AdminRoutingSection />}
           {activeSection === "orders"       && <OrdersSection />}
           {activeSection === "cashapp"      && <CashAppSection />}
           {activeSection === "users"        && <UsersSection />}
@@ -1087,9 +1089,9 @@ function OrdersSection() {
             </div>
           )}
 
-          {groupedEntries.length === 0 && current.deliveryContent && current.orderId?.startsWith("ACH-") && (
+          {groupedEntries.length === 0 && current.deliveryContent && (current.orderId?.startsWith("ACH-") || current.orderId?.startsWith("ROUTING-")) && (
             <div className="space-y-2">
-              <p className="text-[10px] text-white/45">ACH Account Delivered</p>
+              <p className="text-[10px] text-white/45">{current.orderId?.startsWith("ROUTING-") ? "Bank Routing Delivered" : "ACH Account Delivered"}</p>
               <div className="px-3 py-2.5 rounded-xl bg-[#0d0d0d] border border-white/10">
                 <p className="text-xs font-mono text-white/70 whitespace-pre-wrap break-all">{current.deliveryContent}</p>
               </div>
@@ -3194,6 +3196,136 @@ function AdminAchSection() {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+function AdminRoutingSection() {
+  const { toast } = useToast();
+  const [bankName, setBankName] = useState("");
+  const [routingNumber, setRoutingNumber] = useState("");
+  const [state, setState] = useState("");
+  const [zip, setZip] = useState("");
+  const [price, setPrice] = useState("5");
+  const [bulkContent, setBulkContent] = useState("");
+  const { data: routings = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/admin/routings"] });
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/routings"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/routings"] });
+  };
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/routings", { bankName, routingNumber, state, zip, price });
+      if (!response.ok) throw new Error((await response.json()).message || "Unable to add routing record");
+      return response.json();
+    },
+    onSuccess: () => {
+      setBankName(""); setRoutingNumber(""); setState(""); setZip(""); setPrice("5");
+      refresh();
+      toast({ title: "Routing record added" });
+    },
+    onError: (error: Error) => toast({ title: "Unable to add record", description: error.message, variant: "destructive" }),
+  });
+
+  const bulkMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/routings/bulk", { rawContent: bulkContent, price });
+      if (!response.ok) throw new Error((await response.json()).message || "Unable to add routing records");
+      return response.json() as Promise<{ addedCount: number }>;
+    },
+    onSuccess: (result) => {
+      setBulkContent("");
+      refresh();
+      toast({ title: `${result.addedCount} routing record${result.addedCount === 1 ? "" : "s"} added` });
+    },
+    onError: (error: Error) => toast({ title: "Unable to add records", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/admin/routings/${id}`);
+      if (!response.ok) throw new Error((await response.json()).message || "Unable to remove routing record");
+    },
+    onSuccess: () => {
+      refresh();
+      toast({ title: "Routing record removed" });
+    },
+    onError: (error: Error) => toast({ title: "Unable to remove record", description: error.message, variant: "destructive" }),
+  });
+
+  const available = routings.filter((item: any) => !item.isSold);
+  const sold = routings.length - available.length;
+
+  return (
+    <div className="max-w-5xl space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-white">Bank Routing Inventory</h1>
+        <p className="mt-1 text-sm text-white/45">Manage public bank, routing, state, and ZIP records. Do not enter account numbers or credentials.</p>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="rounded-xl border border-white/10 bg-[#111] p-4 space-y-3">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-white/60">Add one record</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input value={bankName} onChange={event => setBankName(event.target.value)} placeholder="Bank name" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-bank" />
+            <Input value={routingNumber} onChange={event => setRoutingNumber(event.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="9-digit routing number" inputMode="numeric" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-number" />
+            <Input value={state} onChange={event => setState(event.target.value.replace(/[^a-z]/gi, "").toUpperCase().slice(0, 2))} placeholder="State (NY)" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-state" />
+            <Input value={zip} onChange={event => setZip(event.target.value.replace(/[^\d-]/g, "").slice(0, 10))} placeholder="ZIP (10001)" inputMode="numeric" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-zip" />
+          </div>
+          <Input value={price} onChange={event => setPrice(event.target.value)} placeholder="5.00" type="number" min="0.01" step="0.01" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-price" />
+          <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending || !bankName || routingNumber.length !== 9 || state.length !== 2 || zip.length < 5}
+            className="w-full" data-testid="button-add-routing">
+            {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add routing record"}
+          </Button>
+        </section>
+
+        <section className="rounded-xl border border-white/10 bg-[#111] p-4 space-y-3">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-white/60">Bulk add</h2>
+          <Textarea value={bulkContent} onChange={event => setBulkContent(event.target.value)}
+            placeholder={"Bank Name|123456789|NY|10001\nBank Name|987654321|CA|94105|6.50"}
+            className="min-h-32 bg-[#0d0d0d] border-white/10 font-mono text-xs" data-testid="input-routing-bulk" />
+          <p className="text-[11px] leading-relaxed text-white/40">One record per line: bank name | routing number | state | ZIP | optional price. The price above applies when a line has no price.</p>
+          <Button variant="secondary" onClick={() => bulkMutation.mutate()} disabled={bulkMutation.isPending || !bulkContent.trim()}
+            className="w-full" data-testid="button-bulk-add-routings">
+            {bulkMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add bulk records"}
+          </Button>
+        </section>
+      </div>
+
+      <section className="rounded-xl border border-white/10 bg-[#111] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <div>
+            <h2 className="font-semibold text-white">Inventory</h2>
+            <p className="text-xs text-white/40">{available.length} available · {sold} sold</p>
+          </div>
+        </div>
+        {isLoading ? (
+          <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+        ) : routings.length === 0 ? (
+          <p className="py-10 text-center text-sm text-white/40">No routing records yet.</p>
+        ) : (
+          <div className="divide-y divide-white/10">
+            {routings.map((item: any) => (
+              <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+                <Landmark className="h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white">{item.bankName}</p>
+                  <p className="font-mono text-xs text-white/45">{item.routingNumber} · {item.state} · {item.zip} · ${(item.price / 100).toFixed(2)}</p>
+                </div>
+                {item.isSold ? (
+                  <span className="rounded bg-white/10 px-2 py-1 text-[10px] font-mono text-white/45">sold</span>
+                ) : (
+                  <button onClick={() => deleteMutation.mutate(item.id)} disabled={deleteMutation.isPending} className="text-white/35 hover:text-red-400" aria-label={`Remove ${item.bankName}`} data-testid={`button-delete-routing-${item.id}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

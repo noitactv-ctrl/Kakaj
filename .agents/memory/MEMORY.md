@@ -5,3 +5,4 @@
 - [Plinko transactional settlement](plinko-transactional-settlement.md) — settle Plinko wager, ledger entries, and payout in one transaction so a game cannot leave a partial wallet result.
 - [Provider secret storage](provider-secret-storage.md) — admin-managed provider secrets are encrypted server-side; runtime values may fall back to host variables without being exposed.
 - [Retired provider compatibility](retired-provider-compatibility.md) — remove retired integrations from runtime paths while retaining legacy database records unless data deletion is explicitly requested.
+- [Development schema sync](development-schema-sync.md) — when schema push asks to rename unrelated tables, create only the intended development table and retain the schema declaration for publish-time migration.

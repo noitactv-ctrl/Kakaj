@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Coins, Crown, Gamepad2, Menu, ShoppingCart,
-  Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck,
+  Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck, Landmark,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -34,7 +34,10 @@ const navigation: { label: string; items: NavItem[] }[] = [
   },
   {
     label: "FEATURED",
-    items: [{ href: "/cards", label: "Cards", icon: CreditCard }],
+    items: [
+      { href: "/cards", label: "Cards", icon: CreditCard },
+      { href: "/routings", label: "Bank Routing", icon: Landmark },
+    ],
   },
 ];
 

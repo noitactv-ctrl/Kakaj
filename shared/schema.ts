@@ -426,6 +426,31 @@ export const insertAchSchema = createInsertSchema(achs).omit({ id: true, isSold:
 export type Ach = typeof achs.$inferSelect;
 export type InsertAch = z.infer<typeof insertAchSchema>;
 
+// === PUBLIC BANK ROUTING INVENTORY ===
+// This catalog intentionally stores public routing metadata only. Never add
+// account numbers, credentials, or other private banking details here.
+export const bankRoutingItems = pgTable("bank_routing_items", {
+  id: serial("id").primaryKey(),
+  bankName: text("bank_name").notNull(),
+  routingNumber: text("routing_number").notNull().unique(),
+  state: text("state").notNull(),
+  zip: text("zip").notNull(),
+  price: integer("price").default(500).notNull(),
+  isSold: boolean("is_sold").default(false).notNull(),
+  purchasedBy: integer("purchased_by").references(() => users.id),
+  soldAt: timestamp("sold_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertBankRoutingItemSchema = createInsertSchema(bankRoutingItems).omit({
+  id: true,
+  isSold: true,
+  purchasedBy: true,
+  soldAt: true,
+  createdAt: true,
+});
+export type BankRoutingItem = typeof bankRoutingItems.$inferSelect;
+
 // === CRYPTO ADDRESSES ===
 export const cryptoAddresses = pgTable("crypto_addresses", {
   id: serial("id").primaryKey(),
