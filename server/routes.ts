@@ -2303,7 +2303,12 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
       return res.status(403).json({ message: "Unauthorized" });
     }
-    const rawRecords = String(req.body?.rawContent ?? "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const rawContent = String(req.body?.rawContent ?? "").trim();
+    const rawRecords = (/\r?\n\s*\r?\n/.test(rawContent)
+      ? rawContent.split(/\r?\n\s*\r?\n/)
+      : rawContent.split(/\r?\n/))
+      .map(record => record.trim())
+      .filter(Boolean);
     if (rawRecords.length === 0 || rawRecords.length > 500) {
       return res.status(400).json({ message: "Provide between 1 and 500 routing records" });
     }

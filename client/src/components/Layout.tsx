@@ -36,7 +36,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
     label: "FEATURED",
     items: [
       { href: "/cards", label: "Cards", icon: CreditCard },
-      { href: "/routings", label: "Bank Routing", icon: Landmark },
+      { href: "/routings", label: "Bank", icon: Landmark },
     ],
   },
 ];

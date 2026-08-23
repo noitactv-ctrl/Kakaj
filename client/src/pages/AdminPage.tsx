@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { id: "cards", label: "Cards",      Icon: CreditCard },
-  { id: "routings", label: "Bank Routing", Icon: Landmark },
+  { id: "routings", label: "Bank", Icon: Landmark },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
@@ -3202,12 +3202,8 @@ function AdminAchSection() {
 
 function AdminRoutingSection() {
   const { toast } = useToast();
-  const [bankName, setBankName] = useState("");
-  const [routingNumber, setRoutingNumber] = useState("");
-  const [state, setState] = useState("");
-  const [zip, setZip] = useState("");
-  const [price, setPrice] = useState("5");
-  const [bulkContent, setBulkContent] = useState("");
+  const [fullItem, setFullItem] = useState("");
+  const [price, setPrice] = useState("");
   const { data: routings = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/admin/routings"] });
 
   const refresh = () => {
@@ -3217,30 +3213,17 @@ function AdminRoutingSection() {
 
   const addMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/admin/routings", { bankName, routingNumber, state, zip, price });
-      if (!response.ok) throw new Error((await response.json()).message || "Unable to add routing record");
-      return response.json();
-    },
-    onSuccess: () => {
-      setBankName(""); setRoutingNumber(""); setState(""); setZip(""); setPrice("5");
-      refresh();
-      toast({ title: "Routing record added" });
-    },
-    onError: (error: Error) => toast({ title: "Unable to add record", description: error.message, variant: "destructive" }),
-  });
-
-  const bulkMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/admin/routings/bulk", { rawContent: bulkContent, price });
-      if (!response.ok) throw new Error((await response.json()).message || "Unable to add routing records");
+      const response = await apiRequest("POST", "/api/admin/routings/bulk", { rawContent: fullItem, price });
+      if (!response.ok) throw new Error((await response.json()).message || "Unable to add bank records");
       return response.json() as Promise<{ addedCount: number }>;
     },
     onSuccess: (result) => {
-      setBulkContent("");
+      setFullItem("");
+      setPrice("");
       refresh();
-      toast({ title: `${result.addedCount} routing record${result.addedCount === 1 ? "" : "s"} added` });
+      toast({ title: `${result.addedCount} bank${result.addedCount === 1 ? "" : "s"} added` });
     },
-    onError: (error: Error) => toast({ title: "Unable to add records", description: error.message, variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "Unable to add banks", description: error.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -3261,38 +3244,27 @@ function AdminRoutingSection() {
   return (
     <div className="max-w-5xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Bank Routing Inventory</h1>
-        <p className="mt-1 text-sm text-white/45">Manage public bank, routing, state, and ZIP records. Do not enter account numbers or credentials.</p>
+        <h1 className="text-2xl font-semibold text-white">Bank Inventory</h1>
+        <p className="mt-1 text-sm text-white/45">Add public bank information only: bank, routing number, state, and ZIP. Never enter account numbers or credentials.</p>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <section className="rounded-xl border border-white/10 bg-[#111] p-4 space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-white/60">Add one record</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input value={bankName} onChange={event => setBankName(event.target.value)} placeholder="Bank name" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-bank" />
-            <Input value={routingNumber} onChange={event => setRoutingNumber(event.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="9-digit routing number" inputMode="numeric" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-number" />
-            <Input value={state} onChange={event => setState(event.target.value.replace(/[^a-z]/gi, "").toUpperCase().slice(0, 2))} placeholder="State (NY)" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-state" />
-            <Input value={zip} onChange={event => setZip(event.target.value.replace(/[^\d-]/g, "").slice(0, 10))} placeholder="ZIP (10001)" inputMode="numeric" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-zip" />
-          </div>
-          <Input value={price} onChange={event => setPrice(event.target.value)} placeholder="5.00" type="number" min="0.01" step="0.01" className="bg-[#0d0d0d] border-white/10" data-testid="input-routing-price" />
-          <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending || !bankName || routingNumber.length !== 9 || state.length !== 2 || zip.length < 5}
-            className="w-full" data-testid="button-add-routing">
-            {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add routing record"}
-          </Button>
-        </section>
-
-        <section className="rounded-xl border border-white/10 bg-[#111] p-4 space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-white/60">Bulk add</h2>
-          <Textarea value={bulkContent} onChange={event => setBulkContent(event.target.value)}
-            placeholder={"Bank Name|123456789|NY|10001\nBank Name|987654321|CA|94105|6.50"}
-            className="min-h-32 bg-[#0d0d0d] border-white/10 font-mono text-xs" data-testid="input-routing-bulk" />
-          <p className="text-[11px] leading-relaxed text-white/40">One record per line: bank name | routing number | state | ZIP | optional price. The price above applies when a line has no price.</p>
-          <Button variant="secondary" onClick={() => bulkMutation.mutate()} disabled={bulkMutation.isPending || !bulkContent.trim()}
-            className="w-full" data-testid="button-bulk-add-routings">
-            {bulkMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add bulk records"}
-          </Button>
-        </section>
-      </div>
+      <section className="rounded-xl border border-white/10 bg-[#111] p-4 space-y-3">
+        <p className="text-xs font-bold uppercase tracking-widest text-white/45">Add Bank</p>
+        <textarea
+          value={fullItem}
+          onChange={event => setFullItem(event.target.value)}
+          placeholder={"Chase|021000021|NY|10001\n\nWells Fargo|121000248|CA|94105|6.50"}
+          rows={6}
+          className="w-full bg-[#0d0d0d] border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
+          data-testid="input-bank-full-item"
+        />
+        <p className="text-[10px] text-white/30">Enter: Bank | 9-digit routing number | State | ZIP | optional price. Leave one blank line between banks to add multiple at once.</p>
+        <Input value={price} onChange={event => setPrice(event.target.value)} placeholder="Price per bank (5.00)" type="number" min="0.01" step="0.01" className="bg-[#0d0d0d] border-white/10" data-testid="input-bank-price" />
+        <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending || !fullItem.trim() || !price}
+          className="w-full" data-testid="button-add-bank">
+          {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Bank"}
+        </Button>
+      </section>
 
       <section className="rounded-xl border border-white/10 bg-[#111] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">

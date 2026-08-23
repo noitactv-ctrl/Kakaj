@@ -173,7 +173,7 @@ export default function OrderDetailPageNew() {
               const isAch = (order.orderId ?? "").startsWith("ACH-");
               const isRouting = (order.orderId ?? "").startsWith("ROUTING-");
               const isCard = (order.orderId ?? "").startsWith("CARD-");
-              const label = isRouting ? "Bank Routing" : isAch ? "ACH Account" : isCard ? "Card" : "Item";
+              const label = isRouting ? "Bank" : isAch ? "ACH Account" : isCard ? "Card" : "Item";
               return (
                 <div className="space-y-4">
                   <InfoRow label="Type" value={<span className="font-bold text-sm text-white">{label}</span>} />
