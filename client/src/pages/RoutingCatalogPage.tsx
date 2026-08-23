@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Landmark, Loader2, Search } from "lucide-react";
+import { Landmark, Loader2, Search, ShoppingCart } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
@@ -56,7 +56,7 @@ export default function RoutingCatalogPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
-      <section className="pixel-panel sticky top-[68px] z-30 space-y-3 bg-[#10276a] p-3">
+      <section className="pixel-panel sticky top-[68px] z-30 bg-[#10276a] px-3 py-3 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#725d42]" />
           <Input value={query} onChange={event => setQuery(event.target.value)} placeholder="SEARCH BANK, ROUTING, STATE OR ZIP..."
@@ -64,8 +64,9 @@ export default function RoutingCatalogPage() {
         </div>
         <div className="border-t-2 border-black/60 pt-3">
           <Button onClick={() => purchaseMutation.mutate(selected)} disabled={purchaseMutation.isPending || selected.length === 0}
-            className="pixel-button flex w-full items-center justify-center !bg-[#43b94e] px-3 py-3 text-[9px] !text-white"
+            className="pixel-button flex w-full items-center justify-center gap-2 !bg-[#43b94e] px-3 py-3 text-[9px] !text-white"
             data-testid="button-add-selected-routings">
+            <ShoppingCart className="h-3.5 w-3.5" />
             {purchaseMutation.isPending ? "PROCESSING..." : `ADD SELECTED BANKS · ${selected.length}`}
           </Button>
           <p className="mt-2 text-center text-[10px] font-bold text-[#ffe177]">
