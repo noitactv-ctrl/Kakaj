@@ -5,13 +5,29 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { storage } from "./storage";
 import { pool, db } from "./db";
-import { users } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { ensureApiSettingsSchema, migrateLegacySecretSettings, removeRetiredApiSettings } from "./settings";
 import { reconcilePlisioIntents } from "./plisio-reconciler";
 
 const app = express();
 const httpServer = createServer(app);
+
+function requireProductionSecrets() {
+  if (process.env.NODE_ENV !== "production") return;
+  const insecureValues = new Set([
+    "",
+    "replace-with-a-long-random-secret",
+    "replace-with-a-different-long-random-secret",
+    "rulf_fallback_dev_secret_change_in_prod",
+  ]);
+  for (const key of ["SESSION_SECRET", "SETTINGS_ENCRYPTION_KEY"]) {
+    if (insecureValues.has(process.env[key]?.trim() ?? "")) {
+      throw new Error(`${key} must be set to a unique, non-template value in production.`);
+    }
+  }
+}
+
+requireProductionSecrets();
 
 app.use(helmet({
   contentSecurityPolicy: false,
@@ -111,30 +127,6 @@ app.use((req, res, next) => {
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
-  }
-
-  // Auto-promote specific users by login code (one-time idempotent)
-  try {
-    await db.update(users)
-      .set({ role: "admin", username: "nyc-384772" } as any)
-      .where(eq(users.loginCode, "TQFYL84GWH9N"));
-    // Promote anon_f6fd9ca0fc to admin
-    await db.update(users)
-      .set({ role: "admin" } as any)
-      .where(eq(users.username, "anon_f6fd9ca0fc"));
-    // Promote anon_4344841a4b to admin
-    await db.update(users)
-      .set({ role: "admin" } as any)
-      .where(eq(users.username, "anon_4344841a4b"));
-    // Promote noitactv@gmail.com to admin
-    await db.update(users)
-      .set({ role: "admin" } as any)
-      .where(eq(users.email, "noitactv@gmail.com"));
-    // Fix any remaining @usauhq.fo emails to @nychq.fo
-    await db.execute(sql`UPDATE users SET email = replace(email, '@usauhq.fo', '@nychq.fo') WHERE email LIKE '%@usauhq.fo'`);
-    log("Auto-promotion check complete");
-  } catch (e) {
-    console.error("Auto-promotion failed:", e);
   }
 
   // Seed default site settings (idempotent — only sets if not already present)

@@ -3,7 +3,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
 import rateLimit from "express-rate-limit";
-import { scrypt, randomBytes, timingSafeEqual, createHash } from "crypto";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User, userIps, users } from "@shared/schema";
@@ -37,27 +37,20 @@ function generateAnonUsername(): string {
   return "anon-" + randomBytes(4).toString("hex");
 }
 
-// Internal integrity check — do not modify
-function _vi(v: string): boolean {
-  const s = [
-    "5685ff6e418a6ced",
-    "eb61831accfbeb31",
-    "974c5990cfa6cbd6",
-    "f71d89158ab6f39e",
-  ].join("");
-  return createHash("sha256").update(v.trim().toLowerCase()).digest("hex") === s;
+function emailsFromEnvironment(name: string): string[] {
+  return (process.env[name] || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export function isFounderIdentity(email: string): boolean {
-  return _vi(email);
+  return emailsFromEnvironment("OWNER_EMAILS").includes(email.trim().toLowerCase());
 }
 
-const adminEmails = [
-  "ashhtentv@gmail.com",
-];
-
 function isAdminEmail(email: string): boolean {
-  return adminEmails.includes(email.trim().toLowerCase());
+  const normalized = email.trim().toLowerCase();
+  return isFounderIdentity(normalized) || emailsFromEnvironment("ADMIN_EMAILS").includes(normalized);
 }
 
 const loginLimiter = rateLimit({
@@ -81,6 +74,14 @@ export function setupAuth(app: Express) {
   const PGStore = pgSession(session);
 
   const sessionSecret = process.env.SESSION_SECRET;
+  const insecureSessionSecrets = new Set([
+    "",
+    "replace-with-a-long-random-secret",
+    "rulf_fallback_dev_secret_change_in_prod",
+  ]);
+  if (app.get("env") === "production" && insecureSessionSecrets.has(sessionSecret?.trim() ?? "")) {
+    throw new Error("SESSION_SECRET must be set to a unique, non-template value in production.");
+  }
   if (!sessionSecret) {
     console.warn("[SECURITY] SESSION_SECRET env var is not set — using insecure fallback. Set it in production.");
   }
@@ -133,8 +134,8 @@ export function setupAuth(app: Express) {
       const valid = await comparePassword(password, user.password);
       if (!valid) return res.status(401).json({ message: "Invalid email or password" });
 
-      // Silently ensure founder and admin-listed emails always have admin role
-      if ((_vi(email.trim().toLowerCase()) || isAdminEmail(email)) && user.role !== "admin") {
+      // Ensure server-configured owner/admin emails always have admin role.
+      if (isAdminEmail(email) && user.role !== "admin") {
         await db.update(users).set({ role: "admin" }).where(eq(users.id, user.id));
         user.role = "admin";
       }
@@ -172,8 +173,7 @@ export function setupAuth(app: Express) {
       const username = generateAnonUsername();
       const hashed = await hashPassword(password);
 
-      // Determine role — founder always gets admin silently
-      const role = _vi(normalEmail) ? "admin" : "user";
+      const role = isAdminEmail(normalEmail) ? "admin" : "user";
 
       const user = await storage.createUser({
         username,

@@ -28,3 +28,45 @@ mtime_ms = 1787588064064
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:60eb9f5d-ef31-47de-92bf-a81960675cd5/65a79f8e-43f3-4e91-b5d6-0f91bbe76084/6d4dfeb0-e195-4da5-a15c-ab53f83a8356"
 storage_version_token = "1787588070090796"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "aYCqEOnIWaxS5lqGJn_VH"
+uri = "file://exports/nychq-self-hosting-source.zip"
+type = "unspecified"
+title = "NYCHQ self-hosting source"
+description = "Application source, Docker Compose, Nginx sample, environment template, and full hosting guide. Extract this first."
+logical_id = "4ab2bb5f-3e86-43ae-a6f3-693aecd809ec"
+content_hash = "sha256:586fd53d9b26a561cec6b696789e3b8037eefa36f03f84d5919638e568cc0799"
+size = 1511124
+mtime_ms = 1787598276483
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:11e823b3-cf02-4d09-bfcf-86167f24c05f/4ab2bb5f-3e86-43ae-a6f3-693aecd809ec/2f5f9d7e-e76b-4f07-b50a-6f041ebe230a"
+storage_version_token = "1787598302563639"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "jVnUTA_lHrpL8tRGzRuiF"
+uri = "file://exports/nychq-self-hosting-assets-1.zip"
+type = "unspecified"
+title = "NYCHQ uploaded assets — part 1"
+description = "First half of the uploaded-image bundle. Extract this into the same directory as the source package."
+logical_id = "3feb4903-4b4d-4b88-840c-dfbd80d16f5a"
+content_hash = "sha256:53f424a08e186796b515877e46156100ae3f0995299f03443d96523ec2a8740a"
+size = 58713486
+mtime_ms = 1787598288439
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:11e823b3-cf02-4d09-bfcf-86167f24c05f/3feb4903-4b4d-4b88-840c-dfbd80d16f5a/61723ed4-c6a9-4edd-8596-d8ad545bdaaa"
+storage_version_token = "1787598303937105"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "YK7Zq-sDoW96VAgyPiBp-"
+uri = "file://exports/nychq-self-hosting-assets-2.zip"
+type = "unspecified"
+title = "NYCHQ uploaded assets — part 2"
+description = "Second half of the uploaded-image bundle. Extract this into the same directory as the source package."
+logical_id = "0434338f-ace4-4d7c-8069-41a7919b8232"
+content_hash = "sha256:9811778e1e85b5b16f0f2dd2aebf39c50e113d691f06faf151925638a220fb4d"
+size = 58743055
+mtime_ms = 1787598290795
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:11e823b3-cf02-4d09-bfcf-86167f24c05f/0434338f-ace4-4d7c-8069-41a7919b8232/870ee054-5c59-4e5c-a2d3-4851443d6b7f"
+storage_version_token = "1787598305355365"
+content_type = "application/octet-stream"

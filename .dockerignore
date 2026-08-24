@@ -1,0 +1,16 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.local
+.agents
+*.zip
+*.tar.gz
+*.sql
+*.dump
+*.log
+Dockerfile
+docker-compose.yml

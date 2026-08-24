@@ -10,7 +10,7 @@ import { applyPlisioPaymentStatus } from "./crypto-settlement";
 import { hashPassword, comparePassword } from "./auth";
 import { randomInt, randomUUID } from "crypto";
 import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, bankRoutingItems, products, redeemCodes } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, ne, desc, sql, inArray } from "drizzle-orm";
 import { calculateDepositCredit } from "@shared/deposit";
 import {
@@ -246,6 +246,15 @@ export async function registerRoutes(
   app.use('/api', (req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     next();
+  });
+
+  app.get("/api/health", async (_req, res) => {
+    try {
+      await pool.query("SELECT 1");
+      res.json({ ok: true });
+    } catch {
+      res.status(503).json({ ok: false, message: "Database unavailable" });
+    }
   });
 
   // Auth setup (handles /api/login, /api/register, /api/logout, /api/user)

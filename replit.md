@@ -55,15 +55,18 @@ Set these in the Replit **Secrets** panel:
 | Secret | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Auto-set | Set automatically when you create a Replit DB |
-| `SESSION_SECRET` | Recommended | Random string for signing session cookies. Defaults to a placeholder if missing. |
-| `PLISIO_API_KEY` | Required for crypto | Plisio secret key for BTC invoice creation and callback verification |
+| `SESSION_SECRET` | Required in production | Random string for signing session cookies |
+| `SETTINGS_ENCRYPTION_KEY` | Required for provider secrets | Dedicated key used to encrypt admin-managed provider secrets |
+| `ADMIN_EMAILS` | Required for bootstrap | Comma-separated email addresses that receive admin access |
+| `OWNER_EMAILS` | Required for owner controls | Comma-separated email addresses allowed to manage admins and workers |
+| `PLISIO_API_KEY` | Required for crypto | Plisio secret key for invoice creation and callback verification |
 
 ### 3. Admin Account
 
-Admin accounts are granted based on email address. Open `server/auth.ts` and update the admin emails list:
+Admin accounts are granted based on email address. Set `ADMIN_EMAILS` before registering the administrator:
 
 ```typescript
-const adminEmails = ["your@email.com", "another@email.com"];
+ADMIN_EMAILS=your@email.com,another@email.com
 ```
 
 Register on the site with one of those emails — you'll automatically be granted admin role.
