@@ -174,7 +174,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {user && (
             <Link href="/deposit">
               <div
-                className="pixel-button ml-3 flex min-h-9 items-center gap-2 border-[3px] border-black !bg-[#ffe177] px-2.5 py-2 text-[9px] !text-[#17110a] shadow-[2px_2px_0_#050505] transition-colors hover:!bg-[#fff0c5]"
+                className="pixel-button ml-auto flex min-h-9 items-center gap-2 border-[3px] border-black !bg-[#ffe177] px-2.5 py-2 text-[9px] !text-[#17110a] shadow-[2px_2px_0_#050505] transition-colors hover:!bg-[#fff0c5]"
                 data-testid="button-header-balance"
               >
                 <Plus className="h-3.5 w-3.5 text-[#b45f19]" />
