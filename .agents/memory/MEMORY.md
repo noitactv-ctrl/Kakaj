@@ -14,4 +14,4 @@
 - [Cardholder-name minimization](cardholder-name-minimization.md) — validate legacy stock entries without persisting or delivering holder names.
 - [Bulk product stock safety](bulk-product-stock-safety.md) — generic product stock accepts bulk content but must reject payment-card credential data.
 - [Card inventory metadata](card-inventory-metadata.md) — prioritize BIN, type, state, city, and ZIP while excluding holder identity.
-- [Safe card metadata fixtures](safe-card-metadata-fixtures.md) — Admin-only metadata tracking stays separate from purchasable card stock and checkout.
+- [Card stocking workflow](card-stocking-workflow.md) — Use the August 21 card-stocking workflow; do not reintroduce separate metadata fixtures without approval.

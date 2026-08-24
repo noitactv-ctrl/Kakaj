@@ -233,23 +233,6 @@ export const insertCardSchema = createInsertSchema(cards).omit({
   createdAt: true 
 });
 
-export const cardMetadataFixtures = pgTable("card_metadata_fixtures", {
-  id: serial("id").primaryKey(),
-  bin: text("bin").notNull(),
-  type: text("type").notNull(),
-  state: text("state").notNull(),
-  city: text("city").notNull(),
-  zip: text("zip").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertCardMetadataFixtureSchema = createInsertSchema(cardMetadataFixtures).omit({
-  id: true,
-  createdAt: true,
-});
-
-export type CardMetadataFixture = typeof cardMetadataFixtures.$inferSelect;
-
 // === SUPPORT TICKETS ===
 export const supportTickets = pgTable("support_tickets", {
   id: serial("id").primaryKey(),

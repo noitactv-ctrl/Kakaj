@@ -3007,36 +3007,25 @@ function AdminCardsSection() {
   const qc = queryClient;
   const [tab, setTab] = useState<"stock" | "bases">("stock");
   const [fullItem, setFullItem] = useState("");
-  const [metadataItems, setMetadataItems] = useState("");
   const [price, setPrice] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState<string>("");
+  const [isFirstHand, setIsFirstHand] = useState<boolean | null>(null);
 
   const { data: cards, isLoading } = useQuery<any[]>({ queryKey: ["/api/cards"] });
   const { data: bases } = useQuery<any[]>({ queryKey: ["/api/card-bases"] });
-  const { data: metadataFixtures, isLoading: metadataFixturesLoading } = useQuery<any[]>({
-    queryKey: ["/api/admin/card-metadata-fixtures"],
-  });
 
   // Auto-extract BIN + ZIP preview from first card entry
   const cardEntries = fullItem.split(/\n\s*\n/).map(e => e.trim()).filter(Boolean);
   const previewBin = findCardNumberPreview(cardEntries[0] || "").substring(0, 6);
   const previewZip = extractZipPreview(cardEntries[0] || "");
-  const metadataEntries = metadataItems.split(/\r?\n/).map(item => item.trim()).filter(Boolean);
-
-  const setMetadataExample = () => {
-    setMetadataItems([
-      "400000|DEBIT|CA|Los Angeles|90001",
-      "500000|CREDIT|NY|New York|10001",
-      "600000|PREPAID|TX|Austin|73301",
-    ].join("\n"));
-  };
 
   const addMutation = useMutation({
     mutationFn: async () => {
       if (!fullItem.trim()) throw new Error("Full item is required");
       if (!price || parseFloat(price) <= 0) throw new Error("Valid price is required");
       if (!selectedBaseId) throw new Error("Name is required");
-      const body: any = { extras: fullItem.trim(), price: parseFloat(price), baseId: Number(selectedBaseId) };
+      if (isFirstHand === null) throw new Error("Choose First Handed status");
+      const body: any = { extras: fullItem.trim(), price: parseFloat(price), baseId: Number(selectedBaseId), isFirstHand };
       const res = await apiRequest("POST", "/api/cards", body);
       if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed to add card"); }
       return res.json();
@@ -3044,34 +3033,11 @@ function AdminCardsSection() {
     onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ["/api/cards"] });
       qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
-      setFullItem(""); setPrice(""); setSelectedBaseId("");
+      setFullItem(""); setPrice(""); setSelectedBaseId(""); setIsFirstHand(null);
       const count = data?.count ?? 1;
       toast({ title: count > 1 ? `${count} cards added` : "Card added" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const addMetadataFixturesMutation = useMutation({
-    mutationFn: async () => {
-      if (!metadataItems.trim()) throw new Error("Add at least one metadata item");
-      const res = await apiRequest("POST", "/api/admin/card-metadata-fixtures", { items: metadataItems });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to add metadata items");
-      }
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      qc.invalidateQueries({ queryKey: ["/api/admin/card-metadata-fixtures"] });
-      setMetadataItems("");
-      const count = data?.count ?? 0;
-      const skipped = data?.skipped ?? 0;
-      toast({
-        title: count > 0 ? `${count} metadata item${count === 1 ? "" : "s"} added` : "No new metadata items",
-        description: skipped > 0 ? `${skipped} duplicate${skipped === 1 ? "" : "s"} skipped` : undefined,
-      });
-    },
-    onError: (e: any) => toast({ title: "Metadata error", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -3080,101 +3046,9 @@ function AdminCardsSection() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const deleteMetadataFixtureMutation = useMutation({
-    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/admin/card-metadata-fixtures/${id}`); },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/admin/card-metadata-fixtures"] });
-      toast({ title: "Metadata item removed" });
-    },
-    onError: (e: any) => toast({ title: "Metadata error", description: e.message, variant: "destructive" }),
-  });
-
   return (
     <div className="space-y-5">
       <h2 className="text-base font-bold text-white">Cards</h2>
-
-      <div className="bg-[#111] border border-primary/25 rounded-xl p-4 space-y-3" data-testid="card-metadata-fixtures">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold text-primary uppercase tracking-widest">Card Metadata Fixtures</p>
-            <p className="mt-1 text-[10px] text-white/40">Safe tracker only — these items are never listed for purchase or delivered as cards.</p>
-          </div>
-          <Badge variant="outline" className="border-primary/40 text-primary text-[9px] shrink-0">METADATA ONLY</Badge>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-[10px] text-white/45 uppercase tracking-widest">One item per line</label>
-          <Textarea
-            value={metadataItems}
-            onChange={event => setMetadataItems(event.target.value)}
-            placeholder={"400000|DEBIT|CA|Los Angeles|90001\n500000|CREDIT|NY|New York|10001\n600000|PREPAID|TX|Austin|73301"}
-            rows={4}
-            className="bg-[#111]/5 border-white/10 text-xs font-mono resize-none"
-            data-testid="input-card-metadata-items"
-          />
-          <p className="text-[10px] text-white/30">Format: BIN | TYPE (DEBIT, CREDIT, or PREPAID) | STATE | CITY | ZIP</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={setMetadataExample}
-            className="h-8 text-xs border-primary/35 text-primary hover:bg-primary/10"
-            data-testid="btn-set-card-metadata-example"
-          >
-            Set 3-item example
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => addMetadataFixturesMutation.mutate()}
-            disabled={addMetadataFixturesMutation.isPending || metadataEntries.length === 0}
-            className="h-8 text-xs"
-            data-testid="btn-add-card-metadata-items"
-          >
-            {addMetadataFixturesMutation.isPending
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : metadataEntries.length > 1 ? `Add ${metadataEntries.length} metadata items` : "Add metadata item"}
-          </Button>
-          {metadataEntries.length > 0 && (
-            <span className="text-[10px] font-mono text-primary/70" data-testid="text-card-metadata-entry-count">
-              {metadataEntries.length} item{metadataEntries.length === 1 ? "" : "s"} ready
-            </span>
-          )}
-        </div>
-
-        <div className="border-t border-white/10 pt-3 space-y-2">
-          <p className="text-[10px] font-bold text-white/45 uppercase tracking-widest">Tracked metadata</p>
-          {metadataFixturesLoading ? (
-            <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>
-          ) : (metadataFixtures ?? []).length === 0 ? (
-            <p className="text-[10px] text-white/35">No metadata fixtures yet.</p>
-          ) : (
-            (metadataFixtures ?? []).map((fixture: any) => (
-              <div key={fixture.id} className="flex items-center justify-between gap-3 rounded border border-white/10 px-3 py-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[10px]">
-                  <span className="font-mono text-primary">{fixture.bin}</span>
-                  <span className="font-mono text-white/60">{fixture.type}</span>
-                  <span className="font-mono text-white/60">{fixture.state}</span>
-                  <span className="truncate max-w-[160px] text-white/60">{fixture.city}</span>
-                  <span className="font-mono text-white/60">{fixture.zip}</span>
-                </div>
-                <button
-                  onClick={() => deleteMetadataFixtureMutation.mutate(fixture.id)}
-                  disabled={deleteMetadataFixtureMutation.isPending}
-                  className="text-white/30 hover:text-destructive transition-colors"
-                  data-testid={`btn-delete-card-metadata-${fixture.id}`}
-                  aria-label={`Delete metadata item ${fixture.bin}`}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
 
       {/* Add Card form */}
       <div className="bg-[#111] border border-white/10 rounded-xl p-4 space-y-3">
@@ -3190,12 +3064,10 @@ function AdminCardsSection() {
             className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
             data-testid="input-full-item"
           />
-          <p className="text-[10px] text-white/30">Cards require a card number, expiration, CVV, cardholder name, billing address, and ZIP. The holder name is checked for format but is not saved or delivered. Account-and-routing records are flagged and blocked here.</p>
+          <p className="text-[10px] text-white/30">Leave one blank line between cards to add multiple at once.</p>
           <div className="flex gap-3">
-            {cardEntries.length > 0 && (
-              <span className="inline-flex w-fit items-center rounded border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-mono text-primary" data-testid="text-card-entry-count">
-                {cardEntries.length} card{cardEntries.length === 1 ? "" : "s"} entered
-              </span>
+            {cardEntries.length > 1 && (
+              <p className="text-[10px] text-white/50 font-mono">{cardEntries.length} cards detected</p>
             )}
             {previewBin.length === 6 && (
               <p className="text-[10px] text-primary/60 font-mono">BIN: {previewBin}</p>
@@ -3222,6 +3094,28 @@ function AdminCardsSection() {
           </select>
         </div>
 
+        <div className="space-y-2">
+          <label className="text-[10px] text-white/45 uppercase tracking-widest">First Handed <span className="text-red-400/70">*</span></label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsFirstHand(true)}
+              className={`border-[3px] border-black py-2 text-xs font-bold transition-colors ${isFirstHand === true ? "bg-[#43b94e] text-white" : "bg-[#1b2b67] text-white/60 hover:bg-[#243a86]"}`}
+              data-testid="btn-first-hand-yes"
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsFirstHand(false)}
+              className={`border-[3px] border-black py-2 text-xs font-bold transition-colors ${isFirstHand === false ? "bg-[#697184] text-white" : "bg-[#1b2b67] text-white/60 hover:bg-[#243a86]"}`}
+              data-testid="btn-first-hand-no"
+            >
+              No
+            </button>
+          </div>
+        </div>
+
         <div className="space-y-1">
           <label className="text-[10px] text-white/45 uppercase tracking-widest">Price ($)</label>
           <Input
@@ -3237,7 +3131,7 @@ function AdminCardsSection() {
 
         <Button
           onClick={() => addMutation.mutate()}
-          disabled={addMutation.isPending || !fullItem.trim() || !price || !selectedBaseId}
+          disabled={addMutation.isPending || !fullItem.trim() || !price || !selectedBaseId || isFirstHand === null}
           size="sm"
           className="w-full h-8 text-xs"
           data-testid="btn-add-card"
@@ -3268,19 +3162,17 @@ function AdminCardsSection() {
           ) : (
             (cards ?? []).map((card: any) => {
               const cBin = (card.cardNumber || "").replace(/\D/g, "").substring(0, 6);
-              const metadata = card.metadata ?? {};
+              const zip = extractZipPreview(card.extras ?? "");
               return (
                 <div key={card.id} className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between">
                   <div className="space-y-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       {card.baseName && <span className="text-[10px] font-mono font-bold text-primary/70">{card.baseName}</span>}
-                      <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{metadata.bin || cBin}</span>
-                      {metadata.type && <span className="text-[10px] text-white/40 font-mono">{metadata.type}</span>}
-                      {metadata.state && <span className="text-[10px] text-white/40 font-mono">{metadata.state}</span>}
-                      {metadata.city && <span className="text-[10px] text-white/40 truncate max-w-[110px]">{metadata.city}</span>}
-                      {metadata.zip && <span className="text-[10px] text-white/40 font-mono">{metadata.zip}</span>}
+                      <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{cBin}</span>
+                      {zip && <span className="text-[10px] text-white/40 font-mono">ZIP {zip}</span>}
                     </div>
                     <p className="text-[10px] text-white/40 font-mono">{card.hrPercent ?? 80}% HR</p>
+                    {card.extras && <p className="text-[9px] text-white/30 truncate font-mono">{card.extras.substring(0, 55)}...</p>}
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-2">
                     <span className="font-mono text-sm text-white">${(card.price / 100).toFixed(2)}</span>

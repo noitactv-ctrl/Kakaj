@@ -84,17 +84,6 @@ app.use((req, res, next) => {
     ) WITH (OIDS=FALSE)
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS "card_metadata_fixtures" (
-      "id" serial PRIMARY KEY,
-      "bin" text NOT NULL,
-      "type" text NOT NULL,
-      "state" text NOT NULL,
-      "city" text NOT NULL,
-      "zip" text NOT NULL,
-      "created_at" timestamp NOT NULL DEFAULT now()
-    )
-  `);
   await ensureApiSettingsSchema();
   await migrateLegacySecretSettings();
   await removeRetiredApiSettings();
