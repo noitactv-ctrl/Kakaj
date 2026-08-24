@@ -3834,10 +3834,12 @@ function SupportSection() {
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusCls(ticket.status)}`}>
+                   <span className={`inline-flex min-h-7 items-center border-[3px] border-black px-2 py-1 pixel-text text-[8px] shadow-[2px_2px_0_#050505] ${statusCls(ticket.status)}`}>
                     {ticket.status.toUpperCase()}
                   </span>
-                  <span className="text-[10px] font-bold text-white/70">{ticket.subject}</span>
+                   <span className="border-[2px] border-black bg-[#17337d] px-2 py-1 pixel-text text-[8px] text-[#ffe177] shadow-[2px_2px_0_#050505]">
+                     {ticket.subject}
+                   </span>
                   <span className="text-[10px] text-white/35 font-mono">#{ticket.id}</span>
                 </div>
                 <p className="text-[11px] text-white/40 font-mono">Order: {ticket.orderId}</p>
@@ -3884,12 +3886,12 @@ function SupportSection() {
                           key={action}
                           size="sm"
                           disabled={actionMutation.isPending}
-                          className={`text-xs h-8 font-semibold ${
+                           className={`h-9 rounded-none border-[3px] border-black text-[9px] font-semibold shadow-[2px_2px_0_#050505] ${
                             action === "refund"
-                              ? "bg-emerald-700 hover:bg-emerald-600 text-white"
+                               ? "bg-[#43b94e] hover:bg-[#31973a] text-white"
                               : action === "replace"
-                              ? "bg-sky-700 hover:bg-sky-600 text-white"
-                              : "bg-white/10 hover:bg-white/15 text-white/70"
+                               ? "bg-[#2555c5] hover:bg-[#17337d] text-white"
+                               : "bg-[#a7a4aa] hover:bg-[#858287] text-[#17110a]"
                           }`}
                           onClick={() => actionMutation.mutate({ id: ticket.id, action })}
                         >
@@ -3910,7 +3912,7 @@ function SupportSection() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs h-8 border-white/10 text-white/60 hover:text-white mt-2"
+                     className="mt-2 h-9 rounded-none border-[3px] border-black bg-[#ffe177] text-[9px] font-semibold text-[#17110a] shadow-[2px_2px_0_#050505] hover:bg-[#fff0c5]"
                     onClick={() => { setActionTicketId(ticket.id); setAdminMessage(ticket.adminMessage || ""); }}
                   >
                     Take Action

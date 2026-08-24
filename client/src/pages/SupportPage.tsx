@@ -33,7 +33,7 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
   };
   const s = map[status] ?? map.open;
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.cls}`}>
+    <span className={`inline-flex min-h-7 items-center gap-1 border-[3px] border-black px-2 py-1 pixel-text text-[8px] shadow-[2px_2px_0_#050505] ${s.cls}`}>
       <s.Icon className="h-2.5 w-2.5" />
       {s.label}
     </span>
@@ -294,7 +294,9 @@ export default function SupportPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-0.5">
                       <p className="text-[10px] font-mono text-white/35">{ticket.orderId}</p>
-                      <p className="text-sm font-bold text-white">{ticket.subject}</p>
+                       <span className="inline-flex border-[2px] border-black bg-[#17337d] px-2 py-1 pixel-text text-[8px] text-[#ffe177] shadow-[2px_2px_0_#050505]">
+                         {ticket.subject}
+                       </span>
                     </div>
                     <StatusBadge status={ticket.status} />
                   </div>
