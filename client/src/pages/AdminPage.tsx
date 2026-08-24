@@ -3006,8 +3006,37 @@ function AdminCardsSection() {
   const { toast } = useToast();
   const qc = queryClient;
   const [tab, setTab] = useState<"stock" | "bases">("stock");
+  const [fullItem, setFullItem] = useState("");
+  const [price, setPrice] = useState("");
+  const [selectedBaseId, setSelectedBaseId] = useState<string>("");
 
   const { data: cards, isLoading } = useQuery<any[]>({ queryKey: ["/api/cards"] });
+  const { data: bases } = useQuery<any[]>({ queryKey: ["/api/card-bases"] });
+
+  // Auto-extract BIN + ZIP preview from first card entry
+  const cardEntries = fullItem.split(/\n\s*\n/).map(e => e.trim()).filter(Boolean);
+  const previewBin = findCardNumberPreview(cardEntries[0] || "").substring(0, 6);
+  const previewZip = extractZipPreview(cardEntries[0] || "");
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      if (!fullItem.trim()) throw new Error("Full item is required");
+      if (!price || parseFloat(price) <= 0) throw new Error("Valid price is required");
+      if (!selectedBaseId) throw new Error("Name is required");
+      const body: any = { extras: fullItem.trim(), price: parseFloat(price), baseId: Number(selectedBaseId) };
+      const res = await apiRequest("POST", "/api/cards", body);
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed to add card"); }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      qc.invalidateQueries({ queryKey: ["/api/cards"] });
+      qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
+      setFullItem(""); setPrice(""); setSelectedBaseId("");
+      const count = data?.count ?? 1;
+      toast({ title: count > 1 ? `${count} cards added` : "Card added" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/admin/cards/${id}`); },
@@ -3019,9 +3048,74 @@ function AdminCardsSection() {
     <div className="space-y-5">
       <h2 className="text-base font-bold text-white">Cards</h2>
 
-      <div className="bg-[#111] border border-white/10 rounded-xl p-4">
-        <p className="text-xs font-bold text-white/45 uppercase tracking-widest">Card intake disabled</p>
-        <p className="mt-2 text-xs text-white/40">Adding individual or bulk card records is unavailable.</p>
+      {/* Add Card form */}
+      <div className="bg-[#111] border border-white/10 rounded-xl p-4 space-y-3">
+        <p className="text-xs font-bold text-white/45 uppercase tracking-widest">Add Card</p>
+
+        <div className="space-y-1">
+          <label className="text-[10px] text-white/45 uppercase tracking-widest">Full Delivery Item</label>
+          <textarea
+            value={fullItem}
+            onChange={e => setFullItem(e.target.value)}
+            placeholder={"4111111111111111|12/25|123|John Doe|123 Main St|City|12345\n\n4222222222222222|12/26|456|Jane Doe|456 Oak Ave|City|54321"}
+            rows={5}
+            className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
+            data-testid="input-full-item"
+          />
+          <p className="text-[10px] text-white/30">Cards require a card number, expiration, CVV, cardholder name, billing address, and ZIP. Account-and-routing records are flagged and blocked here.</p>
+          <div className="flex gap-3">
+            {cardEntries.length > 0 && (
+              <span className="inline-flex w-fit items-center rounded border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-mono text-primary" data-testid="text-card-entry-count">
+                {cardEntries.length} card{cardEntries.length === 1 ? "" : "s"} entered
+              </span>
+            )}
+            {previewBin.length === 6 && (
+              <p className="text-[10px] text-primary/60 font-mono">BIN: {previewBin}</p>
+            )}
+            {previewZip && (
+              <p className="text-[10px] text-green-400/60 font-mono">ZIP: {previewZip}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Named base selector — required */}
+        <div className="space-y-1">
+          <label className="text-[10px] text-white/45 uppercase tracking-widest">Name <span className="text-red-400/70">*</span></label>
+          <select
+            value={selectedBaseId}
+            onChange={e => setSelectedBaseId(e.target.value)}
+            className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white py-2 px-2 outline-none focus:border-gray-300"
+            data-testid="select-card-base"
+          >
+            <option value="">— Select name —</option>
+            {(bases ?? []).map((b: any) => (
+              <option key={b.id} value={String(b.id)}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[10px] text-white/45 uppercase tracking-widest">Price ($)</label>
+          <Input
+            value={price}
+            onChange={e => setPrice(e.target.value)}
+            placeholder="5.00"
+            type="number"
+            step="0.01"
+            className="bg-[#111]/5 border-white/10"
+            data-testid="input-card-price"
+          />
+        </div>
+
+        <Button
+          onClick={() => addMutation.mutate()}
+          disabled={addMutation.isPending || !fullItem.trim() || !price || !selectedBaseId}
+          size="sm"
+          className="w-full h-8 text-xs"
+          data-testid="btn-add-card"
+        >
+          {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : cardEntries.length > 1 ? `Add ${cardEntries.length} Cards` : "Add Card"}
+        </Button>
       </div>
 
       {/* Tabs */}
