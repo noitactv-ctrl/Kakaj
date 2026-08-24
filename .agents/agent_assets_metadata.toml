@@ -70,3 +70,17 @@ mtime_ms = 1787598290795
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:11e823b3-cf02-4d09-bfcf-86167f24c05f/0434338f-ace4-4d7c-8069-41a7919b8232/870ee054-5c59-4e5c-a2d3-4851443d6b7f"
 storage_version_token = "1787598305355365"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "fNSYr8WlSz5G8bqWI5Sms"
+uri = "file://exports/nychq-self-hosting-updated.zip"
+type = "unspecified"
+title = "Updated NYCHQ source package"
+description = "Single updated deployment package with the Chime and Venmo payment screens matching the CashApp-style reference card."
+logical_id = "87113ed5-f289-4232-a133-9960605b10d7"
+content_hash = "sha256:3945378de42b8401aa352964c0e055dac2ff604fd9c8e09ac09d6b03b2a877b9"
+size = 1513550
+mtime_ms = 1787598997958
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:11e823b3-cf02-4d09-bfcf-86167f24c05f/87113ed5-f289-4232-a133-9960605b10d7/9a9cbe4d-b4b7-4814-ba59-ae4606550851"
+storage_version_token = "1787599005002673"
+content_type = "application/octet-stream"

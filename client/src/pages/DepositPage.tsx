@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { calculateDepositCredit, DEPOSIT_BONUS_TIERS } from "@shared/deposit";
-import { CashAppQrCode } from "@/components/CashAppQrCode";
+import { ManualPaymentQrCode } from "@/components/ManualPaymentQrCode";
 import { CryptoCoinSelector, type CryptoCurrencyOption } from "@/components/CryptoCoinSelector";
 import { CryptoPaymentPanel, type CryptoInvoiceData } from "@/components/CryptoPaymentPanel";
 
@@ -27,7 +27,7 @@ type Deposit = {
   createdAt: string;
 };
 
-type ManualResult = { note: string; handle: string; url: string; amount: number; method: Method };
+type ManualResult = { note: string; handle: string; url: string; amount: number; method: Exclude<Method, "crypto"> };
 
 function methodColor(type: string) {
   if (type === "cashapp") return "#00D632";
@@ -42,6 +42,12 @@ function methodLabel(type: string) {
   if (type === "zelle") return "Zelle";
   if (type === "venmo") return "Venmo";
   return "Crypto";
+}
+function methodAccent(type: Method) {
+  if (type === "cashapp") return "#00D632";
+  if (type === "chime") return "#7BC67E";
+  if (type === "venmo") return "#3D95CE";
+  return "#6D1ED4";
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -92,18 +98,24 @@ function DepositRow({ deposit }: { deposit: Deposit }) {
 /* ── MANUAL DEPOSIT PANEL ── */
 function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset: () => void }) {
   const name = methodLabel(result.method);
+  const hasDestination = Boolean(result.url || result.handle);
 
   return (
     <div className="overflow-hidden border-[3px] border-[#080f2c] bg-[#18296d] text-[#fff0c5]">
       <div className="flex items-center gap-2 border-b-[2px] border-[#0e1b4e] bg-[#18296d] px-4 py-3">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#00D632] text-[#071509]">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full text-[#071509]" style={{ backgroundColor: methodAccent(result.method) }}>
           {result.method === "cashapp" ? <SiCashapp className="h-4 w-4" aria-label="Cash App" /> : <span className="text-xs font-black">{result.method.charAt(0).toUpperCase()}</span>}
         </div>
         <p className="text-sm font-bold text-[#fff0c5]">Send via {name}</p>
       </div>
       <div className="space-y-3 bg-[#18296d] p-4">
-        {result.url ? (
-          <CashAppQrCode url={result.url} amountCents={result.amount} note={result.note} />
+        {hasDestination ? (
+          <ManualPaymentQrCode
+            method={result.method}
+            destination={result.url || result.handle}
+            amountCents={result.amount}
+            note={result.note}
+          />
         ) : (
           <div className="border-[2px] border-black bg-[#0a1645] p-3 text-center">
             <p className="pixel-label">SEND TO</p>
