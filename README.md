@@ -1,4 +1,4 @@
-# Foodplug Website Source
+# NYCHQ Website Source
 
 ## Run locally
 

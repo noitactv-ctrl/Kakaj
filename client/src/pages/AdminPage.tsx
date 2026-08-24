@@ -25,13 +25,16 @@ import { CryptoCoinIcon, type CryptoCurrencyOption } from "@/components/CryptoCo
 
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { id: "products",  label: "Products",  Icon: Package },
   { id: "cards", label: "Cards",      Icon: CreditCard },
   { id: "routings", label: "Bank", Icon: Landmark },
+  { id: "ach",      label: "ACH",       Icon: Wallet },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
   { id: "codes",    label: "Coupons",    Icon: Tag },
   { id: "users",    label: "Users",      Icon: Users },
+  { id: "sellers",  label: "Sellers",    Icon: BadgeCheck },
   { id: "support",  label: "Support",    Icon: MessageSquare },
   { id: "integrations", label: "Settings", Icon: Settings },
 ];
@@ -71,7 +74,7 @@ export default function AdminPage() {
       <aside className="hidden md:flex w-52 shrink-0 flex-col border-r border-white/10 bg-[#111]">
         <div className="px-5 py-5 border-b border-white/8">
           <p className="text-base font-black text-white">
-            FOOD<span className="text-primary">PLUG</span>
+             NYCHQ
           </p>
           <p className="text-[10px] text-white/40 uppercase tracking-widest font-mono mt-0.5">Admin</p>
         </div>
@@ -119,7 +122,7 @@ export default function AdminPage() {
         <header className="md:hidden shrink-0 flex items-center justify-between px-4 py-3 bg-[#111] border-b border-white/10">
           <div>
             <p className="text-sm font-black text-white">
-              FOOD<span className="text-primary">PLUG</span>
+               NYCHQ
               <span className="ml-1.5 text-xs font-normal text-white/40">Admin</span>
             </p>
             <p className="text-[10px] text-white/40 font-mono">{activeLabel}</p>
@@ -136,11 +139,14 @@ export default function AdminPage() {
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
           <div className="pixel-page w-full">
             {activeSection === "dashboard"    && <DashboardSection />}
+            {activeSection === "products"     && <ProductsSection />}
             {activeSection === "cards"        && <AdminCardsSection />}
             {activeSection === "routings"     && <AdminRoutingSection />}
+            {activeSection === "ach"          && <AdminAchSection />}
             {activeSection === "orders"       && <OrdersSection />}
             {activeSection === "cashapp"      && <CashAppSection />}
             {activeSection === "users"        && <UsersSection canManageStaff={isOwner} />}
+            {activeSection === "sellers"      && <SellersSection />}
             {activeSection === "support"      && <SupportSection />}
             {activeSection === "deposits"     && <DepositsSection />}
             {activeSection === "codes"        && <CodesSection />}
