@@ -36,7 +36,7 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground antialiased; font-family: var(--font-body); font-weight: 500; }
+  body { @apply bg-background text-foreground antialiased; font-family: var(--font-body); font-size: 17px; font-weight: 600; line-height: 1.5; }
   h1, h2, h3, h4, h5, h6 { font-family: var(--font-pixel); }
 }
 
@@ -103,6 +103,22 @@
 .pixel-shell .pixel-input {
   min-height: var(--pixel-control-height);
   font-size: 0.75rem;
+}
+
+.pixel-shell p,
+.pixel-shell li,
+.pixel-shell label {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.pixel-shell .text-sm {
+  font-size: 1rem;
+}
+
+.pixel-shell .text-xs {
+  font-size: 0.8125rem;
 }
 
 @media (min-width: 640px) {
