@@ -307,6 +307,9 @@ export default function DepositPage() {
         {cryptoInvoice ? (
           <CryptoPaymentPanel
             invoice={cryptoInvoice}
+            coinName={selectedCrypto?.name}
+            coinTicker={selectedCrypto?.ticker}
+            coinColor={selectedCrypto?.color}
             onPaymentComplete={() => {
               qc.invalidateQueries({ queryKey: ["/api/user"] });
               qc.invalidateQueries({ queryKey: ["/api/deposits"] });
