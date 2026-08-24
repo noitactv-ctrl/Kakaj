@@ -9,7 +9,7 @@ import { createPlisioInvoice, mapPlisioStatus, PlisioInvoiceCreationError, verif
 import { applyPlisioPaymentStatus } from "./crypto-settlement";
 import { hashPassword, comparePassword } from "./auth";
 import { randomInt, randomUUID } from "crypto";
-import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, bankRoutingItems, products, redeemCodes } from "@shared/schema";
+import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, cardMetadataFixtures, bankRoutingItems, products, redeemCodes } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, desc, sql, inArray } from "drizzle-orm";
 import { calculateDepositCredit } from "@shared/deposit";
@@ -208,6 +208,50 @@ function missingCardFields(value: string): string[] {
     !hasAddress && "billing address",
     !hasZip && "ZIP",
   ].filter(Boolean) as string[];
+}
+
+const cardMetadataFixtureTypes = new Set(["DEBIT", "CREDIT", "PREPAID"]);
+const cardMetadataFixtureStates = new Set([
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS",
+  "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY",
+  "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
+  "DC",
+]);
+
+function parseCardMetadataFixtures(input: unknown): { bin: string; type: string; state: string; city: string; zip: string }[] {
+  if (typeof input !== "string" || input.length > 10000) {
+    throw new Error("Metadata bulk input is empty or too large");
+  }
+
+  const lines = input.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (lines.length === 0) throw new Error("Add at least one metadata item");
+  if (lines.length > 100) throw new Error("Metadata bulk input is limited to 100 items");
+
+  const seen = new Set<string>();
+  return lines.map((line, index) => {
+    const fields = line.split("|").map(field => field.trim());
+    if (fields.length !== 5) {
+      throw new Error(`Metadata item ${index + 1} must use BIN|TYPE|STATE|CITY|ZIP`);
+    }
+
+    const bin = fields[0].replace(/\D/g, "");
+    const type = fields[1].toUpperCase();
+    const state = fields[2].toUpperCase();
+    const city = fields[3];
+    const zipMatch = fields[4].match(/^(\d{5})(?:-\d{4})?$/);
+    const zip = zipMatch?.[1] ?? "";
+
+    if (!/^\d{6}$/.test(bin)) throw new Error(`Metadata item ${index + 1} has an invalid BIN`);
+    if (!cardMetadataFixtureTypes.has(type)) throw new Error(`Metadata item ${index + 1} type must be DEBIT, CREDIT, or PREPAID`);
+    if (!cardMetadataFixtureStates.has(state)) throw new Error(`Metadata item ${index + 1} has an invalid state`);
+    if (!/^[A-Za-z][A-Za-z .'-]{1,59}$/.test(city)) throw new Error(`Metadata item ${index + 1} has an invalid city`);
+    if (!zip) throw new Error(`Metadata item ${index + 1} has an invalid ZIP`);
+
+    const key = `${bin}|${type}|${state}|${city.toLowerCase()}|${zip}`;
+    if (seen.has(key)) throw new Error(`Metadata item ${index + 1} is a duplicate`);
+    seen.add(key);
+    return { bin, type, state, city, zip };
+  });
 }
 
 const gameLimiter = rateLimit({
@@ -1381,6 +1425,59 @@ export async function registerRoutes(
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }
+  });
+
+  app.get("/api/admin/card-metadata-fixtures", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "worker"].includes((req.user as any).role)) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const fixtures = await db.select().from(cardMetadataFixtures).orderBy(desc(cardMetadataFixtures.createdAt));
+    res.json(fixtures);
+  });
+
+  app.post("/api/admin/card-metadata-fixtures", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "worker"].includes((req.user as any).role)) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const parsed = parseCardMetadataFixtures(req.body?.items);
+      const created = [];
+      let skipped = 0;
+
+      for (const fixture of parsed) {
+        const existing = await db.select({ id: cardMetadataFixtures.id })
+          .from(cardMetadataFixtures)
+          .where(and(
+            eq(cardMetadataFixtures.bin, fixture.bin),
+            eq(cardMetadataFixtures.type, fixture.type),
+            eq(cardMetadataFixtures.state, fixture.state),
+            eq(cardMetadataFixtures.city, fixture.city),
+            eq(cardMetadataFixtures.zip, fixture.zip),
+          ))
+          .limit(1);
+
+        if (existing.length > 0) {
+          skipped++;
+          continue;
+        }
+
+        const [row] = await db.insert(cardMetadataFixtures).values(fixture).returning();
+        created.push(row);
+      }
+
+      res.status(201).json({ fixtures: created, count: created.length, skipped });
+    } catch (error: any) {
+      res.status(400).json({ message: error?.message || "Invalid metadata bulk input" });
+    }
+  });
+
+  app.delete("/api/admin/card-metadata-fixtures/:id", async (req, res) => {
+    if (!req.isAuthenticated() || !["admin", "worker"].includes((req.user as any).role)) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    await db.delete(cardMetadataFixtures).where(eq(cardMetadataFixtures.id, Number(req.params.id)));
+    res.json({ ok: true });
   });
 
   app.get("/api/admin/card-bases/:id/cards", async (req, res) => {
