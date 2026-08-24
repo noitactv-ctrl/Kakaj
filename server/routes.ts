@@ -342,9 +342,13 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const sellerId = req.body.sellerId ? Number(req.body.sellerId) : undefined;
-    const count = await storage.addStockItems(req.body.variantId, req.body.rawContent, sellerId);
-    res.json({ addedCount: count.added });
+    try {
+      const sellerId = req.body.sellerId ? Number(req.body.sellerId) : undefined;
+      const count = await storage.addStockItems(req.body.variantId, req.body.rawContent, sellerId);
+      res.json({ addedCount: count.added });
+    } catch (e: any) {
+      res.status(400).json({ message: e.message || "Failed to add stock" });
+    }
   });
 
   // Orders
@@ -995,15 +999,23 @@ export async function registerRoutes(
 
   app.post("/api/admin/stock", async (req, res) => {
     if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
-    const item = await storage.addSingleStockItem(req.body.variantId, req.body.content);
-    res.status(201).json(item);
+    try {
+      const item = await storage.addSingleStockItem(req.body.variantId, req.body.content);
+      res.status(201).json(item);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message || "Failed to add stock" });
+    }
   });
 
   app.post("/api/admin/stock/bulk", async (req, res) => {
     if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
-    const sellerId = req.body.sellerId ? Number(req.body.sellerId) : undefined;
-    const result = await storage.addStockItems(req.body.variantId, req.body.rawContent, sellerId);
-    res.json({ addedCount: result.added, skippedCount: result.skipped });
+    try {
+      const sellerId = req.body.sellerId ? Number(req.body.sellerId) : undefined;
+      const result = await storage.addStockItems(req.body.variantId, req.body.rawContent, sellerId);
+      res.json({ addedCount: result.added, skippedCount: result.skipped });
+    } catch (e: any) {
+      res.status(400).json({ message: e.message || "Failed to add stock" });
+    }
   });
 
   app.get("/api/admin/stock/:variantId", async (req, res) => {

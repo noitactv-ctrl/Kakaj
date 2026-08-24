@@ -9,6 +9,7 @@ import {
 import { eq, and, sql, desc, asc, lt } from "drizzle-orm";
 import { pool } from "./db";
 import { calculateDepositCredit } from "@shared/deposit";
+import { assertSafeProductStockContent } from "./stock-safety";
 import { decryptSettingValue, encryptSettingValue, isKnownSecretKey } from "./settings";
 import { DEFAULT_CRYPTO_CURRENCIES } from "@shared/crypto-currencies";
 
@@ -344,6 +345,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addStockItems(variantId: number, content: string, sellerId?: number): Promise<{ added: number; skipped: number }> {
+    content = assertSafeProductStockContent(content);
     const items = splitStockContent(content);
     if (items.length === 0) return { added: 0, skipped: 0 };
 
@@ -360,6 +362,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addSingleStockItem(variantId: number, content: string): Promise<StockItem> {
+    content = assertSafeProductStockContent(content);
     const existing = await db.select({ id: stockItems.id }).from(stockItems)
       .where(eq(stockItems.content, content)).limit(1);
     if (existing.length > 0) throw new Error("Duplicate: this item already exists in the database");
@@ -1489,31 +1492,10 @@ export class DatabaseStorage implements IStorage {
 
 }
 
-// A CC record can be pasted on its own line, separated by spaces, or mixed
-// into a larger paste. Split only at the start of another card so the
-// original record content is retained for delivery.
 function splitStockContent(content: string): string[] {
   const raw = String(content ?? "");
   if (!raw.trim()) return [];
 
-  const cardStarts = Array.from(raw.matchAll(
-    /(?<!\d)\d{13,19}(?=[\s|,:;/-]+\d{1,2}[\s|,:;/-]+\d{2,4}[\s|,:;/-]+\d{3,4}(?:\s|$|[|,:;/-]))/g,
-  ));
-
-  if (cardStarts.length > 0) {
-    return cardStarts
-      .map((match, index) => {
-        const start = match.index ?? 0;
-        const end = index + 1 < cardStarts.length
-          ? (cardStarts[index + 1].index ?? raw.length)
-          : raw.length;
-        return raw.slice(start, end).trim();
-      })
-      .filter(Boolean);
-  }
-
-  // Preserve the existing behavior for non-CC products that use either
-  // blank-line-separated bundles or one stock item per line.
   const hasBlankLines = /\n[ \t]*\n/.test(raw);
   return hasBlankLines
     ? raw.split(/\n\s*\n/).map(block => block.trim()).filter(Boolean)

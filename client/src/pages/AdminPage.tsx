@@ -25,6 +25,7 @@ import { CryptoCoinIcon, type CryptoCurrencyOption } from "@/components/CryptoCo
 
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { id: "inventory", label: "Inventory", Icon: Package },
   { id: "cards", label: "Cards",      Icon: CreditCard },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
@@ -135,6 +136,7 @@ export default function AdminPage() {
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
           <div className="pixel-page w-full">
             {activeSection === "dashboard"    && <DashboardSection />}
+            {activeSection === "inventory"    && <ProductsSection />}
             {activeSection === "cards"        && <AdminCardsSection />}
             {activeSection === "orders"       && <OrdersSection />}
             {activeSection === "cashapp"      && <CashAppSection />}
@@ -804,6 +806,10 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
     mutationFn: async () => {
       if (!input.trim()) throw new Error("No items to add");
       const res = await apiRequest("POST", "/api/admin/stock/bulk", { variantId, rawContent: input });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.message || "Failed to add stock");
+      }
       return res.json();
     },
     onSuccess: (data) => {
@@ -831,20 +837,13 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
     },
   });
 
-  // Live count from textarea. Card records may be separated by spaces or
-  // newlines, so count each card-shaped record before falling back to the
-  // generic product stock format.
-  const cardStarts = input.match(
-    /(?<!\d)\d{13,19}(?=[\s|,:;/-]+\d{1,2}[\s|,:;/-]+\d{2,4}[\s|,:;/-]+\d{3,4}(?:\s|$|[|,:;/-]))/g,
-  ) ?? [];
+  // Count one-line items or blank-line-separated multi-line items.
   const hasBlankLines = /\n[ \t]*\n/.test(input);
-  const pendingCount = cardStarts.length > 0
-    ? cardStarts.length
-    : input.trim()
-      ? hasBlankLines
-        ? input.split(/\n\s*\n/).filter(b => b.trim()).length
-        : input.split(/\n/).filter(l => l.trim()).length
-      : 0;
+  const pendingCount = input.trim()
+    ? hasBlankLines
+      ? input.split(/\n\s*\n/).filter(b => b.trim()).length
+      : input.split(/\n/).filter(l => l.trim()).length
+    : 0;
   const canSubmit = pendingCount > 0 && input.trim().length > 0;
 
   return (
@@ -864,15 +863,16 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
 
       <div className="space-y-1.5">
         <p className="text-[10px] leading-relaxed text-white/45">
-          Paste one deliverable item per line. For multi-line items, separate each item with a blank line. Existing duplicates are skipped automatically.
+          Paste one safe product item per line. For multi-line items, separate each item with a blank line. Existing duplicates are skipped automatically.
         </p>
         <div className="relative">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={"Paste stock — one CC per line or multiple CCs separated by spaces:\n4147202597609633|03|28|554|Name|Address|City|ST|ZIP|COUNTRY"}
+            placeholder={"Paste product stock — one item per line:\nLicense key or redemption code A\nLicense key or redemption code B\n\nUse a blank line when one item spans multiple lines."}
             rows={5}
             className="bg-black/60 border-white/10 text-xs font-mono resize-none placeholder:text-white/30"
+            data-testid={`input-bulk-stock-${variantId}`}
           />
         </div>
         <Button
@@ -882,7 +882,7 @@ function VariantStockPanel({ variantId }: { variantId: number }) {
           onClick={() => addMutation.mutate()}
         >
           {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-          Add Stock Items
+          Add {pendingCount || ""} Stock Item{pendingCount === 1 ? "" : "s"}
         </Button>
       </div>
 

@@ -81,7 +81,10 @@ export function useAdminStock() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to add stock");
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.message || "Failed to add stock");
+      }
       return api.stock.add.responses[200].parse(await res.json());
     },
     onSuccess: (data) => {

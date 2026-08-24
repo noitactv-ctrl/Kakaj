@@ -12,3 +12,4 @@
 - [Owner authorization](owner-authorization.md) — owner privileges derive from a protected server-side founder identity, never a staff-editable role field.
 - [Provider expiration format](provider-expiration-format.md) — normalize crypto invoice expiry values because providers may return timestamps as strings or dates.
 - [Cardholder-name minimization](cardholder-name-minimization.md) — validate legacy stock entries without persisting or delivering holder names.
+- [Bulk product stock safety](bulk-product-stock-safety.md) — generic product stock accepts bulk content but must reject payment-card credential data.
