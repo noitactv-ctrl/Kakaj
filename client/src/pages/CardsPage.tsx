@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ShoppingCart, Loader2, Search } from "lucide-react";
-import { useLocation } from "wouter";
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -129,7 +128,6 @@ export default function CardsPage() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
   const cardItems = useCart(s => s.cardItems);
   const addCard = useCart(s => s.addCard);
   const setBulkBundle = useCart(s => s.setBulkBundle);
@@ -224,7 +222,6 @@ export default function CardsPage() {
     });
     setCartCardIds(new Set());
     toast({ title: "BULK BUNDLE ADDED", description: "20 cards are locked at 50% off each." });
-    setLocation("/cart");
   };
 
   const cancelBulkSelection = () => {

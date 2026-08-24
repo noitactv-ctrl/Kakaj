@@ -16,7 +16,6 @@ import AdminPage from "@/pages/AdminPage";
 import NotFound from "@/pages/not-found";
 import DepositPage from "@/pages/DepositPage";
 import OrdersPage from "@/pages/OrdersPage";
-import CartPage from "@/pages/CartPage";
 import RanksPage from "@/pages/RanksPage";
 import CardsPage from "@/pages/CardsPage";
 import SupportPage from "@/pages/SupportPage";
@@ -48,7 +47,6 @@ function Router() {
         <Route path="/shop"><Redirect to={features.cards ? "/cards" : "/deposit"} /></Route>
         <Route path="/order/:id" component={OrderDetailPageNew} />
         <Route path="/orders" component={OrdersPage} />
-        <Route path="/cart" component={CartPage} />
         <Route path="/ranks">{() => features.ranks ? <RanksPage /> : <Redirect to="/deposit" />}</Route>
         <Route path="/cards">{() => features.cards ? <CardsPage /> : <Redirect to="/deposit" />}</Route>
         <Route path="/routings" component={RoutingCatalogPage} />

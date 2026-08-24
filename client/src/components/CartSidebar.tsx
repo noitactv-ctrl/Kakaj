@@ -1,8 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ShoppingCart, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/hooks/use-cart";
+import { useMutation } from "@tanstack/react-query";
+import { api } from "@shared/routes";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+interface AppliedDiscount {
+  id: number;
+  code: string;
+  type: "percent" | "fixed";
+  value: number;
+  discountAmount: number;
+}
 
 export function CartSidebar({ open, onClose }: {
   open: boolean;
@@ -10,6 +22,7 @@ export function CartSidebar({ open, onClose }: {
 }) {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const {
     items,
     cardItems,
@@ -18,10 +31,10 @@ export function CartSidebar({ open, onClose }: {
     removeCard,
     clearBulkBundle,
     clearCart,
-    setCheckoutCouponCode,
     total,
   } = useCart();
   const [couponCode, setCouponCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
 
   const itemCount = items.reduce((count, item) => count + item.quantity, 0)
     + cardItems.length
@@ -30,10 +43,70 @@ export function CartSidebar({ open, onClose }: {
   const cardSubtotal = cardItems.reduce((sum, card) => sum + card.price, 0);
   const cartTotal = productTotal + cardSubtotal + (bulkBundle?.discountedTotal ?? 0);
   const isEmpty = itemCount === 0;
+  const finalTotal = Math.max(0, cartTotal - (appliedDiscount?.discountAmount ?? 0));
 
-  const openCheckout = (coupon?: string) => {
-    if (coupon?.trim()) setCheckoutCouponCode(coupon.trim());
-    setLocation("/cart");
+  useEffect(() => {
+    if (appliedDiscount) setAppliedDiscount(null);
+  }, [cartTotal]);
+
+  const validateDiscountMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await apiRequest("POST", "/api/discount/validate", { code, cartTotal });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.message || "Invalid discount code");
+      }
+      return response.json() as Promise<AppliedDiscount>;
+    },
+    onSuccess: (discount) => {
+      setAppliedDiscount(discount);
+      setCouponCode("");
+      toast({ title: "Coupon applied", description: `You save $${(discount.discountAmount / 100).toFixed(2)}.` });
+    },
+    onError: (error: Error) => toast({ title: "Coupon not valid", description: error.message, variant: "destructive" }),
+  });
+
+  const balanceOrderMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) {
+        setLocation("/auth");
+        throw new Error("Please sign in to checkout");
+      }
+      const response = await apiRequest("POST", api.orders.create.path, {
+        items: items.map(item => ({ variantId: item.variantId, quantity: item.quantity })),
+        cardIds: cardItems.map(card => card.id),
+        bulkCardIds: bulkBundle?.cardIds ?? [],
+        discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.message || "Order failed");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      clearCart();
+      queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/card-bases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({ title: "Order placed!", description: "Your order has been placed and will be fulfilled soon." });
+      onClose();
+      setLocation("/orders");
+    },
+    onError: (error: Error) => {
+      if (error.message === "Please sign in to checkout") return;
+      toast({ title: "Checkout failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleApplyCoupon = () => {
+    if (bulkBundle) {
+      toast({ title: "Bulk bundle locked", description: "The 50% bundle price cannot be combined with a coupon.", variant: "destructive" });
+      return;
+    }
+    const trimmed = couponCode.trim();
+    if (trimmed) validateDiscountMutation.mutate(trimmed);
   };
 
   return (
@@ -138,11 +211,12 @@ export function CartSidebar({ open, onClose }: {
               aria-label="Coupon code"
             />
             <button
-              onClick={() => openCheckout(couponCode)}
-              className="pixel-button h-8 px-2 text-[8px]"
-              aria-label="Apply coupon in checkout"
+              onClick={handleApplyCoupon}
+              disabled={validateDiscountMutation.isPending || !couponCode.trim()}
+              className="pixel-button h-8 px-2 text-[8px] disabled:cursor-not-allowed disabled:opacity-45"
+              aria-label="Apply coupon"
             >
-              Apply
+              {validateDiscountMutation.isPending ? "..." : "Apply"}
             </button>
           </div>
 
@@ -153,7 +227,12 @@ export function CartSidebar({ open, onClose }: {
                 Balance: ${((user?.balance ?? 0) / 100).toFixed(2)}
               </p>
             </div>
-            <p className="font-mono text-sm font-bold text-white">${(cartTotal / 100).toFixed(2)}</p>
+            <div className="text-right">
+              {appliedDiscount && (
+                <p className="font-mono text-[9px] text-[#72df7c]">-{(appliedDiscount.discountAmount / 100).toFixed(2)}</p>
+              )}
+              <p className="font-mono text-sm font-bold text-white">${(finalTotal / 100).toFixed(2)}</p>
+            </div>
           </div>
 
           <button
@@ -164,11 +243,11 @@ export function CartSidebar({ open, onClose }: {
             ▪ Clear cart
           </button>
           <button
-            onClick={() => openCheckout()}
+            onClick={() => balanceOrderMutation.mutate()}
             disabled={isEmpty}
             className="w-full border-[2px] border-black bg-[#43b94e] py-2.5 pixel-text text-[8px] text-white shadow-[2px_2px_0_#07130a] disabled:cursor-not-allowed disabled:opacity-45"
           >
-            ▪ Checkout with Balance
+            {balanceOrderMutation.isPending ? "▪ Placing order..." : "▪ Checkout with Balance"}
           </button>
         </div>
       </aside>
