@@ -3206,7 +3206,11 @@ function AdminCardsSection() {
       qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
       setFullItem(""); setPrice(""); setSelectedBaseId("");
       const count = data?.count ?? 1;
-      toast({ title: count > 1 ? `${count} cards added` : "Card added" });
+      const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
+      toast({
+        title: count > 1 ? `${count} cards added` : "Card added",
+        description: skipped > 0 ? `${skipped} card${skipped === 1 ? "" : "s"} skipped because complete BIN metadata was unavailable.` : undefined,
+      });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });

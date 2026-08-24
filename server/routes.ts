@@ -168,6 +168,20 @@ function lookupBin(bin: string): Promise<any> {
   return new Promise(resolve => { binQueue.push({ bin, resolve }); processBinQueue(); });
 }
 
+function hasCompleteBinMetadata(data: any): boolean {
+  const normalize = (value: unknown) => typeof value === "string" ? value.trim() : "";
+  const issuer = normalize(data?.bank);
+  const brand = normalize(data?.scheme) || normalize(data?.brand);
+  const type = normalize(data?.type);
+  const country = normalize(data?.country);
+  const countryCode = normalize(data?.countryCode);
+  return issuer.length > 0
+    && brand.length > 0
+    && type.length > 0
+    && country.length > 0
+    && /^[A-Za-z]{2}$/.test(countryCode);
+}
+
 function findPaymentCardNumber(value: string): string {
   const tokens = value.split(/[|\t:;,\s]+/).map(token => token.trim()).filter(Boolean);
   for (const token of tokens) {
@@ -1395,14 +1409,15 @@ export async function registerRoutes(
       if (bin.length === 6 && !seenBins.has(bin)) {
         seenBins.add(bin);
         lookupBin(bin).then(async (data) => {
-          if (data?.bank || data?.scheme || data?.type) {
+          if (hasCompleteBinMetadata(data)) {
             await db.execute(sql`UPDATE cards SET bin_data = ${JSON.stringify(data)}::jsonb WHERE card_number LIKE ${bin + '%'} AND bin_data IS NULL`);
           }
         }).catch(() => {});
       }
     });
 
-    res.json(rows.map((r: any) => ({
+    const visibleRows = rows.filter((r: any) => hasCompleteBinMetadata(r.bin_data));
+    res.json(visibleRows.map((r: any) => ({
       id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
       expiry: r.expiry, cvv: r.cvv, country: r.country, extras: r.extras,
       price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
@@ -1443,13 +1458,22 @@ export async function registerRoutes(
     const baseId = req.body.baseId ? Number(req.body.baseId) : undefined;
     const priceCents = Math.round(parseFloat(req.body.price || "0") * 100);
     const createdCards: any[] = [];
+    const skippedCards: Array<{ entry: number; bin: string; reason: string }> = [];
 
-    for (const fullItem of entries) {
+    for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
+      const fullItem = entries[entryIndex];
       const cardNumber = findCardNumber(fullItem) || req.body.cardNumber || "";
+      if (cardNumber.length < 6) {
+        skippedCards.push({
+          entry: entryIndex + 1,
+          bin: "",
+          reason: "A valid card number and BIN are required",
+        });
+        continue;
+      }
       const masked = cardNumber.length >= 4
         ? cardNumber.substring(0, 6) + "*".repeat(Math.max(0, cardNumber.length - 10)) + cardNumber.slice(-4)
         : cardNumber;
-      let country = "Unknown";
       let storedBinData: any = null;
 
       if (cardNumber.length >= 6) {
@@ -1458,9 +1482,17 @@ export async function registerRoutes(
           const binResult = await lookupBin(bin);
           if (binResult) {
             storedBinData = binResult;
-            country = binResult.country || "Unknown";
           }
         } catch {}
+      }
+
+      if (!hasCompleteBinMetadata(storedBinData)) {
+        skippedCards.push({
+          entry: entryIndex + 1,
+          bin: cardNumber.substring(0, 6),
+          reason: "Complete BIN metadata was not found; card was not added",
+        });
+        continue;
       }
 
       const card = await storage.createCard({
@@ -1468,25 +1500,34 @@ export async function registerRoutes(
         maskedCard: masked,
         expiry: "",
         cvv: "",
-        country,
+        country: storedBinData.country,
+        binData: storedBinData,
         extras: fullItem,
         price: priceCents,
         hrPercent: 80,
         ...(baseId ? { baseId } : {}),
       } as any);
 
-      // Save binData to DB immediately so it's always available
-      if (storedBinData) {
-        await db.execute(sql`UPDATE cards SET bin_data = ${JSON.stringify(storedBinData)}::jsonb WHERE id = ${card.id}`);
-      }
-
       createdCards.push({ ...card, binData: storedBinData });
     }
 
+    if (createdCards.length === 0) {
+      return res.status(422).json({
+        message: "No cards were added because complete BIN metadata could not be found.",
+        skipped: skippedCards,
+      });
+    }
+
     if (createdCards.length === 1) {
-      res.status(201).json(createdCards[0]);
+      res.status(201).json(skippedCards.length > 0
+        ? { ...createdCards[0], skipped: skippedCards }
+        : createdCards[0]);
     } else {
-      res.status(201).json({ cards: createdCards, count: createdCards.length });
+      res.status(201).json({
+        cards: createdCards,
+        count: createdCards.length,
+        skipped: skippedCards,
+      });
     }
   });
 

@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { formatCardDeliveryContent } from "./card-privacy";
+import { appendUniqueDeliveryContent, serializeDeliveryParts, type DeliveryParts } from "./delivery-content";
 import { 
   users, products, variants, stockItems, orders, orderItems, transactions, redeemCodes, announcements, uploadedImages, cards, cardBases, supportTickets, cryptoPayments, mails, mailReads, siteSettings, discountCodes, sellerApplications, achs, cryptoAddresses, cryptoCurrencies,
   type User, type InsertUser, type Product, type InsertProduct, type Variant, type InsertVariant,
@@ -586,15 +587,12 @@ export class DatabaseStorage implements IStorage {
     await this.createTransaction(userId, -total, "purchase", `Order purchase`);
 
     // Build delivery content from reserved stock
-    const deliveryParts: Record<string, string[]> = {};
+    const deliveryParts: DeliveryParts = {};
     for (const res of reservedStockItems) {
       const key = String(res.variantId);
-      if (!deliveryParts[key]) deliveryParts[key] = [];
-      deliveryParts[key].push(res.content);
+      appendUniqueDeliveryContent(deliveryParts, key, res.content);
     }
-    const deliveryContent = JSON.stringify(
-      Object.fromEntries(Object.entries(deliveryParts).map(([k, v]) => [k, v.join("\n\n")]))
-    );
+    const deliveryContent = serializeDeliveryParts(deliveryParts);
     const publicOrderId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const [order] = await db.insert(orders).values({
       userId,
@@ -778,7 +776,7 @@ export class DatabaseStorage implements IStorage {
       const items = await tx.select().from(orderItems)
         .where(eq(orderItems.orderId, orderId))
         .orderBy(asc(orderItems.id));
-      const deliveryParts: Record<string, string[]> = {};
+      const deliveryParts: DeliveryParts = {};
 
       for (const item of items) {
         if (item.cardId) {
@@ -789,12 +787,11 @@ export class DatabaseStorage implements IStorage {
             .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
             .returning();
           if (!claimedCard) throw new Error("A card in this order is no longer available");
-          (deliveryParts.cards ??= []).push(formatCardDeliveryContent(card));
+          appendUniqueDeliveryContent(deliveryParts, "cards", formatCardDeliveryContent(card));
           continue;
         }
         if (!item.variantId) continue;
         const key = String(item.variantId);
-        (deliveryParts[key] ??= []);
         if (!item.stockItemId) {
           throw new Error(`Order item ${item.id} has no assigned stock and cannot be substituted`);
         }
@@ -808,12 +805,10 @@ export class DatabaseStorage implements IStorage {
           .where(and(eq(stockItems.id, stock.id), eq(stockItems.isSold, false), eq(stockItems.orderId, order.id)))
           .returning();
         if (!deliveredStock) throw new Error(`Assigned stock item is unavailable for order item ${item.id}`);
-        deliveryParts[key].push(stock.content);
+        appendUniqueDeliveryContent(deliveryParts, key, stock.content);
       }
 
-      const deliveryContent = JSON.stringify(
-        Object.fromEntries(Object.entries(deliveryParts).map(([key, content]) => [key, content.join("\n\n")]))
-      );
+      const deliveryContent = serializeDeliveryParts(deliveryParts);
       await tx.update(orders)
         .set({ status: "delivering", deliveryContent, paidAmount: order.total })
         .where(and(eq(orders.id, orderId), eq(orders.status, "pending")));
@@ -906,7 +901,7 @@ export class DatabaseStorage implements IStorage {
       const pendingItems = await tx.select().from(orderItems)
         .where(eq(orderItems.orderId, orderId))
         .orderBy(asc(orderItems.id));
-      const deliveryParts: Record<string, string[]> = {};
+      const deliveryParts: DeliveryParts = {};
 
       for (const item of pendingItems) {
         if (item.cardId) {
@@ -917,12 +912,11 @@ export class DatabaseStorage implements IStorage {
             .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
             .returning();
           if (!claimedCard) throw new Error("A card in this order is no longer available");
-          (deliveryParts.cards ??= []).push(formatCardDeliveryContent(card));
+          appendUniqueDeliveryContent(deliveryParts, "cards", formatCardDeliveryContent(card));
           continue;
         }
         if (!item.variantId) continue;
         const key = String(item.variantId);
-        (deliveryParts[key] ??= []);
         if (!item.stockItemId) {
           throw new Error(`Order item ${item.id} has no assigned stock and cannot be substituted`);
         }
@@ -936,12 +930,10 @@ export class DatabaseStorage implements IStorage {
           .where(and(eq(stockItems.id, stock.id), eq(stockItems.isSold, false), eq(stockItems.orderId, pendingOrder.id)))
           .returning();
         if (!deliveredStock) throw new Error(`Assigned stock item is unavailable for order item ${item.id}`);
-        deliveryParts[key].push(stock.content);
+        appendUniqueDeliveryContent(deliveryParts, key, stock.content);
       }
 
-      const deliveryContent = JSON.stringify(
-        Object.fromEntries(Object.entries(deliveryParts).map(([key, content]) => [key, content.join("\n\n")]))
-      );
+      const deliveryContent = serializeDeliveryParts(deliveryParts);
       const [updated] = await tx.update(orders)
         .set({ status: "delivering", deliveryContent, paidAmount: paidAmount ?? pendingOrder.total })
         .where(and(eq(orders.id, orderId), eq(orders.status, "pending")))
@@ -997,30 +989,43 @@ export class DatabaseStorage implements IStorage {
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
     if (!order) throw new Error("Order not found");
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-    const replacementParts: Record<string, string[]> = {};
+    const replacementParts: DeliveryParts = {};
 
     for (const item of items) {
       if (!item.variantId) continue;
       const [variant] = await db.select().from(variants).where(eq(variants.id, item.variantId));
       if (!variant) continue;
       const key = String(item.variantId);
-      if (!replacementParts[key]) replacementParts[key] = [];
       for (let i = 0; i < (item.quantity ?? 1); i++) {
         const stock = await this.reserveStockItem(item.variantId);
         if (!stock) throw new Error(`No replacement stock available for ${variant.name}`);
-        replacementParts[key].push(stock.content);
+        appendUniqueDeliveryContent(replacementParts, key, stock.content);
       }
     }
 
-    // Append replacement content to existing delivery
-    let existing: Record<string, string> = {};
-    try { existing = JSON.parse(order.deliveryContent || "{}"); } catch {}
-    const merged = { ...existing };
-    for (const [k, v] of Object.entries(replacementParts)) {
-      merged[k] = [merged[k], ...v].filter(Boolean).join("\n\n--- REPLACEMENT ---\n\n");
+    // Preserve each delivered record as a whole value so replacements can be
+    // compared without splitting or changing a seller's original text.
+    const legacyDeliveryKey = "__order_delivery";
+    let existing: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(order.deliveryContent || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) existing = parsed;
+    } catch {
+      if (order.deliveryContent) existing = { [legacyDeliveryKey]: order.deliveryContent };
+    }
+    const merged: DeliveryParts = {};
+    for (const [key, value] of Object.entries(existing)) {
+      if (Array.isArray(value)) {
+        for (const record of value) appendUniqueDeliveryContent(merged, key, typeof record === "string" ? record : "");
+      } else if (typeof value === "string") {
+        appendUniqueDeliveryContent(merged, key, value);
+      }
+    }
+    for (const [key, values] of Object.entries(replacementParts)) {
+      for (const value of values) appendUniqueDeliveryContent(merged, key, value);
     }
     const [updated] = await db.update(orders)
-      .set({ status: "replaced", deliveryContent: JSON.stringify(merged) })
+      .set({ status: "replaced", deliveryContent: serializeDeliveryParts(merged) })
       .where(eq(orders.id, orderId))
       .returning();
     return updated;
@@ -1384,7 +1389,14 @@ export class DatabaseStorage implements IStorage {
   async getCardBasesWithCount(): Promise<(CardBase & { count: number })[]> {
     const result = await db.execute(sql`
       SELECT cb.id, cb.name, cb.created_at,
-             COUNT(c.id) FILTER (WHERE c.is_sold = false) as count
+             COUNT(c.id) FILTER (
+               WHERE c.is_sold = false
+                 AND NULLIF(BTRIM(c.bin_data->>'bank'), '') IS NOT NULL
+                 AND COALESCE(NULLIF(BTRIM(c.bin_data->>'scheme'), ''), NULLIF(BTRIM(c.bin_data->>'brand'), '')) IS NOT NULL
+                 AND NULLIF(BTRIM(c.bin_data->>'type'), '') IS NOT NULL
+                 AND NULLIF(BTRIM(c.bin_data->>'country'), '') IS NOT NULL
+                 AND BTRIM(c.bin_data->>'countryCode') ~ '^[A-Za-z]{2}$'
+             ) as count
       FROM card_bases cb
       LEFT JOIN cards c ON c.base_id = cb.id
       GROUP BY cb.id, cb.name, cb.created_at
@@ -1413,7 +1425,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCardsByBase(baseId: number): Promise<Card[]> {
-    return db.select().from(cards).where(and(eq(cards.baseId, baseId), eq(cards.isSold, false))).orderBy(desc(cards.createdAt));
+    return db.select().from(cards).where(and(
+      eq(cards.baseId, baseId),
+      eq(cards.isSold, false),
+      sql`
+        NULLIF(BTRIM(${cards.binData}->>'bank'), '') IS NOT NULL
+        AND COALESCE(NULLIF(BTRIM(${cards.binData}->>'scheme'), ''), NULLIF(BTRIM(${cards.binData}->>'brand'), '')) IS NOT NULL
+        AND NULLIF(BTRIM(${cards.binData}->>'type'), '') IS NOT NULL
+        AND NULLIF(BTRIM(${cards.binData}->>'country'), '') IS NOT NULL
+        AND BTRIM(${cards.binData}->>'countryCode') ~ '^[A-Za-z]{2}$'
+      `
+    )).orderBy(desc(cards.createdAt));
   }
 
   async createSellerApplication(userId: number, sellerCode: string): Promise<SellerApplication> {

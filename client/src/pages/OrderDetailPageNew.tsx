@@ -22,14 +22,34 @@ function statusColor(s: string) {
   return "text-white/45";
 }
 
-function parseDeliveryMap(raw: string | null | undefined): Record<string, string> | null {
+function parseDeliveryMap(raw: string | null | undefined): Record<string, string[]> | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, string>;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return Object.fromEntries(
+        Object.entries(parsed).flatMap(([key, value]) => {
+          if (Array.isArray(value)) {
+            const records = value.filter((record): record is string => typeof record === "string");
+            return records.length > 0 ? [[key, records]] : [];
+          }
+          return typeof value === "string" ? [[key, [stripLegacyReplacementSeparator(value)]]] : [];
+        }),
+      );
+    }
   } catch {}
   return null;
 }
+
+function stripLegacyReplacementSeparator(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw
+    .split(/\n\n--- REPLACEMENT ---\n\n/)
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+const ORDER_LEVEL_DELIVERY_KEY = "__order_delivery";
 
 export default function OrderDetailPageNew() {
   const [, params] = useRoute("/order/:id");
@@ -98,13 +118,22 @@ export default function OrderDetailPageNew() {
 
   const deliveryMap = parseDeliveryMap(order.deliveryContent);
   const isFulfilled = order.status === "fulfilled" || order.status === "delivering" || order.status === "replaced";
+  const hasNonCardItems = grouped.some(item => item.itemType !== "card");
+  const orderLevelDeliveryRecords = isFulfilled
+    ? deliveryMap?.[ORDER_LEVEL_DELIVERY_KEY]
+      ?? (!deliveryMap && hasNonCardItems ? [stripLegacyReplacementSeparator(order.deliveryContent)] : [])
+    : [];
+  const orderLevelDelivery = orderLevelDeliveryRecords.filter(Boolean).join("\n\n");
+  const directDeliveryContent = grouped.length === 0 && isFulfilled
+    ? deliveryMap?.[ORDER_LEVEL_DELIVERY_KEY]?.filter(Boolean).join("\n\n")
+      ?? (!deliveryMap ? stripLegacyReplacementSeparator(order.deliveryContent) : "")
+    : "";
 
-  const getStockForKey = (item: typeof grouped[0]): string | null => {
+  const getStockForKey = (item: typeof grouped[0]): string[] | null => {
     if (!isFulfilled) return null;
-    if (item.itemType === "card") return item.cardContent || null;
-    if (item.itemType === "ach" || item.itemType === "routing") return order.deliveryContent || null;
+    if (item.itemType === "card") return item.cardContent ? [item.cardContent] : null;
     if (deliveryMap) return deliveryMap[item.key] || null;
-    return order.deliveryContent || null;
+    return null;
   };
 
   const toggleStock = (key: string) => {
@@ -166,7 +195,7 @@ export default function OrderDetailPageNew() {
         {activeTab === "products" && (
           <div className="space-y-8">
             {/* ACH / direct-delivery orders (no orderItems, deliveryContent is a plain string) */}
-            {grouped.length === 0 && order.deliveryContent && isFulfilled && (() => {
+            {grouped.length === 0 && directDeliveryContent && (() => {
               const key = "direct";
               const isOpen = !!stockVisible[key];
               const wasCopied = !!copied[key];
@@ -189,10 +218,10 @@ export default function OrderDetailPageNew() {
                     {isOpen && (
                       <div className="border-[3px] border-black bg-[#0b1644] p-4 space-y-3">
                         <p className="text-xs font-mono text-white whitespace-pre-wrap leading-relaxed break-all">
-                          {order.deliveryContent}
+                           {directDeliveryContent}
                         </p>
                         <button
-                          onClick={() => handleCopy(key, order.deliveryContent || "")}
+                           onClick={() => handleCopy(key, directDeliveryContent)}
                           className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-bold transition-colors"
                         >
                           {wasCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -209,8 +238,32 @@ export default function OrderDetailPageNew() {
             {grouped.length === 0 && !order.deliveryContent && (
               <p className="text-sm text-white/45">No products found</p>
             )}
+            {orderLevelDelivery && (
+              <div className="space-y-2 pt-1">
+                <button
+                  onClick={() => toggleStock("legacy-order-delivery")}
+                  className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[8px] text-white hover:bg-[#31973a] transition-colors flex items-center justify-center gap-2"
+                >
+                  {stockVisible["legacy-order-delivery"] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  {stockVisible["legacy-order-delivery"] ? "Hide Delivery" : "View Delivery"}
+                </button>
+                {stockVisible["legacy-order-delivery"] && (
+                  <div className="border-[3px] border-black bg-[#0b1644] p-4 space-y-3">
+                    <p className="text-xs font-mono text-white whitespace-pre-wrap leading-relaxed break-all">{orderLevelDelivery}</p>
+                    <button
+                      onClick={() => handleCopy("legacy-order-delivery", orderLevelDelivery)}
+                      className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-bold transition-colors"
+                    >
+                      {copied["legacy-order-delivery"] ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copied["legacy-order-delivery"] ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {grouped.map((item, idx) => {
-              const stockContent = getStockForKey(item);
+              const stockRecords = getStockForKey(item);
+              const stockContent = stockRecords?.join("\n\n") || "";
               const isOpen = !!stockVisible[item.key];
               const wasCopied = !!copied[item.key];
 
@@ -223,7 +276,7 @@ export default function OrderDetailPageNew() {
                     <InfoRow label="Unit price" value={`$${(item.unitPrice / 100).toFixed(2)}`} />
                     <InfoRow label="Total" value={<span className="font-bold text-sm text-white">${((item.unitPrice * item.qty) / 100).toFixed(2)}</span>} />
 
-                    {stockContent ? (
+                    {stockRecords?.length ? (
                       <div className="space-y-2 pt-1">
                         <button
                           onClick={() => toggleStock(item.key)}
@@ -237,14 +290,12 @@ export default function OrderDetailPageNew() {
 
                         {isOpen && (
                           <div className="border-[3px] border-black bg-[#0b1644] p-4 space-y-3">
-                            {stockContent.split(/\n\n+/).filter(Boolean).map((chunk, ci, arr) => (
-                              <div key={ci}>
+                            {stockRecords.map((record, recordIndex) => (
+                              <div key={recordIndex}>
                                 <p className="text-xs font-mono text-white whitespace-pre-wrap leading-relaxed break-all">
-                                  {chunk.trim()}
+                                  {record}
                                 </p>
-                                {ci < arr.length - 1 && (
-                                  <div className="my-3 border-t border-white/10" />
-                                )}
+                                {recordIndex < stockRecords.length - 1 && <div className="my-3 border-t border-white/10" />}
                               </div>
                             ))}
                             <button

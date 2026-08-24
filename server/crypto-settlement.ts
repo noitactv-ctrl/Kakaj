@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "./db";
 import { calculateDepositCredit } from "@shared/deposit";
 import { formatCardDeliveryContent } from "./card-privacy";
+import { appendUniqueDeliveryContent, serializeDeliveryParts, type DeliveryParts } from "./delivery-content";
 import {
   cards,
   cryptoPayments,
@@ -25,7 +26,7 @@ async function settleCompletedPayment(transaction: any, payment: typeof cryptoPa
     if (!order) throw new Error("The pending order is no longer available for payment.");
 
     const items = await transaction.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-    const deliveryParts: Record<string, string[]> = {};
+    const deliveryParts: DeliveryParts = {};
 
     for (const item of items) {
       if (item.cardId) {
@@ -35,7 +36,7 @@ async function settleCompletedPayment(transaction: any, payment: typeof cryptoPa
           .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
           .returning();
         if (!card) throw new Error("A card in this order is no longer available.");
-        (deliveryParts.cards ??= []).push(formatCardDeliveryContent(card));
+        appendUniqueDeliveryContent(deliveryParts, "cards", formatCardDeliveryContent(card));
         continue;
       }
 
@@ -54,12 +55,10 @@ async function settleCompletedPayment(transaction: any, payment: typeof cryptoPa
         ))
         .returning();
       if (!stock) throw new Error("Reserved stock is no longer available.");
-      (deliveryParts[String(item.variantId)] ??= []).push(stock.content);
+      appendUniqueDeliveryContent(deliveryParts, String(item.variantId), stock.content);
     }
 
-    const deliveryContent = JSON.stringify(
-      Object.fromEntries(Object.entries(deliveryParts).map(([key, value]) => [key, value.join("\n\n")])),
-    );
+    const deliveryContent = serializeDeliveryParts(deliveryParts);
     const [fulfilledOrder] = await transaction
       .update(orders)
       .set({ status: "delivering", deliveryContent, paidAmount: order.total, paymentMethod: "Plisio" })
