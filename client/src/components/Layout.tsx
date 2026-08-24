@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Coins, Crown, Gamepad2, Menu, ShoppingCart,
-  Ticket, CreditCard, ReceiptText, LogOut, Landmark,
+  Ticket, CreditCard, ReceiptText, LogOut, Landmark, ShieldCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/hooks/use-cart";
@@ -111,6 +111,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </section>
         ))}
+        {user?.role === "admin" && (
+          <section>
+            <p className="pixel-text mb-1.5 px-1 text-[8px] leading-none text-[#ffe177] [text-shadow:2px_2px_0_#131e48]">ADMIN</p>
+            <Link href="/admin">
+              <div className={`pixel-button flex min-h-9 items-center gap-2 px-2.5 py-2 text-[9px] leading-none ${
+                isActive("/admin") ? "!bg-[#ee292b] !text-white" : ""
+              }`}>
+                <ShieldCheck className="h-3 w-3 shrink-0" />
+                <span className="truncate">Admin Panel</span>
+              </div>
+            </Link>
+          </section>
+        )}
       </nav>
 
       <div className="mx-3 border-t-[4px] border-dashed border-[#0a1021] pt-3 pb-3 space-y-2">

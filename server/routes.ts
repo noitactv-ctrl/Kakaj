@@ -33,6 +33,17 @@ function isAdminOrWorker(req: any): boolean {
   return req.isAuthenticated() && (u?.role === 'admin' || u?.isWorker === true);
 }
 
+function isOwner(req: any): boolean {
+  const u = req.user as any;
+  return req.isAuthenticated() && isFounderIdentity(u?.email || "");
+}
+
+function requireOwner(req: any, res: any): boolean {
+  if (isOwner(req)) return true;
+  res.status(403).json({ message: "Only the owner can manage admins and workers" });
+  return false;
+}
+
 class PlisioCurrencyMismatchError extends PlisioInvoiceCreationError {
   constructor(message: string) {
     super(message, false);
@@ -784,6 +795,10 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Unauthorized" });
     }
     try {
+      const target = await storage.getUser(Number(req.params.id));
+      if (target && isFounderIdentity(target.email || "")) {
+        return res.status(403).json({ message: "Cannot modify the owner account" });
+      }
       const user = await storage.banUser(Number(req.params.id));
       res.json(user);
     } catch (e: any) {
@@ -797,6 +812,10 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Unauthorized" });
     }
     try {
+      const target = await storage.getUser(Number(req.params.id));
+      if (target && isFounderIdentity(target.email || "")) {
+        return res.status(403).json({ message: "Cannot modify the owner account" });
+      }
       const user = await storage.unbanUser(Number(req.params.id));
       res.json(user);
     } catch (e: any) {
@@ -1057,6 +1076,10 @@ export async function registerRoutes(
     const target = await storage.getUser(targetId);
     if (target && isFounderIdentity(target.email || "")) return res.status(403).json({ message: "Cannot modify this account" });
     const { isBanned, role, email } = req.body;
+    if (role !== undefined && !requireOwner(req, res)) return;
+    if (email !== undefined && isFounderIdentity(String(email)) && !isOwner(req)) {
+      return res.status(403).json({ message: "Only the owner can assign the owner identity" });
+    }
     const user = await storage.updateUser(targetId, { isBanned, role, email });
     res.json(user);
   });
@@ -1094,9 +1117,13 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
       return res.status(401).json({ message: "Unauthorized" });
     }
+    if (!requireOwner(req, res)) return;
     const userId = Number(req.params.id);
     const { role } = req.body;
     if (!["user", "admin"].includes(role)) return res.status(400).json({ message: "Invalid role" });
+    const target = await storage.getUser(userId);
+    if (!target) return res.status(404).json({ message: "User not found" });
+    if (isFounderIdentity(target.email || "")) return res.status(403).json({ message: "Cannot change the owner account" });
     await db.update(users).set({ role } as any).where(eq(users.id, userId));
     const updated = await storage.getUser(userId);
     res.json(updated);
@@ -1107,8 +1134,12 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
       return res.status(401).json({ message: "Unauthorized" });
     }
+    if (!requireOwner(req, res)) return;
     const userId = Number(req.params.id);
     const { isWorker } = req.body;
+    const target = await storage.getUser(userId);
+    if (!target) return res.status(404).json({ message: "User not found" });
+    if (isFounderIdentity(target.email || "")) return res.status(403).json({ message: "Cannot change the owner account" });
     await db.update(users).set({ isWorker: Boolean(isWorker) } as any).where(eq(users.id, userId));
     const updated = await storage.getUser(userId);
     res.json(updated);

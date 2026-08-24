@@ -16,7 +16,7 @@ const scryptAsync = promisify(scrypt);
 
 function publicUser(user: User): PublicUser {
   const { password, loginCode, ...safeUser } = user;
-  return safeUser;
+  return { ...safeUser, isOwner: isFounderIdentity(user.email) };
 }
 
 export async function hashPassword(password: string) {
