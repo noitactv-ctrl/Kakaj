@@ -30,6 +30,7 @@ const adminSections = [
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
+  { id: "codes",    label: "Coupons",    Icon: Tag },
   { id: "users",    label: "Users",      Icon: Users },
   { id: "support",  label: "Support",    Icon: MessageSquare },
   { id: "integrations", label: "Settings", Icon: Settings },
@@ -141,6 +142,7 @@ export default function AdminPage() {
             {activeSection === "users"        && <UsersSection />}
             {activeSection === "support"      && <SupportSection />}
             {activeSection === "deposits"     && <DepositsSection />}
+            {activeSection === "codes"        && <CodesSection />}
 
             {activeSection === "integrations" && <IntegrationsSection />}
           </div>
@@ -1605,7 +1607,7 @@ function UsersSection() {
 
 function CodesSection() {
   const { toast } = useToast();
-  const [tab, setTab] = useState<"balance" | "discount">("balance");
+  const [tab, setTab] = useState<"balance" | "discount">("discount");
 
   // Balance codes state
   const [amount, setAmount] = useState("");
