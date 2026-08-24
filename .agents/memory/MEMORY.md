@@ -11,3 +11,4 @@
 - [Plisio currency binding](plisio-currency-binding.md) — only bind or settle an invoice when provider currency matches the selected stored code across response, callback, and reconciliation.
 - [Owner authorization](owner-authorization.md) — owner privileges derive from a protected server-side founder identity, never a staff-editable role field.
 - [Provider expiration format](provider-expiration-format.md) — normalize crypto invoice expiry values because providers may return timestamps as strings or dates.
+- [Cardholder-name minimization](cardholder-name-minimization.md) — validate legacy stock entries without persisting or delivering holder names.

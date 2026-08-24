@@ -13,6 +13,7 @@ import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, ma
 import { db } from "./db";
 import { eq, and, ne, desc, sql, inArray } from "drizzle-orm";
 import { calculateDepositCredit } from "@shared/deposit";
+import { stripCardholderName } from "./card-privacy";
 import {
   cryptoCurrencyCreateSchema,
   cryptoCurrencyUpdateSchema,
@@ -1373,7 +1374,7 @@ export async function registerRoutes(
   app.get("/api/admin/card-bases/:id/cards", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
     const cards = await storage.getCardsByBase(Number(req.params.id));
-    res.json(cards);
+    res.json(cards.map(card => ({ ...card, extras: stripCardholderName(card.extras) })));
   });
 
   app.get("/api/cards", async (req, res) => {
@@ -1407,7 +1408,7 @@ export async function registerRoutes(
 
     res.json(rows.map((r: any) => ({
       id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
-      expiry: r.expiry, cvv: r.cvv, country: r.country, extras: r.extras,
+      expiry: r.expiry, cvv: r.cvv, country: r.country, extras: stripCardholderName(r.extras),
       price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
       userId: r.user_id, createdAt: r.created_at,
       binData: r.bin_data ?? null,
@@ -1469,7 +1470,7 @@ export async function registerRoutes(
         expiry: "",
         cvv: "",
         country,
-        extras: fullItem,
+        extras: stripCardholderName(fullItem),
         price: priceCents,
         hrPercent: 80,
         ...(baseId ? { baseId } : {}),

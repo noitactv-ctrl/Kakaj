@@ -3062,7 +3062,7 @@ function AdminCardsSection() {
             className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
             data-testid="input-full-item"
           />
-          <p className="text-[10px] text-white/30">Cards require a card number, expiration, CVV, cardholder name, billing address, and ZIP. Account-and-routing records are flagged and blocked here.</p>
+          <p className="text-[10px] text-white/30">Cards require a card number, expiration, CVV, cardholder name, billing address, and ZIP. The holder name is checked for format but is not saved or delivered. Account-and-routing records are flagged and blocked here.</p>
           <div className="flex gap-3">
             {cardEntries.length > 0 && (
               <span className="inline-flex w-fit items-center rounded border border-primary/30 bg-primary/10 px-2 py-1 text-[10px] font-mono text-primary" data-testid="text-card-entry-count">

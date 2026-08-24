@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "./db";
 import { calculateDepositCredit } from "@shared/deposit";
+import { formatCardDeliveryContent } from "./card-privacy";
 import {
   cards,
   cryptoPayments,
@@ -34,9 +35,7 @@ async function settleCompletedPayment(transaction: any, payment: typeof cryptoPa
           .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
           .returning();
         if (!card) throw new Error("A card in this order is no longer available.");
-        (deliveryParts.cards ??= []).push(
-          [card.cardNumber, card.expiry, card.cvv, card.country, card.extras].filter(Boolean).join("|"),
-        );
+        (deliveryParts.cards ??= []).push(formatCardDeliveryContent(card));
         continue;
       }
 

@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { formatCardDeliveryContent } from "./card-privacy";
 import { 
   users, products, variants, stockItems, orders, orderItems, transactions, redeemCodes, announcements, uploadedImages, cards, cardBases, supportTickets, cryptoPayments, mails, mailReads, siteSettings, discountCodes, sellerApplications, achs, cryptoAddresses, cryptoCurrencies,
   type User, type InsertUser, type Product, type InsertProduct, type Variant, type InsertVariant,
@@ -781,7 +782,7 @@ export class DatabaseStorage implements IStorage {
           .returning();
         if (!claimedCard) throw new Error("A card in this order is no longer available");
         if (!deliveryParts.cards) deliveryParts.cards = [];
-        deliveryParts.cards.push([card.cardNumber, card.expiry, card.cvv, card.country, card.extras].filter(Boolean).join("|"));
+        deliveryParts.cards.push(formatCardDeliveryContent(card));
         continue;
       }
       if (!item.variantId) continue;
@@ -837,7 +838,7 @@ export class DatabaseStorage implements IStorage {
           .returning();
         if (!claimedCard) throw new Error("A card in this order is no longer available");
         if (!deliveryParts.cards) deliveryParts.cards = [];
-        deliveryParts.cards.push([card.cardNumber, card.expiry, card.cvv, card.country, card.extras].filter(Boolean).join("|"));
+        deliveryParts.cards.push(formatCardDeliveryContent(card));
         continue;
       }
       if (!item.variantId) continue;
@@ -1278,8 +1279,7 @@ export class DatabaseStorage implements IStorage {
     const paidTotal = finalPrice ?? card.price;
 
     // Compose full card content
-    const deliveryContent = [card.cardNumber, card.expiry, card.cvv, card.country, card.extras]
-      .filter(Boolean).join("|");
+    const deliveryContent = formatCardDeliveryContent(card);
 
     // Create a matching order so it shows in "Orders"
     const publicOrderId = Math.random().toString(36).substring(2, 15);
