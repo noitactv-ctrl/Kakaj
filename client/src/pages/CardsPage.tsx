@@ -56,26 +56,6 @@ const US_STATES = new Set([
   "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
 ]);
 
-function extractCity(extras: string): string {
-  if (!extras) return "";
-  const parts = extras.split(/[|\t]/);
-  // Find state abbreviation index, city is typically just before it
-  for (let i = 1; i < parts.length; i++) {
-    const t = parts[i].trim();
-    if (US_STATES.has(t)) {
-      // city is the token before the state (skip blanks)
-      for (let j = i - 1; j >= 0; j--) {
-        const c = parts[j].trim();
-        if (c && c.length > 1 && !/^\d/.test(c) && !c.includes("@") && !c.includes(".") && !/^\d{1,3}\.\d{1,3}/.test(c)) {
-          return c.length > 20 ? c.substring(0, 18) + "…" : c;
-        }
-      }
-      break;
-    }
-  }
-  return "";
-}
-
 function hasBilling(extras: string): boolean {
   return (extras ?? "").split(/[|\t]/).length >= 5;
 }
@@ -181,7 +161,7 @@ export default function CardsPage() {
         formatBank(card.binData),
         card.baseName,
         metadata.state || extractState(card.extras ?? ""),
-        metadata.city,
+        card.isFirstHand ? "yes" : "no",
         metadata.zip || extractZip(card.extras ?? ""),
       ].filter(Boolean).some(value => String(value).toLowerCase().includes(term));
     });
@@ -333,7 +313,7 @@ export default function CardsPage() {
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">TYPE</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ISSUER</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">STATE</th>
-                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">CITY</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">FIRST HAND</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ZIP</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">COUNTRY</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BASE</th>
@@ -424,7 +404,9 @@ function CardTableRow({
         <span className="text-[10px] font-mono text-white/75">{metadata.state || state || "—"}</span>
       </td>
       <td className="px-2.5 py-3 max-w-[120px]">
-        <span className="text-[10px] text-white/75 truncate block">{metadata.city || "—"}</span>
+        <span className={`text-[10px] font-bold truncate block ${card.isFirstHand ? "text-green-300" : "text-white/55"}`}>
+          {card.isFirstHand ? "YES" : "NO"}
+        </span>
       </td>
       <td className="px-2.5 py-3">
         <span className="text-[10px] font-mono text-white/75">{metadata.zip || zip || "—"}</span>

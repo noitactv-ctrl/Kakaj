@@ -2972,7 +2972,9 @@ function AdminBasesTab() {
                               <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{metadata.bin || bin}</span>
                               {metadata.type && <span className="text-[10px] text-white/40 font-mono">{metadata.type}</span>}
                               {metadata.state && <span className="text-[10px] text-white/40 font-mono">{metadata.state}</span>}
-                              {metadata.city && <span className="text-[10px] text-white/40 truncate max-w-[110px]">{metadata.city}</span>}
+                              <span className={`text-[10px] font-bold ${card.isFirstHand ? "text-green-300" : "text-white/45"}`}>
+                                FH {card.isFirstHand ? "YES" : "NO"}
+                              </span>
                               {metadata.zip && <span className="text-[10px] text-white/40 font-mono">{metadata.zip}</span>}
                               <span className="text-[10px] text-white/40">{card.hrPercent ?? 80}% HR</span>
                             </div>
@@ -3170,6 +3172,9 @@ function AdminCardsSection() {
                       {card.baseName && <span className="text-[10px] font-mono font-bold text-primary/70">{card.baseName}</span>}
                       <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{cBin}</span>
                       {zip && <span className="text-[10px] text-white/40 font-mono">ZIP {zip}</span>}
+                      <span className={`text-[10px] font-bold font-mono ${card.isFirstHand ? "text-green-300" : "text-white/45"}`}>
+                        FH {card.isFirstHand ? "YES" : "NO"}
+                      </span>
                     </div>
                     <p className="text-[10px] text-white/40 font-mono">{card.hrPercent ?? 80}% HR</p>
                     {card.extras && <p className="text-[9px] text-white/30 truncate font-mono">{card.extras.substring(0, 55)}...</p>}
