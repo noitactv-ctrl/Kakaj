@@ -185,6 +185,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
           )}
         </header>
         <div className="pixel-content-gutter min-h-[calc(100vh-56px)] py-4 lg:py-5">
+          <div className="pixel-site-status mb-4" aria-label="NYCHQ member store status">
+            <span className="flex items-center gap-2">
+              <span className="pixel-live-dot" aria-hidden="true" />
+              NYCHQ MEMBER MARKET
+            </span>
+            <span className="hidden sm:inline">RANK UP / SAVE MORE</span>
+          </div>
           {children}
         </div>
       </main>
