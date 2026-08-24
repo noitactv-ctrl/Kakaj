@@ -74,31 +74,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
     .filter((group) => group.items.length > 0);
   const navContent = (
     <>
-      <div className="px-3 pt-3 pb-2 space-y-3">
+      <div className="px-3 pt-3 pb-2 space-y-3 lg:px-2 lg:pt-2 lg:pb-1 lg:space-y-2">
         <Link href={features.cards ? "/cards" : "/deposit"}>
-          <div className="pixel-button sidebar-brand-button flex h-[48px] items-center justify-center !text-white">
+          <div className="pixel-button sidebar-brand-button flex h-[48px] items-center justify-center !text-white lg:h-[38px]">
             <p className="pixel-logo-text">NYCHQ</p>
           </div>
         </Link>
-        <div className="flex h-[26px] items-center gap-1.5 border-[3px] border-[#0a1021] bg-[#5f90ef] px-2 text-white shadow-[2px_2px_0_#0a1021]">
-          <Coins className="h-3.5 w-3.5 shrink-0 text-[#ffe14f]" />
-          <span className="pixel-text truncate text-[9px] leading-none">{user?.username ?? "GUEST"}</span>
+        <div className="flex h-[26px] items-center gap-1.5 border-[3px] border-[#0a1021] bg-[#5f90ef] px-2 text-white shadow-[2px_2px_0_#0a1021] lg:h-[20px] lg:gap-1 lg:px-1.5">
+          <Coins className="h-3.5 w-3.5 shrink-0 text-[#ffe14f] lg:h-3 lg:w-3" />
+          <span className="pixel-text truncate text-[9px] leading-none lg:text-[7px]">{user?.username ?? "GUEST"}</span>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4 lg:px-2 lg:py-1 lg:space-y-3">
         {visibleNavigation.map(group => (
           <section key={group.label}>
-            <p className="pixel-text mb-1.5 px-1 text-[8px] leading-none text-[#ffe177] [text-shadow:2px_2px_0_#131e48]">{group.label}</p>
-            <div className="space-y-2">
+            <p className="pixel-text mb-1.5 px-1 text-[8px] leading-none text-[#ffe177] [text-shadow:2px_2px_0_#131e48] lg:mb-1 lg:px-0.5 lg:text-[7px]">{group.label}</p>
+            <div className="space-y-2 lg:space-y-1.5">
               {group.items.map(item => {
                 const content = (
                   <div
-                    className={`pixel-button flex min-h-9 items-center gap-2 px-2.5 py-2 text-[9px] leading-none transition-colors ${
+                    className={`pixel-button flex min-h-9 items-center gap-2 px-2.5 py-2 text-[9px] leading-none transition-colors lg:min-h-7 lg:gap-1.5 lg:px-2 lg:py-1.5 lg:text-[8px] ${
                       !item.external && isActive(item.href) ? "!bg-[#ee292b] !text-white" : ""
                     }`}
                   >
-                    <item.icon className="h-3 w-3 shrink-0" />
+                    <item.icon className="h-3 w-3 shrink-0 lg:h-2.5 lg:w-2.5" />
                     <span className="truncate">{item.label}</span>
                   </div>
                 );
@@ -113,10 +113,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         ))}
         {user?.role === "admin" && (
           <section>
-            <p className="pixel-text mb-1.5 px-1 text-[8px] leading-none text-[#ffe177] [text-shadow:2px_2px_0_#131e48]">ADMIN</p>
+            <p className="pixel-text mb-1.5 px-1 text-[8px] leading-none text-[#ffe177] [text-shadow:2px_2px_0_#131e48] lg:mb-1 lg:px-0.5 lg:text-[7px]">ADMIN</p>
             <Link href="/admin">
-              <div className={`pixel-button flex min-h-9 items-center gap-2 px-2.5 py-2 text-[9px] leading-none ${isActive("/admin") ? "!bg-[#ee292b] !text-white" : ""}`}>
-                <ShieldCheck className="h-3 w-3 shrink-0" />
+              <div className={`pixel-button flex min-h-9 items-center gap-2 px-2.5 py-2 text-[9px] leading-none lg:min-h-7 lg:gap-1.5 lg:px-2 lg:py-1.5 lg:text-[8px] ${isActive("/admin") ? "!bg-[#ee292b] !text-white" : ""}`}>
+                <ShieldCheck className="h-3 w-3 shrink-0 lg:h-2.5 lg:w-2.5" />
                 <span>Admin Panel</span>
               </div>
             </Link>
@@ -124,25 +124,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </nav>
 
-      <div className="mx-3 border-t-[4px] border-dashed border-[#0a1021] pt-3 pb-3 space-y-2">
+      <div className="mx-3 border-t-[4px] border-dashed border-[#0a1021] pt-3 pb-3 space-y-2 lg:mx-2 lg:pt-2 lg:pb-2 lg:space-y-1.5">
         <button
           type="button"
           onClick={() => {
             setCartRailOpen(true);
             setNavOpen(false);
           }}
-          className="pixel-button flex min-h-9 w-full items-center gap-2 px-2.5 py-2 text-left text-[9px]"
+          className="pixel-button flex min-h-9 w-full items-center gap-2 px-2.5 py-2 text-left text-[9px] lg:min-h-7 lg:gap-1.5 lg:px-2 lg:py-1.5 lg:text-[8px]"
         >
-            <ShoppingCart className="h-3 w-3" />
+            <ShoppingCart className="h-3 w-3 lg:h-2.5 lg:w-2.5" />
             <span>Cart{cartCount ? ` (${cartCount})` : ""}</span>
         </button>
         {user && (
           <>
             <button
               onClick={() => logout()}
-              className="pixel-button flex min-h-9 w-full items-center gap-2 px-2.5 py-2 text-[9px] !bg-[#43b94e] !text-white"
+              className="pixel-button flex min-h-9 w-full items-center gap-2 px-2.5 py-2 text-[9px] !bg-[#43b94e] !text-white lg:min-h-7 lg:gap-1.5 lg:px-2 lg:py-1.5 lg:text-[8px]"
             >
-              <LogOut className="h-3 w-3" />
+              <LogOut className="h-3 w-3 lg:h-2.5 lg:w-2.5" />
               <span>Log out</span>
             </button>
           </>
@@ -153,7 +153,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="pixel-shell min-h-screen bg-[#030303] text-[#fff4dc]">
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[260px] flex-col bg-[#5f90ef] text-[#16100c] lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-[168px] flex-col bg-[#5f90ef] text-[#16100c] lg:flex">
         {navContent}
       </aside>
 
@@ -165,13 +165,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {navContent}
       </aside>
 
-      <main className="min-h-screen lg:pl-[260px]">
-        <header className="pixel-content-gutter sticky top-0 z-30 flex h-14 items-center border-b-[3px] border-[#183c9d] bg-[#070d25]/95 shadow-[0_3px_0_#02040d] backdrop-blur">
+      <main className="min-h-screen lg:pl-[168px]">
+        <header className="pixel-content-gutter sticky top-0 z-30 flex h-14 items-center border-b-[3px] border-[#183c9d] bg-[#070d25]/95 shadow-[0_3px_0_#02040d] backdrop-blur lg:h-10">
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
         </header>
-        <div className="pixel-content-gutter min-h-[calc(100vh-56px)] py-4 lg:py-5">
+        <div className="pixel-content-gutter min-h-[calc(100vh-56px)] py-4 lg:min-h-[calc(100vh-40px)] lg:py-3">
           {children}
         </div>
       </main>

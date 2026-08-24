@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 :root {
-  --site-content-max: 70rem;
+  --site-content-max: 46rem;
   --site-page-gutter: 1rem;
   --pixel-control-height: 2.5rem;
   --background: 0 0% 3%;
@@ -109,7 +109,6 @@
 .pixel-shell li,
 .pixel-shell label {
   font-size: 0.875rem;
-  font-weight: 600;
   line-height: 1.325;
 }
 
