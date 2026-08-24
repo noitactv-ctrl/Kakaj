@@ -172,14 +172,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="h-5 w-5" />
           </button>
           {user && (
-            <Link href="/deposit">
-              <div
-                className="pixel-button ml-auto flex min-h-9 items-center gap-2 border-[3px] border-black !bg-[#ffe177] px-2.5 py-2 text-[9px] !text-[#17110a] shadow-[2px_2px_0_#050505] transition-colors hover:!bg-[#fff0c5]"
-                data-testid="button-header-balance"
-              >
-                <span>{user.balance === 0 ? "$0" : `$${(user.balance / 100).toFixed(2)}`}</span>
-              </div>
-            </Link>
+            <div className="ml-auto">
+              <Link href="/deposit">
+                <div
+                  className="pixel-button flex min-h-9 items-center gap-2 border-[3px] border-black !bg-[#ffe177] px-2.5 py-2 text-[9px] !text-[#17110a] shadow-[2px_2px_0_#050505] transition-colors hover:!bg-[#fff0c5]"
+                  data-testid="button-header-balance"
+                >
+                  <span>{user.balance === 0 ? "$0" : `$${(user.balance / 100).toFixed(2)}`}</span>
+                </div>
+              </Link>
+            </div>
           )}
         </header>
         <div className="pixel-content-gutter min-h-[calc(100vh-56px)] py-4 lg:py-5">
