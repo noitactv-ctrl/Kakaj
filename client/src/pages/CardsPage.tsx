@@ -161,7 +161,6 @@ export default function CardsPage() {
         formatBank(card.binData),
         card.baseName,
         metadata.state || extractState(card.extras ?? ""),
-        card.isFirstHand ? "yes" : "no",
         metadata.zip || extractZip(card.extras ?? ""),
       ].filter(Boolean).some(value => String(value).toLowerCase().includes(term));
     });
@@ -313,7 +312,6 @@ export default function CardsPage() {
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">TYPE</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ISSUER</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">STATE</th>
-                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">FIRST HAND</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ZIP</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">COUNTRY</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BASE</th>
@@ -402,11 +400,6 @@ function CardTableRow({
       </td>
       <td className="px-2.5 py-3">
         <span className="text-[10px] font-mono text-white/75">{metadata.state || state || "—"}</span>
-      </td>
-      <td className="px-2.5 py-3 max-w-[120px]">
-        <span className={`text-[10px] font-bold truncate block ${card.isFirstHand ? "text-green-300" : "text-white/55"}`}>
-          {card.isFirstHand ? "YES" : "NO"}
-        </span>
       </td>
       <td className="px-2.5 py-3">
         <span className="text-[10px] font-mono text-white/75">{metadata.zip || zip || "—"}</span>
