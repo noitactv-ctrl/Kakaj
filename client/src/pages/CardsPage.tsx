@@ -171,16 +171,18 @@ export default function CardsPage() {
     if (!cards) return [];
     const term = search.trim().toLowerCase();
     return cards.filter((card: any) => {
-      if (selectedType && formatType(card.binData) !== selectedType) return false;
+      const metadata = card.metadata ?? {};
+      if (selectedType && (metadata.type || formatType(card.binData)) !== selectedType) return false;
       if (!term) return true;
       return [
-        extractBin(card.cardNumber),
+        metadata.bin || extractBin(card.cardNumber),
         formatBrand(card.binData),
-        formatType(card.binData),
+        metadata.type || formatType(card.binData),
         formatBank(card.binData),
         card.baseName,
-        extractState(card.extras ?? ""),
-        extractZip(card.extras ?? ""),
+        metadata.state || extractState(card.extras ?? ""),
+        metadata.city,
+        metadata.zip || extractZip(card.extras ?? ""),
       ].filter(Boolean).some(value => String(value).toLowerCase().includes(term));
     });
   }, [cards, selectedType, search]);
@@ -331,6 +333,7 @@ export default function CardsPage() {
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">TYPE</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ISSUER</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">STATE</th>
+                <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">CITY</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">ZIP</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">COUNTRY</th>
                 <th className="px-2.5 py-3 text-left pixel-text text-[7px] text-[#ffe177]">BASE</th>
@@ -386,6 +389,7 @@ function CardTableRow({
   const cardType = formatType(card.binData);
   const bank = formatBank(card.binData);
   const state = extractState(card.extras ?? "");
+  const metadata = card.metadata ?? {};
 
   return (
     <tr
@@ -405,22 +409,25 @@ function CardTableRow({
         </td>
       )}
       <td className="px-2.5 py-2">
-        <span className="font-bold font-mono text-xs text-white">{bin || "—"}</span>
+        <span className="font-bold font-mono text-xs text-white">{metadata.bin || bin || "—"}</span>
       </td>
       <td className="px-2.5 py-3">
         <span className="inline-flex border border-black bg-[#d94343] px-1.5 py-0.5 text-[9px] font-bold text-white">{brand || "—"}</span>
       </td>
       <td className="px-2.5 py-3">
-        <span className="text-[10px] font-mono font-bold text-[#f7ebd8]">{cardType || "—"}</span>
+        <span className="text-[10px] font-mono font-bold text-[#f7ebd8]">{metadata.type || cardType || "—"}</span>
       </td>
       <td className="px-2.5 py-3 max-w-[130px]">
         <span className="text-[10px] text-white/75 truncate block">{bank || "—"}</span>
       </td>
       <td className="px-2.5 py-3">
-        <span className="text-[10px] font-mono text-white/75">{state || "—"}</span>
+        <span className="text-[10px] font-mono text-white/75">{metadata.state || state || "—"}</span>
+      </td>
+      <td className="px-2.5 py-3 max-w-[120px]">
+        <span className="text-[10px] text-white/75 truncate block">{metadata.city || "—"}</span>
       </td>
       <td className="px-2.5 py-3">
-        <span className="text-[10px] font-mono text-white/75">{zip || "—"}</span>
+        <span className="text-[10px] font-mono text-white/75">{metadata.zip || zip || "—"}</span>
       </td>
       <td className="px-2.5 py-3">
         <span className="text-[10px] text-white/85">{flag} {ccCountry || "—"}</span>

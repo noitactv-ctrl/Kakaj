@@ -13,7 +13,7 @@ import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, ma
 import { db } from "./db";
 import { eq, and, ne, desc, sql, inArray } from "drizzle-orm";
 import { calculateDepositCredit } from "@shared/deposit";
-import { stripCardholderName } from "./card-privacy";
+import { extractCardMetadata, stripCardholderName } from "./card-privacy";
 import {
   cryptoCurrencyCreateSchema,
   cryptoCurrencyUpdateSchema,
@@ -1386,7 +1386,10 @@ export async function registerRoutes(
   app.get("/api/admin/card-bases/:id/cards", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
     const cards = await storage.getCardsByBase(Number(req.params.id));
-    res.json(cards.map(card => ({ ...card, extras: stripCardholderName(card.extras) })));
+    res.json(cards.map(card => {
+      const extras = stripCardholderName(card.extras);
+      return { ...card, extras, metadata: extractCardMetadata(extras, card.cardNumber, card.binData) };
+    }));
   });
 
   app.get("/api/cards", async (req, res) => {
@@ -1418,14 +1421,18 @@ export async function registerRoutes(
       }
     });
 
-    res.json(rows.map((r: any) => ({
-      id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
-      expiry: r.expiry, cvv: r.cvv, country: r.country, extras: stripCardholderName(r.extras),
-      price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
-      userId: r.user_id, createdAt: r.created_at,
-      binData: r.bin_data ?? null,
-      baseId: r.base_id ?? null, baseName: r.base_name ?? null,
-    })));
+    res.json(rows.map((r: any) => {
+      const extras = stripCardholderName(r.extras);
+      return {
+        id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
+        expiry: r.expiry, cvv: r.cvv, country: r.country, extras,
+        price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
+        userId: r.user_id, createdAt: r.created_at,
+        binData: r.bin_data ?? null,
+        metadata: extractCardMetadata(extras, r.card_number, r.bin_data),
+        baseId: r.base_id ?? null, baseName: r.base_name ?? null,
+      };
+    }));
   });
 
   app.post("/api/cards", async (req, res) => {
@@ -1493,7 +1500,13 @@ export async function registerRoutes(
         await db.execute(sql`UPDATE cards SET bin_data = ${JSON.stringify(storedBinData)}::jsonb WHERE id = ${card.id}`);
       }
 
-      createdCards.push({ ...card, binData: storedBinData });
+       const safeExtras = stripCardholderName(fullItem);
+       createdCards.push({
+         ...card,
+         extras: safeExtras,
+         binData: storedBinData,
+         metadata: extractCardMetadata(safeExtras, cardNumber, storedBinData),
+       });
     }
 
     if (createdCards.length === 1) {

@@ -1,4 +1,10 @@
 const expiryPattern = /^(0[1-9]|1[0-2])[/\-]\d{2,4}$/;
+const usStates = new Set([
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS",
+  "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY",
+  "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
+  "DC",
+]);
 
 function isLikelyCardholderName(value: string): boolean {
   return /^[A-Za-z][A-Za-z .'-]{1,80}$/.test(value.trim());
@@ -6,6 +12,83 @@ function isLikelyCardholderName(value: string): boolean {
 
 function isEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function isValidZip(value: string): boolean {
+  const digits = value.trim().match(/^(\d{5})(?:-\d{4})?$/)?.[1];
+  if (!digits) return false;
+  const number = Number(digits);
+  return number >= 501 && number <= 99950 && !(number >= 1900 && number <= 2100);
+}
+
+function isCityCandidate(value: string): boolean {
+  const city = value.trim();
+  return city.length > 1
+    && city.length <= 60
+    && /^[A-Za-z][A-Za-z .'-]*$/.test(city)
+    && !usStates.has(city.toUpperCase())
+    && !/\b(?:street|st|road|rd|avenue|ave|lane|ln|drive|dr|boulevard|blvd|parkway|pkwy|unit)\b/i.test(city);
+}
+
+function labeledValue(value: string, label: string): string {
+  const match = value.match(new RegExp(`(?:^|[|,;\\n])\\s*${label}\\s*[:=]\\s*([^|,;\\n]+)`, "i"));
+  return match?.[1]?.trim() ?? "";
+}
+
+export type CardMetadata = {
+  bin: string;
+  type: string;
+  state: string;
+  city: string;
+  zip: string;
+};
+
+export function extractCardMetadata(
+  extras: string | null | undefined,
+  cardNumber: string | null | undefined,
+  binData?: { bin?: string | null; type?: string | null } | null,
+): CardMetadata {
+  const raw = extras ?? "";
+  const fields = raw.split(/[|\t]/).map(field => field.trim());
+  const stateFromLabel = labeledValue(raw, "state|region").toUpperCase();
+  const stateIndex = fields.findIndex(field => usStates.has(field.toUpperCase()));
+  const state = usStates.has(stateFromLabel)
+    ? stateFromLabel
+    : stateIndex >= 0
+      ? fields[stateIndex].toUpperCase()
+      : "";
+
+  let city = labeledValue(raw, "city");
+  if (!isCityCandidate(city)) {
+    city = "";
+    if (stateIndex >= 0) {
+      for (let index = stateIndex + 1; index < fields.length; index++) {
+        if (isCityCandidate(fields[index])) {
+          city = fields[index];
+          break;
+        }
+        if (isValidZip(fields[index])) break;
+      }
+    }
+    if (!city && stateIndex >= 0) {
+      for (let index = stateIndex - 1; index >= 0; index--) {
+        if (isCityCandidate(fields[index])) {
+          city = fields[index];
+          break;
+        }
+      }
+    }
+  }
+
+  const labeledZip = labeledValue(raw, "zip|postal(?:\\s+code)?");
+  const zip = isValidZip(labeledZip)
+    ? labeledZip.match(/^(\d{5})/)?.[1] ?? ""
+    : fields.find(isValidZip)?.match(/^(\d{5})/)?.[1] ?? "";
+
+  const bin = (cardNumber ?? "").replace(/\D/g, "").substring(0, 6) || binData?.bin || "";
+  const type = (binData?.type || labeledValue(raw, "type")).trim().toUpperCase();
+
+  return { bin, type, state, city: city.substring(0, 60), zip };
 }
 
 /**

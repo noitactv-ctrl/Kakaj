@@ -3138,17 +3138,19 @@ function AdminCardsSection() {
           ) : (
             (cards ?? []).map((card: any) => {
               const cBin = (card.cardNumber || "").replace(/\D/g, "").substring(0, 6);
-              const zip = extractZipPreview(card.extras ?? "");
+              const metadata = card.metadata ?? {};
               return (
                 <div key={card.id} className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between">
                   <div className="space-y-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       {card.baseName && <span className="text-[10px] font-mono font-bold text-primary/70">{card.baseName}</span>}
-                      <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{cBin}</span>
-                      {zip && <span className="text-[10px] text-white/40 font-mono">ZIP {zip}</span>}
+                      <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{metadata.bin || cBin}</span>
+                      {metadata.type && <span className="text-[10px] text-white/40 font-mono">{metadata.type}</span>}
+                      {metadata.state && <span className="text-[10px] text-white/40 font-mono">{metadata.state}</span>}
+                      {metadata.city && <span className="text-[10px] text-white/40 truncate max-w-[110px]">{metadata.city}</span>}
+                      {metadata.zip && <span className="text-[10px] text-white/40 font-mono">{metadata.zip}</span>}
                     </div>
                     <p className="text-[10px] text-white/40 font-mono">{card.hrPercent ?? 80}% HR</p>
-                    {card.extras && <p className="text-[9px] text-white/30 truncate font-mono">{card.extras.substring(0, 55)}...</p>}
                   </div>
                   <div className="flex items-center gap-3 shrink-0 ml-2">
                     <span className="font-mono text-sm text-white">${(card.price / 100).toFixed(2)}</span>
