@@ -1477,7 +1477,15 @@ export async function registerRoutes(
         try {
           const binResult = await lookupBin(bin);
           if (binResult) {
-            storedBinData = binResult;
+            const metadata = extractCardMetadata(fullItem, cardNumber, binResult);
+            storedBinData = {
+              ...binResult,
+              bin: metadata.bin,
+              type: metadata.type || binResult.type || "",
+              state: metadata.state,
+              city: metadata.city,
+              zip: metadata.zip,
+            };
             country = binResult.country || "Unknown";
           }
         } catch {}
