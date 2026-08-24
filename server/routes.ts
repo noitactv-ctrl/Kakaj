@@ -2491,6 +2491,12 @@ export async function registerRoutes(
   }
 
   // ── Public Bank Routing Catalog ──────────────────────────────
+  // The legacy routing handlers remain below for historical compatibility,
+  // but the sensitive catalog is permanently disabled at the API boundary.
+  app.use(["/api/routings", "/api/admin/routings"], (_req, res) => {
+    res.status(410).json({ message: "Bank routing is no longer available." });
+  });
+
   const routingInputSchema = z.object({
     bankName: z.string().trim().min(1, "Bank name is required").max(120, "Bank name must contain at most 120 characters"),
     routingNumber: z.string().trim().regex(/^\d{9}$/, "Routing number must contain exactly 9 digits"),

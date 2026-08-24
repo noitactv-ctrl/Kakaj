@@ -49,7 +49,7 @@ function Router() {
         <Route path="/orders" component={OrdersPage} />
         <Route path="/ranks">{() => features.ranks ? <RanksPage /> : <Redirect to="/deposit" />}</Route>
         <Route path="/cards">{() => features.cards ? <CardsPage /> : <Redirect to="/deposit" />}</Route>
-        <Route path="/routings" component={RoutingCatalogPage} />
+        <Route path="/routings"><Redirect to="/deposit" /></Route>
         <Route path="/support" component={SupportPage} />
         <Route path="/plinko" component={PlinkoGamePage} />
         <Route path="/admin" component={AdminPage} />

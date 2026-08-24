@@ -26,7 +26,6 @@ import { CryptoCoinIcon, type CryptoCurrencyOption } from "@/components/CryptoCo
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { id: "cards", label: "Cards",      Icon: CreditCard },
-  { id: "routings", label: "Bank", Icon: Landmark },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
@@ -137,7 +136,6 @@ export default function AdminPage() {
           <div className="pixel-page w-full">
             {activeSection === "dashboard"    && <DashboardSection />}
             {activeSection === "cards"        && <AdminCardsSection />}
-            {activeSection === "routings"     && <AdminRoutingSection />}
             {activeSection === "orders"       && <OrdersSection />}
             {activeSection === "cashapp"      && <CashAppSection />}
             {activeSection === "users"        && <UsersSection canManageStaff={isOwner} />}
