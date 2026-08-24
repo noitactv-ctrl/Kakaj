@@ -108,13 +108,13 @@
 .pixel-shell p,
 .pixel-shell li,
 .pixel-shell label {
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.325;
 }
 
 .pixel-shell .text-sm {
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
 }
 
 .pixel-shell .text-xs {
