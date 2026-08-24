@@ -11,4 +11,10 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.on("error", (error) => {
+  // PostgreSQL can terminate an idle client during maintenance or a database
+  // restart. The pool removes that client; keep the web process alive so the
+  // next query can obtain a fresh connection.
+  console.error("[db] idle client error:", error);
+});
 export const db = drizzle(pool, { schema });

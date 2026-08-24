@@ -189,6 +189,7 @@ app.use((req, res, next) => {
   // is released before the process exits, preventing EADDRINUSE on restart.
   const shutdown = () => {
     httpServer.close(() => process.exit(0));
+    pool.end().catch((error) => console.error("[db] shutdown error:", error));
     setTimeout(() => process.exit(0), 3000); // hard exit after 3 s
   };
   process.on("SIGTERM", shutdown);
