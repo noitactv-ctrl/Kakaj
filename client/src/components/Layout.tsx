@@ -175,7 +175,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="ml-auto">
               <Link href="/deposit">
                 <div
-                  className="pixel-button flex min-h-9 min-w-[78px] items-center justify-center border-[3px] border-black !bg-[#203b8f] px-2.5 py-2 text-[9px] !text-[#ffe177] shadow-[3px_3px_0_#02040d] transition-colors hover:!bg-[#2d4da9]"
+                  className="pixel-button flex min-h-9 items-center gap-2 border-[3px] border-black !bg-[#ffe1aa] px-2.5 py-2 text-[9px] !text-[#17110a] shadow-[2px_2px_0_#050505] transition-colors hover:!bg-[#fff0c5]"
                   data-testid="button-header-balance"
                 >
                   <span>{user.balance === 0 ? "$0" : `$${(user.balance / 100).toFixed(2)}`}</span>
