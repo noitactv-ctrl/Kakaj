@@ -29,6 +29,17 @@ export class PlisioInvoiceCreationError extends Error {
   }
 }
 
+function parsePlisioExpiry(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+
+  const numericValue = Number(value);
+  if (Number.isFinite(numericValue) && numericValue > 0) return numericValue;
+
+  const parsedDate = Date.parse(value);
+  return Number.isFinite(parsedDate) && parsedDate > 0 ? parsedDate : undefined;
+}
+
 async function getApiKey(): Promise<string> {
   const key = await getRuntimeSetting("plisio_api_key");
   if (!key) throw new Error("PLISIO_API_KEY is not configured");
@@ -85,7 +96,7 @@ export async function createPlisioInvoice(params: {
     url,
     amount: typeof payload.data.amount === "string" ? payload.data.amount : undefined,
     currency: typeof payload.data.currency === "string" ? payload.data.currency : params.currency,
-    expiresAt: typeof payload.data.expire_utc === "number" ? payload.data.expire_utc : undefined,
+    expiresAt: parsePlisioExpiry(payload.data.expire_utc),
   };
 }
 

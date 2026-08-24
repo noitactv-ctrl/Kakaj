@@ -198,7 +198,7 @@ export function CryptoPaymentPanel({
             rel="noopener noreferrer"
             className="inline-flex h-9 flex-1 items-center justify-center gap-2 border-[2px] border-[#080808] bg-[#fff0c5] px-3 font-mono text-[10px] font-bold text-[#111a42] shadow-[2px_2px_0_#080808] hover:bg-white"
           >
-            OPEN HOSTED FALLBACK <ExternalLink className="h-3.5 w-3.5" />
+             PAY HERE <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
         <button type="button" onClick={onReset} className="flex w-full items-center justify-center gap-1 pt-1 font-mono text-[10px] text-white/35 hover:text-white/70">
