@@ -405,7 +405,10 @@ function CardTableRow({
         <span className="text-[10px] font-mono text-white/75">{metadata.zip || zip || "—"}</span>
       </td>
       <td className="px-2.5 py-3">
-        <span className="text-[10px] text-white/85">{flag} {ccCountry || "—"}</span>
+        <span className="text-[10px] text-white/85">
+          <span className="sm:hidden" title={ccCountry || "Unknown country"}>{flag || "—"}</span>
+          <span className="hidden sm:inline">{ccCountry || "—"}</span>
+        </span>
       </td>
       <td className="px-2.5 py-3 max-w-[115px]">
         <span className="text-[10px] font-bold text-[#ffe177] truncate block">{card.baseName || "—"}</span>

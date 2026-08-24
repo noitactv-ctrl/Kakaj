@@ -274,7 +274,7 @@ function DepositsSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/deposits"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", "manual-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       toast({ title: "Deposit confirmed — balance credited" });
     },
     onError: (error: Error) => toast({ title: "Unable to approve deposit", description: error.message, variant: "destructive" }),
@@ -290,7 +290,7 @@ function DepositsSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/deposits"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", "manual-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       toast({ title: "Deposit marked unpaid" });
     },
     onError: (error: Error) => toast({ title: "Unable to mark deposit unpaid", description: error.message, variant: "destructive" }),
@@ -2638,17 +2638,47 @@ function CashAppSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<"all" | "CashApp" | "Chime" | "Venmo" | "Zelle">("all");
 
-  const { data: allOrders, isLoading } = useQuery({
-    queryKey: ["/api/admin/orders", "manual-deposits"],
+  const { data: allOrders, isLoading: ordersLoading } = useQuery({
+    queryKey: ["/api/admin/orders"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/orders?includeManualDeposits=true");
+      const res = await fetch("/api/admin/orders");
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
     refetchInterval: 6000,
   });
+  const { data: manualDeposits, isLoading: depositsLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/deposits"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/deposits");
+      if (!res.ok) throw new Error("Failed to fetch manual deposits");
+      return res.json();
+    },
+    refetchInterval: 6000,
+  });
 
-  const manualOrders = (allOrders || []).filter((o: any) => ["CashApp", "Chime", "Venmo", "Zelle"].includes(o.paymentMethod));
+  const productManualOrders = (allOrders || []).filter((o: any) =>
+    ["CashApp", "Chime", "Venmo", "Zelle"].includes(o.paymentMethod)
+  );
+  const depositOrders = (manualDeposits || [])
+    .filter((deposit: any) => deposit.type !== "crypto" && typeof deposit.orderId === "number")
+    .map((deposit: any) => ({
+      id: deposit.orderId,
+      orderId: deposit.publicOrderId || deposit.id,
+      userId: deposit.userId,
+      user: { username: deposit.username },
+      total: deposit.amount,
+      status: deposit.status,
+      paymentNote: deposit.paymentNote,
+      paymentMethod: deposit.paymentMethod || (
+        deposit.type === "cashapp" ? "CashApp" :
+        deposit.type === "chime" ? "Chime" :
+        deposit.type === "venmo" ? "Venmo" : "Zelle"
+      ),
+      createdAt: deposit.createdAt,
+      items: [],
+    }));
+  const manualOrders = [...depositOrders, ...productManualOrders];
   const pendingOrders = manualOrders.filter((o: any) => o.status === "pending");
   const cq = searchQuery.trim().toLowerCase();
   const typeFiltered = (showHistory ? manualOrders : pendingOrders).filter((o: any) =>
@@ -2676,7 +2706,7 @@ function CashAppSection() {
       return res.json();
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", "manual-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/deposits"] });
       setSelectedOrder(null);
       toast({ title: variables.isDepositOnly ? "Deposit confirmed — balance credited" : "Payment confirmed — stock delivered" });
@@ -2694,7 +2724,7 @@ function CashAppSection() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", "manual-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/deposits"] });
       setSelectedOrder(null);
       toast({ title: "Marked unpaid" });
@@ -2702,7 +2732,7 @@ function CashAppSection() {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
+  if (ordersLoading || depositsLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
 
   if (selectedOrder) {
     const current = manualOrders?.find((o: any) => o.id === selectedOrder.id) || selectedOrder;
@@ -2877,6 +2907,23 @@ function CashAppSection() {
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-white/30 flex-shrink-0" />
+                {order.status === "pending" && (
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      fulfillMutation.mutate({
+                        orderId: order.id,
+                        isDepositOnly: !Array.isArray(order.items) || order.items.length === 0,
+                      });
+                    }}
+                    disabled={fulfillMutation.isPending}
+                    className="h-8 rounded-lg px-3 text-[10px] font-bold text-white disabled:opacity-50"
+                    style={{ background: meta.color }}
+                    data-testid={`button-accept-payment-${order.id}`}
+                  >
+                    {fulfillMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Accept"}
+                  </button>
+                )}
               </div>
             );
           })}

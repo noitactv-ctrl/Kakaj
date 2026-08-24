@@ -770,57 +770,54 @@ export class DatabaseStorage implements IStorage {
   }
 
   async fulfillPendingOrder(orderId: number): Promise<void> {
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-    if (!order) throw new Error("Order not found");
-    if (order.status !== "pending") return; // Already handled
+    await db.transaction(async (tx) => {
+      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) throw new Error("Order not found");
+      if (order.status !== "pending") return;
 
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-    const deliveryParts: Record<string, string[]> = {};
+      const items = await tx.select().from(orderItems)
+        .where(eq(orderItems.orderId, orderId))
+        .orderBy(asc(orderItems.id));
+      const deliveryParts: Record<string, string[]> = {};
 
-    for (const item of items) {
-      if (item.cardId) {
-        const [card] = await db.select().from(cards).where(eq(cards.id, item.cardId));
-        if (!card || card.isSold) throw new Error("A card in this order is no longer available");
-        const [claimedCard] = await db.update(cards)
-          .set({ isSold: true, userId: order.userId })
-          .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
+      for (const item of items) {
+        if (item.cardId) {
+          const [card] = await tx.select().from(cards).where(eq(cards.id, item.cardId));
+          if (!card || card.isSold) throw new Error("A card in this order is no longer available");
+          const [claimedCard] = await tx.update(cards)
+            .set({ isSold: true, userId: order.userId })
+            .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
+            .returning();
+          if (!claimedCard) throw new Error("A card in this order is no longer available");
+          (deliveryParts.cards ??= []).push(formatCardDeliveryContent(card));
+          continue;
+        }
+        if (!item.variantId) continue;
+        const key = String(item.variantId);
+        (deliveryParts[key] ??= []);
+        if (!item.stockItemId) {
+          throw new Error(`Order item ${item.id} has no assigned stock and cannot be substituted`);
+        }
+
+        const [stock] = await tx.select().from(stockItems).where(eq(stockItems.id, item.stockItemId));
+        if (!stock || stock.isSold || stock.orderId !== order.id) {
+          throw new Error(`Assigned stock item is unavailable for order item ${item.id}`);
+        }
+        const [deliveredStock] = await tx.update(stockItems)
+          .set({ isSold: true, isReserved: false })
+          .where(and(eq(stockItems.id, stock.id), eq(stockItems.isSold, false), eq(stockItems.orderId, order.id)))
           .returning();
-        if (!claimedCard) throw new Error("A card in this order is no longer available");
-        if (!deliveryParts.cards) deliveryParts.cards = [];
-        deliveryParts.cards.push(formatCardDeliveryContent(card));
-        continue;
+        if (!deliveredStock) throw new Error(`Assigned stock item is unavailable for order item ${item.id}`);
+        deliveryParts[key].push(stock.content);
       }
-      if (!item.variantId) continue;
-      const key = String(item.variantId);
-      if (!deliveryParts[key]) deliveryParts[key] = [];
 
-      if (item.stockItemId) {
-        // Stock was held at order time — mark it sold now
-        const [stock] = await db.select().from(stockItems).where(eq(stockItems.id, item.stockItemId));
-        if (stock) {
-          await db.update(stockItems)
-            .set({ isSold: true, isReserved: false })
-            .where(eq(stockItems.id, stock.id));
-          deliveryParts[key].push(stock.content);
-        }
-      } else {
-        // Fallback: grab from available stock
-        for (let i = 0; i < (item.quantity ?? 1); i++) {
-          const stock = await this.reserveStockItem(item.variantId);
-          if (stock) {
-            await db.update(orderItems).set({ stockItemId: stock.id }).where(eq(orderItems.id, item.id));
-            deliveryParts[key].push(stock.content);
-          }
-        }
-      }
-    }
-
-    const deliveryContent = JSON.stringify(
-      Object.fromEntries(Object.entries(deliveryParts).map(([k, v]) => [k, v.join("\n\n")]))
-    );
-    await db.update(orders)
-      .set({ status: "delivering", deliveryContent, paidAmount: order.total })
-      .where(eq(orders.id, orderId));
+      const deliveryContent = JSON.stringify(
+        Object.fromEntries(Object.entries(deliveryParts).map(([key, content]) => [key, content.join("\n\n")]))
+      );
+      await tx.update(orders)
+        .set({ status: "delivering", deliveryContent, paidAmount: order.total })
+        .where(and(eq(orders.id, orderId), eq(orders.status, "pending")));
+    });
   }
 
   async approveManualDeposit(orderId: number, paidAmount?: number): Promise<Order> {
@@ -896,55 +893,62 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Order is not in a payable state");
     }
 
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    const items = await db.select().from(orderItems)
+      .where(eq(orderItems.orderId, orderId))
+      .orderBy(asc(orderItems.id));
     if (items.length === 0) {
       return this.approveManualDeposit(orderId, paidAmount);
     }
-    const deliveryParts: Record<string, string[]> = {};
+    return db.transaction(async (tx) => {
+      const [pendingOrder] = await tx.select().from(orders).where(eq(orders.id, orderId));
+      if (!pendingOrder || pendingOrder.status !== "pending") throw new Error("Order is not in a payable state");
 
-    for (const item of items) {
-      if (item.cardId) {
-        const [card] = await db.select().from(cards).where(eq(cards.id, item.cardId));
-        if (!card || card.isSold) throw new Error("A card in this order is no longer available");
-        const [claimedCard] = await db.update(cards)
-          .set({ isSold: true, userId: order.userId })
-          .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
-          .returning();
-        if (!claimedCard) throw new Error("A card in this order is no longer available");
-        if (!deliveryParts.cards) deliveryParts.cards = [];
-        deliveryParts.cards.push(formatCardDeliveryContent(card));
-        continue;
-      }
-      if (!item.variantId) continue;
-      const key = String(item.variantId);
-      if (!deliveryParts[key]) deliveryParts[key] = [];
+      const pendingItems = await tx.select().from(orderItems)
+        .where(eq(orderItems.orderId, orderId))
+        .orderBy(asc(orderItems.id));
+      const deliveryParts: Record<string, string[]> = {};
 
-      if (item.stockItemId) {
-        const [stock] = await db.select().from(stockItems).where(eq(stockItems.id, item.stockItemId));
-        if (!stock) throw new Error(`Reserved stock item missing for order item ${item.id}`);
-        await db.update(stockItems)
-          .set({ isSold: true, isReserved: false })
-          .where(eq(stockItems.id, stock.id));
-        deliveryParts[key].push(stock.content);
-      } else {
-        const [variant] = await db.select().from(variants).where(eq(variants.id, item.variantId));
-        for (let i = 0; i < (item.quantity ?? 1); i++) {
-          const stock = await this.reserveStockItem(item.variantId);
-          if (!stock) throw new Error(`Insufficient stock for ${variant?.name ?? item.variantId}`);
-          await db.update(orderItems).set({ stockItemId: stock.id }).where(eq(orderItems.id, item.id));
-          deliveryParts[key].push(stock.content);
+      for (const item of pendingItems) {
+        if (item.cardId) {
+          const [card] = await tx.select().from(cards).where(eq(cards.id, item.cardId));
+          if (!card || card.isSold) throw new Error("A card in this order is no longer available");
+          const [claimedCard] = await tx.update(cards)
+            .set({ isSold: true, userId: pendingOrder.userId })
+            .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
+            .returning();
+          if (!claimedCard) throw new Error("A card in this order is no longer available");
+          (deliveryParts.cards ??= []).push(formatCardDeliveryContent(card));
+          continue;
         }
-      }
-    }
+        if (!item.variantId) continue;
+        const key = String(item.variantId);
+        (deliveryParts[key] ??= []);
+        if (!item.stockItemId) {
+          throw new Error(`Order item ${item.id} has no assigned stock and cannot be substituted`);
+        }
 
-    const deliveryContent = JSON.stringify(
-      Object.fromEntries(Object.entries(deliveryParts).map(([k, v]) => [k, v.join("\n\n")]))
-    );
-    const [updated] = await db.update(orders)
-      .set({ status: "delivering", deliveryContent, paidAmount: paidAmount ?? order.total })
-      .where(eq(orders.id, orderId))
-      .returning();
-    return updated;
+        const [stock] = await tx.select().from(stockItems).where(eq(stockItems.id, item.stockItemId));
+        if (!stock || stock.isSold || stock.orderId !== pendingOrder.id) {
+          throw new Error(`Assigned stock item is unavailable for order item ${item.id}`);
+        }
+        const [deliveredStock] = await tx.update(stockItems)
+          .set({ isSold: true, isReserved: false })
+          .where(and(eq(stockItems.id, stock.id), eq(stockItems.isSold, false), eq(stockItems.orderId, pendingOrder.id)))
+          .returning();
+        if (!deliveredStock) throw new Error(`Assigned stock item is unavailable for order item ${item.id}`);
+        deliveryParts[key].push(stock.content);
+      }
+
+      const deliveryContent = JSON.stringify(
+        Object.fromEntries(Object.entries(deliveryParts).map(([key, content]) => [key, content.join("\n\n")]))
+      );
+      const [updated] = await tx.update(orders)
+        .set({ status: "delivering", deliveryContent, paidAmount: paidAmount ?? pendingOrder.total })
+        .where(and(eq(orders.id, orderId), eq(orders.status, "pending")))
+        .returning();
+      if (!updated) throw new Error("Order is not in a payable state");
+      return updated;
+    });
   }
 
   async markManualDepositUnpaid(orderId: number): Promise<Order> {

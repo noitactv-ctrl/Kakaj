@@ -489,7 +489,7 @@ export async function registerRoutes(
 
       const cashappRows = await db
         .select({
-          id: orders.id, userId: orders.userId, total: orders.total,
+          id: orders.id, orderId: orders.orderId, userId: orders.userId, total: orders.total,
           status: orders.status, paymentNote: orders.paymentNote, createdAt: orders.createdAt,
           paymentMethod: orders.paymentMethod, username: users.username,
         })
@@ -519,6 +519,8 @@ export async function registerRoutes(
           id: `cashapp_${o.id}`, type: o.paymentMethod?.toLowerCase() ?? "cashapp", username: o.username ?? "?",
           amount: o.total, status: o.status, paymentNote: o.paymentNote, createdAt: o.createdAt,
           orderId: o.id,
+          publicOrderId: o.orderId,
+          paymentMethod: o.paymentMethod,
         })),
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -2238,10 +2240,10 @@ export async function registerRoutes(
       storage.getSetting("venmo_description", ""),
     ]);
     res.json({
-      cashapp: { enabled: methods.cashapp === true && !!cashappTag.trim(), tag: cashappTag, url: getCashAppUrl(cashappTag), fee: parseFloat(cashappFee) || 0, description: cashappDescription },
-      chime:   { enabled: methods.chime === true && !!chimeHandle.trim(), handle: chimeHandle, fee: parseFloat(chimeFee) || 0, description: chimeDescription },
-      zelle:   { enabled: methods.zelle === true && !!zelleHandle.trim(), handle: zelleHandle, fee: parseFloat(zelleFee) || 0, description: zelleDescription },
-      venmo:   { enabled: methods.venmo === true && !!venmoHandle.trim(), handle: venmoHandle, fee: 0, description: venmoDescription },
+      cashapp: { enabled: methods.cashapp === true && !!cashappTag.trim(), tag: cashappTag, url: getCashAppUrl(cashappTag), fee: parseFloat(cashappFee) || 0, description: cashappDescription || "Instant top-up" },
+      chime:   { enabled: methods.chime === true && !!chimeHandle.trim(), handle: chimeHandle, fee: parseFloat(chimeFee) || 0, description: chimeDescription || "Instant top-up" },
+      zelle:   { enabled: methods.zelle === true && !!zelleHandle.trim(), handle: zelleHandle, fee: parseFloat(zelleFee) || 0, description: zelleDescription || "Instant top-up" },
+      venmo:   { enabled: methods.venmo === true && !!venmoHandle.trim(), handle: venmoHandle, fee: 0, description: venmoDescription || "Instant top-up" },
     });
   });
 

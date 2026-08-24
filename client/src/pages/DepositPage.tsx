@@ -265,9 +265,9 @@ export default function DepositPage() {
   const paymentOptions = [
     ...(cryptoEnabled ? [{ id: "crypto", label: "Crypto", sub: `${cryptoCurrencies.length} coins via Plisio`, Icon: SiBitcoin, color: "#F7931A", fee: "0% fee" }] : []),
     ...(cashappEnabled ? [{ id: "cashapp", label: "CashApp", sub: manualMethods?.cashapp.description || "Instant top-up", Icon: SiCashapp, color: "#00D632", fee: feeLabel(manualMethods?.cashapp?.fee) }] : []),
-    ...(manualMethods?.venmo.enabled ? [{ id: "venmo", label: "Venmo", sub: manualMethods.venmo.description || manualMethods.venmo.handle, Icon: () => <span className="font-black">V</span>, color: "#3D95CE", fee: "0% fee" }] : []),
-    ...(manualMethods?.zelle.enabled ? [{ id: "zelle", label: "Zelle", sub: manualMethods.zelle.description || manualMethods.zelle.handle, Icon: () => <span className="font-black">Z</span>, color: "#6D1ED4", fee: feeLabel(manualMethods?.zelle.fee) }] : []),
-    ...(manualMethods?.chime.enabled ? [{ id: "chime", label: "Chime", sub: manualMethods.chime.description || manualMethods.chime.handle, Icon: () => <span className="font-black">C</span>, color: "#7BC67E", fee: feeLabel(manualMethods?.chime.fee) }] : []),
+    ...(manualMethods?.venmo.enabled ? [{ id: "venmo", label: "Venmo", sub: manualMethods.venmo.description || "Instant top-up", Icon: () => <span className="font-black">V</span>, color: "#3D95CE", fee: "0% fee" }] : []),
+    ...(manualMethods?.zelle.enabled ? [{ id: "zelle", label: "Zelle", sub: manualMethods.zelle.description || "Instant top-up", Icon: () => <span className="font-black">Z</span>, color: "#6D1ED4", fee: feeLabel(manualMethods?.zelle.fee) }] : []),
+    ...(manualMethods?.chime.enabled ? [{ id: "chime", label: "Chime", sub: manualMethods.chime.description || "Instant top-up", Icon: () => <span className="font-black">C</span>, color: "#7BC67E", fee: feeLabel(manualMethods?.chime.fee) }] : []),
   ];
 
   const selected = paymentOptions.find(o => o.id === selectedOption) || null;

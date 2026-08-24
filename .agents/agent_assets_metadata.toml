@@ -14,3 +14,17 @@ mtime_ms = 1787345161556
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:073b3de8-719c-476e-8b3b-2edacc668a2c/6348d513-fb71-4ac6-95e2-b1d17e6034b3/c65a1a13-fdb9-4264-98a9-a6d1b7b102d2"
 storage_version_token = "1787345173972149"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "Yy-rl5Zi_pvZX_H3n8JVX"
+uri = "file://nychq-self-hosting-source-lite.zip"
+type = "unspecified"
+title = "Self-hosting website source"
+description = "Verified source bundle with the client, server, shared schema, configuration, and setup guide. It excludes secrets, database data, installed dependencies, caches, Git history, and unused attachment archives."
+logical_id = "65a79f8e-43f3-4e91-b5d6-0f91bbe76084"
+content_hash = "sha256:17c489df491f15f9c25a30fff68096fbf284a570e675f516eb543bd6d54236aa"
+size = 1503515
+mtime_ms = 1787588064064
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:60eb9f5d-ef31-47de-92bf-a81960675cd5/65a79f8e-43f3-4e91-b5d6-0f91bbe76084/6d4dfeb0-e195-4da5-a15c-ab53f83a8356"
+storage_version_token = "1787588070090796"
+content_type = "application/octet-stream"
