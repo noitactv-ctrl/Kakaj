@@ -22,7 +22,7 @@ export function Toaster() {
               <div className="flex-shrink-0 mt-0.5">
                 {isError
                   ? <AlertCircle className="h-4 w-4 text-white" />
-                  : <CheckCircle2 className="h-4 w-4 text-white" />
+                  : <CheckCircle2 className="h-4 w-4 text-[#ffe177]" />
                 }
               </div>
               <div className="flex-1 min-w-0">
