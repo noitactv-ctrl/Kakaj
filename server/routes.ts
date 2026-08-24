@@ -1159,6 +1159,10 @@ export async function registerRoutes(
     try {
       const { code, cartTotal } = req.body;
       if (!code || typeof code !== "string") return res.status(400).json({ message: "Code required" });
+      const previewTotal = Number(cartTotal);
+      if (!Number.isInteger(previewTotal) || previewTotal < 0) {
+        return res.status(400).json({ message: "A valid cart total is required" });
+      }
 
       const [dc] = await db.select().from(discountCodes)
         .where(eq(discountCodes.code, code.toUpperCase().trim()));
@@ -1166,13 +1170,13 @@ export async function registerRoutes(
       if (!dc || !dc.isActive) return res.status(404).json({ message: "Invalid or inactive code" });
       if (dc.expiresAt && new Date(dc.expiresAt) < new Date()) return res.status(400).json({ message: "This code has expired" });
       if (dc.maxUses !== null && dc.usedCount >= dc.maxUses) return res.status(400).json({ message: "This code has reached its usage limit" });
-      if (dc.minOrder && cartTotal < dc.minOrder) {
+      if (dc.minOrder && previewTotal < dc.minOrder) {
         return res.status(400).json({ message: `Minimum order of $${(dc.minOrder / 100).toFixed(2)} required` });
       }
 
       const discountAmount = dc.type === "percent"
-        ? Math.round(cartTotal * dc.value / 100)
-        : Math.min(dc.value, cartTotal);
+        ? Math.round(previewTotal * dc.value / 100)
+        : Math.min(dc.value, previewTotal);
 
       res.json({ id: dc.id, code: dc.code, type: dc.type, value: dc.value, discountAmount });
     } catch (e: any) {

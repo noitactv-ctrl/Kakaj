@@ -5,8 +5,6 @@ import {
   Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck, Landmark,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useCart } from "@/hooks/use-cart";
-import { CartSidebar } from "@/components/CartSidebar";
 import { useFeatureVisibility } from "@/hooks/use-feature-visibility";
 
 type NavItem = {
@@ -21,6 +19,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
     label: "MAIN",
     items: [
       { href: "/deposit", label: "Topup", icon: Coins },
+      { href: "/cart", label: "Cart", icon: ShoppingCart },
       { href: "/orders", label: "Orders", icon: ReceiptText },
       { href: "/ranks", label: "Rank", icon: Crown },
     ],
@@ -47,11 +46,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { features } = useFeatureVisibility();
   const [location] = useLocation();
   const [navOpen, setNavOpen] = useState(false);
-  const [cartRailOpen, setCartRailOpen] = useState(false);
-  const cartItems = useCart(s => s.items);
-  const cardItems = useCart(s => s.cardItems);
-  const bulkBundle = useCart(s => s.bulkBundle);
-  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0) + cardItems.length + (bulkBundle?.cardIds.length ?? 0);
   useEffect(() => setNavOpen(false), [location]);
   useEffect(() => {
     document.body.style.overflow = navOpen ? "hidden" : "";
@@ -125,17 +119,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </nav>
 
       <div className="mx-3 border-t-[4px] border-dashed border-[#0a1021] pt-3 pb-3 space-y-2">
-        <button
-          type="button"
-          onClick={() => {
-            setCartRailOpen(true);
-            setNavOpen(false);
-          }}
-          className="pixel-button flex min-h-9 w-full items-center gap-2 px-2.5 py-2 text-left text-[9px]"
-        >
-            <ShoppingCart className="h-3 w-3" />
-            <span>Cart{cartCount ? ` (${cartCount})` : ""}</span>
-        </button>
         {user && (
           <>
             <button
@@ -175,10 +158,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
-      <CartSidebar
-        open={cartRailOpen}
-        onClose={() => setCartRailOpen(false)}
-      />
     </div>
   );
 }
