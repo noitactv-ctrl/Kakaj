@@ -15,16 +15,15 @@ export function CryptoCoinIcon({ ticker, color, className = "" }: {
   color: string;
   className?: string;
 }) {
-  if (ticker === "BTC") {
-    return <SiBitcoin className={className} style={{ color }} aria-label="Bitcoin" />;
-  }
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full font-black text-[9px] text-white ${className}`}
+      className={`inline-flex aspect-square shrink-0 items-center justify-center overflow-hidden rounded-full font-black text-[9px] leading-none text-white ${className}`}
       style={{ backgroundColor: color }}
       aria-label={ticker}
     >
-      {ticker.slice(0, 3)}
+      {ticker === "BTC"
+        ? <SiBitcoin className="block h-full w-full p-[13%] text-white" aria-hidden="true" />
+        : ticker.slice(0, 3)}
     </span>
   );
 }

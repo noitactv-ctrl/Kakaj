@@ -86,7 +86,17 @@ function CryptoPaymentModal({ invoice, onClose, onComplete }: {
 }
 
 export default function CartPage() {
-  const { items, cardItems, bulkBundle, removeItem, removeCard, total, clearCart } = useCart();
+  const {
+    items,
+    cardItems,
+    bulkBundle,
+    checkoutCouponCode,
+    consumeCheckoutCouponCode,
+    removeItem,
+    removeCard,
+    total,
+    clearCart,
+  } = useCart();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -120,6 +130,12 @@ export default function CartPage() {
   const { data: cryptoCurrencies = [] } = useQuery<CryptoCurrencyOption[]>({
     queryKey: ["/api/crypto-currencies"],
   });
+  const { data: cryptoReadiness } = useQuery<{
+    enabled: boolean;
+    configured: boolean;
+    enabledCurrencyCount: number;
+    available: boolean;
+  }>({ queryKey: ["/api/crypto-readiness"] });
   const selectedCrypto = cryptoCurrencies.find((currency) => currency.code === selectedCryptoCode) ?? null;
   const cashappEnabled = enabledMethods?.cashapp !== false;
   const walletEnabled = enabledMethods?.wallet !== false;
@@ -181,6 +197,19 @@ export default function CartPage() {
       toast({ title: "Code not valid", description: e.message, variant: "destructive" });
     },
   });
+
+  useEffect(() => {
+    const queuedCode = checkoutCouponCode.trim();
+    if (!queuedCode) return;
+
+    consumeCheckoutCouponCode();
+    setCouponCode(queuedCode);
+    if (bulkBundle) {
+      toast({ title: "BULK BUNDLE LOCKED", description: "The 50% bundle price cannot be combined with a coupon.", variant: "destructive" });
+      return;
+    }
+    if (user) validateDiscountMutation.mutate(queuedCode);
+  }, [checkoutCouponCode, bulkBundle, consumeCheckoutCouponCode, toast, user, validateDiscountMutation]);
 
   const processorFeePercent = selectedMethod === "balance" ? 0 : feePercentFor(selectedMethod);
   const processorFee = Math.round(finalTotal * processorFeePercent / 100);
@@ -583,6 +612,11 @@ export default function CartPage() {
                   </div>
                 )}
               </div>
+            )}
+            {!hasCardPurchase && cryptoReadiness?.enabled && !cryptoReadiness.available && (
+              <p className="border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/80">
+                Crypto payments are temporarily unavailable. Please choose another payment method.
+              </p>
             )}
 
             {walletEnabled && (

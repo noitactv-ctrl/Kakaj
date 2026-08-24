@@ -7,6 +7,7 @@ import {
 import { useEffect, useState } from "react";
 import { useCart } from "@/hooks/use-cart";
 import { CartSidebar } from "@/components/CartSidebar";
+import { useFeatureVisibility } from "@/hooks/use-feature-visibility";
 
 type NavItem = {
   href: string;
@@ -43,6 +44,7 @@ const navigation: { label: string; items: NavItem[] }[] = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { features } = useFeatureVisibility();
   const [location] = useLocation();
   const [navOpen, setNavOpen] = useState(false);
   const [cartRailOpen, setCartRailOpen] = useState(false);
@@ -60,10 +62,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isActive = (href: string) =>
     location === href || (href === "/deposit" && location === "/");
+  const visibleNavigation = navigation
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (item.href === "/ranks") return features.ranks;
+        if (item.href === "/cards") return features.cards;
+        return true;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
   const navContent = (
     <>
       <div className="px-3 pt-3 pb-2 space-y-3">
-        <Link href="/cards">
+        <Link href={features.cards ? "/cards" : "/deposit"}>
           <div className="pixel-button sidebar-brand-button flex h-[48px] items-center justify-center !text-white">
             <p className="pixel-logo-text">NYCHQ</p>
           </div>
@@ -75,7 +87,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
-        {navigation.map(group => (
+        {visibleNavigation.map(group => (
           <section key={group.label}>
             <p className="pixel-text mb-1.5 px-1 text-[8px] leading-none text-[#ffe177] [text-shadow:2px_2px_0_#131e48]">{group.label}</p>
             <div className="space-y-2">

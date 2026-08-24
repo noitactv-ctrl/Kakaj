@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/use-auth";
 import { useCryptoPolling } from "@/hooks/use-crypto-polling";
+import { useFeatureVisibility } from "@/hooks/use-feature-visibility";
 import { useEffect } from "react";
 
 // Pages
@@ -22,12 +23,9 @@ import SupportPage from "@/pages/SupportPage";
 import PlinkoGamePage from "@/pages/PlinkoGamePage";
 import RoutingCatalogPage from "@/pages/RoutingCatalogPage";
 
-function CardsRedirect() {
-  return <CardsPage />;
-}
-
 function Router() {
   const { user, isLoading } = useAuth();
+  const { features } = useFeatureVisibility();
   const [location, setLocation] = useLocation();
   useCryptoPolling();
 
@@ -47,12 +45,12 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/" component={DepositPage} />
         <Route path="/deposit" component={DepositPage} />
-        <Route path="/shop"><Redirect to="/cards" /></Route>
+        <Route path="/shop"><Redirect to={features.cards ? "/cards" : "/deposit"} /></Route>
         <Route path="/order/:id" component={OrderDetailPageNew} />
         <Route path="/orders" component={OrdersPage} />
         <Route path="/cart" component={CartPage} />
-        <Route path="/ranks" component={RanksPage} />
-        <Route path="/cards" component={CardsRedirect} />
+        <Route path="/ranks">{() => features.ranks ? <RanksPage /> : <Redirect to="/deposit" />}</Route>
+        <Route path="/cards">{() => features.cards ? <CardsPage /> : <Redirect to="/deposit" />}</Route>
         <Route path="/routings" component={RoutingCatalogPage} />
         <Route path="/support" component={SupportPage} />
         <Route path="/plinko" component={PlinkoGamePage} />

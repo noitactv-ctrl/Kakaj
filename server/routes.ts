@@ -99,6 +99,30 @@ async function getEnabledCryptoCurrency(currencyCode: unknown) {
   return currency?.enabled ? currency : undefined;
 }
 
+async function getCryptoReadiness() {
+  const methods = await storage.getPaymentMethodsConfig();
+  const hasApiKey = Boolean(await getRuntimeSetting("plisio_api_key"));
+  let hasTrustedPublicUrl = false;
+  try {
+    await getPlisioPublicAppUrl();
+    hasTrustedPublicUrl = true;
+  } catch {
+    // Keep provider configuration details out of the public status response.
+  }
+  const configured = hasApiKey && hasTrustedPublicUrl;
+  const enabledCurrencyCount = configured
+    ? (await storage.getCryptoCurrencies(true)).length
+    : 0;
+  const enabled = methods.crypto === true;
+
+  return {
+    enabled,
+    configured,
+    enabledCurrencyCount,
+    available: enabled && configured && enabledCurrencyCount > 0,
+  };
+}
+
 // BIN lookup cache + throttle queue (binlist.net = ~10 req/min free tier)
 const binCache = new Map<string, any>();
 const binQueue: Array<{ bin: string; resolve: (v: any) => void }> = [];
@@ -1205,13 +1229,21 @@ export async function registerRoutes(
   // Admin: toggle active / delete discount code
   app.patch("/api/admin/discount-codes/:id", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    const [dc] = await db.update(discountCodes).set({ isActive: req.body.isActive }).where(eq(discountCodes.id, Number(req.params.id))).returning();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1 || typeof req.body.isActive !== "boolean") {
+      return res.status(400).json({ message: "A valid code ID and active state are required" });
+    }
+    const [dc] = await db.update(discountCodes).set({ isActive: req.body.isActive }).where(eq(discountCodes.id, id)).returning();
+    if (!dc) return res.status(404).json({ message: "Discount code not found" });
     res.json(dc);
   });
 
   app.delete("/api/admin/discount-codes/:id", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== 'admin') return res.status(401).json({ message: "Unauthorized" });
-    await db.delete(discountCodes).where(eq(discountCodes.id, Number(req.params.id)));
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid discount code ID" });
+    const [deleted] = await db.delete(discountCodes).where(eq(discountCodes.id, id)).returning({ id: discountCodes.id });
+    if (!deleted) return res.status(404).json({ message: "Discount code not found" });
     res.json({ success: true });
   });
 
@@ -1856,21 +1888,18 @@ export async function registerRoutes(
   // ── Payment method config (public) ───────────────────────────────────────
   app.get("/api/payment-methods", async (_req, res) => {
     const config = await storage.getPaymentMethodsConfig();
-    const cryptoConfigured = Boolean(
-      (await getRuntimeSetting("plisio_api_key")) &&
-      (await getRuntimeSetting("plisio_public_app_url")),
-    );
-    res.json({ ...config, crypto: config.crypto && cryptoConfigured });
+    const cryptoReadiness = await getCryptoReadiness();
+    res.json({ ...config, crypto: cryptoReadiness.available });
   });
 
   app.get("/api/crypto-currencies", async (_req, res) => {
-    const methods = await storage.getPaymentMethodsConfig();
-    const cryptoConfigured = Boolean(
-      (await getRuntimeSetting("plisio_api_key")) &&
-      (await getRuntimeSetting("plisio_public_app_url")),
-    );
-    if (!methods.crypto || !cryptoConfigured) return res.json([]);
+    const cryptoReadiness = await getCryptoReadiness();
+    if (!cryptoReadiness.available) return res.json([]);
     res.json(await storage.getCryptoCurrencies(true));
+  });
+
+  app.get("/api/crypto-readiness", async (_req, res) => {
+    res.json(await getCryptoReadiness());
   });
 
   // ── Payment method admin toggle ───────────────────────────────────────────

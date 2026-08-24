@@ -18,6 +18,7 @@ export function CartSidebar({ open, onClose }: {
     removeCard,
     clearBulkBundle,
     clearCart,
+    setCheckoutCouponCode,
     total,
   } = useCart();
   const [couponCode, setCouponCode] = useState("");
@@ -30,7 +31,10 @@ export function CartSidebar({ open, onClose }: {
   const cartTotal = productTotal + cardSubtotal + (bulkBundle?.discountedTotal ?? 0);
   const isEmpty = itemCount === 0;
 
-  const openCheckout = () => setLocation("/cart");
+  const openCheckout = (coupon?: string) => {
+    if (coupon?.trim()) setCheckoutCouponCode(coupon.trim());
+    setLocation("/cart");
+  };
 
   return (
     <aside
@@ -134,7 +138,7 @@ export function CartSidebar({ open, onClose }: {
               aria-label="Coupon code"
             />
             <button
-              onClick={openCheckout}
+              onClick={() => openCheckout(couponCode)}
               className="pixel-button h-8 px-2 text-[8px]"
               aria-label="Apply coupon in checkout"
             >
@@ -160,7 +164,7 @@ export function CartSidebar({ open, onClose }: {
             ▪ Clear cart
           </button>
           <button
-            onClick={openCheckout}
+            onClick={() => openCheckout()}
             disabled={isEmpty}
             className="w-full border-[2px] border-black bg-[#43b94e] py-2.5 pixel-text text-[8px] text-white shadow-[2px_2px_0_#07130a] disabled:cursor-not-allowed disabled:opacity-45"
           >

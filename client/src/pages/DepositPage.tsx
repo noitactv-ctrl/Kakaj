@@ -146,6 +146,12 @@ export default function DepositPage() {
   const { data: cryptoCurrencies = [] } = useQuery<CryptoCurrencyOption[]>({
     queryKey: ["/api/crypto-currencies"],
   });
+  const { data: cryptoReadiness } = useQuery<{
+    enabled: boolean;
+    configured: boolean;
+    enabledCurrencyCount: number;
+    available: boolean;
+  }>({ queryKey: ["/api/crypto-readiness"] });
 
   const { data: minDeposits } = useQuery<Record<string, number>>({
     queryKey: ["/api/site-settings/min-deposits"],
@@ -385,6 +391,11 @@ export default function DepositPage() {
                   No deposit method is currently available. Please check back later.
                 </p>
               )}
+               {cryptoReadiness?.enabled && !cryptoReadiness.available && (
+                 <p className="border border-amber-400/25 bg-amber-400/10 px-3 py-3 font-mono text-[10px] leading-relaxed text-amber-100/80">
+                   Crypto deposits are temporarily unavailable. Please choose another payment method.
+                 </p>
+               )}
             </div>
 
             {isSelectedCrypto && (

@@ -1644,7 +1644,14 @@ function CodesSection() {
   const { data: discountList = [] } = useQuery<any[]>({ queryKey: ["/api/admin/discount-codes"] });
 
   const createDiscountMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/admin/discount-codes", dForm),
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/discount-codes", dForm);
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.message || "Unable to create discount code");
+      }
+      return response.json();
+    },
     onSuccess: () => {
       toast({ title: "Discount code created" });
       setDForm({ code: "", type: "percent", value: "", minOrder: "", maxUses: "", expiresAt: "" });
@@ -1654,17 +1661,32 @@ function CodesSection() {
   });
 
   const toggleDiscountMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      apiRequest("PATCH", `/api/admin/discount-codes/${id}`, { isActive }),
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/discount-codes/${id}`, { isActive });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.message || "Unable to update discount code");
+      }
+      return response.json();
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/discount-codes"] }),
+    onError: (e: Error) => toast({ title: "Unable to update code", description: e.message, variant: "destructive" }),
   });
 
   const deleteDiscountMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/discount-codes/${id}`, {}),
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/admin/discount-codes/${id}`, {});
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.message || "Unable to delete discount code");
+      }
+      return response.json();
+    },
     onSuccess: () => {
       toast({ title: "Code deleted" });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/discount-codes"] });
     },
+    onError: (e: Error) => toast({ title: "Unable to delete code", description: e.message, variant: "destructive" }),
   });
 
   return (
@@ -2081,6 +2103,7 @@ function CryptoCurrencySettingsRow({ currency }: { currency: CryptoCurrencyOptio
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crypto-currencies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crypto-currencies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-readiness"] });
     },
     onError: (error: Error) => toast({ title: "Unable to save currency", description: error.message, variant: "destructive" }),
   });
@@ -2170,12 +2193,17 @@ function IntegrationsSection() {
   const toggleMutation = useMutation({
     mutationFn: async ({ method, enabled }: { method: string; enabled: boolean }) => {
       const res = await apiRequest("PATCH", `/api/admin/payment-methods/${method}`, { enabled });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Unable to update payment method");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/payment-methods"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
       queryClient.invalidateQueries({ queryKey: ["/api/site-settings/manual-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-readiness"] });
     },
     onError: () => toast({ title: "Failed to update", variant: "destructive" }),
   });
@@ -2198,11 +2226,25 @@ function IntegrationsSection() {
       setNewCurrencyCode("");
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crypto-currencies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/crypto-currencies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-readiness"] });
       toast({ title: "Crypto currency added" });
     },
     onError: (error: Error) => toast({ title: "Unable to add currency", description: error.message, variant: "destructive" }),
   });
   const availableToAdd = supportedCurrencies.filter((currency) => !cryptoCurrencies.some((saved) => saved.code === currency.code));
+  const { data: cryptoReadiness } = useQuery<{
+    enabled: boolean;
+    configured: boolean;
+    enabledCurrencyCount: number;
+    available: boolean;
+  }>({ queryKey: ["/api/crypto-readiness"] });
+  const cryptoStatus = !cryptoReadiness?.enabled
+    ? "Crypto is switched off"
+    : !cryptoReadiness.configured
+      ? "Add a Plisio key and trusted HTTPS Public App URL"
+      : cryptoReadiness.enabledCurrencyCount === 0
+        ? "Enable at least one coin"
+        : "Ready for customers";
 
   const METHODS = [
     { id: "wallet", label: "Wallet / Balance", icon: <Wallet className="h-4 w-4 text-white" />, bg: "bg-primary" },
@@ -2220,6 +2262,9 @@ function IntegrationsSection() {
           <Link2 className="h-5 w-5 text-primary" /> Integrations
         </h1>
         <p className="text-sm text-muted-foreground mt-1">Enable or disable payment methods and manage handles.</p>
+        <p className={`mt-2 text-xs ${cryptoReadiness?.available ? "text-green-400" : "text-amber-300"}`}>
+          Crypto status: {cryptoStatus}
+        </p>
       </div>
 
       {/* Payment Method Toggles */}
@@ -2408,6 +2453,9 @@ function ApiSecretsSettings() {
     onSuccess: (_, { setting }) => {
       setDrafts((current) => ({ ...current, [setting.key]: "" }));
       refresh();
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-currencies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-readiness"] });
       toast({ title: `${setting.label} saved` });
     },
     onError: (error: Error) => toast({ title: "Unable to save setting", description: error.message, variant: "destructive" }),
@@ -2422,7 +2470,12 @@ function ApiSecretsSettings() {
       }
       return response.json();
     },
-    onSuccess: () => refresh(),
+    onSuccess: () => {
+      refresh();
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-currencies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-readiness"] });
+    },
     onError: (error: Error) => toast({ title: "Unable to update setting", description: error.message, variant: "destructive" }),
   });
 
@@ -2437,6 +2490,9 @@ function ApiSecretsSettings() {
     },
     onSuccess: () => {
       refresh();
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-methods"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-currencies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crypto-readiness"] });
       toast({ title: "Saved override cleared" });
     },
     onError: (error: Error) => toast({ title: "Unable to clear setting", description: error.message, variant: "destructive" }),
