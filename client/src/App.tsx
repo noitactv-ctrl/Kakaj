@@ -12,7 +12,6 @@ import { useEffect } from "react";
 // Pages
 import AuthPage from "@/pages/AuthPage";
 import OrderDetailPageNew from "@/pages/OrderDetailPageNew";
-import AdminPage from "@/pages/AdminPage";
 import NotFound from "@/pages/not-found";
 import DepositPage from "@/pages/DepositPage";
 import OrdersPage from "@/pages/OrdersPage";
@@ -52,9 +51,6 @@ function Router() {
         <Route path="/routings" component={RoutingCatalogPage} />
         <Route path="/support" component={SupportPage} />
         <Route path="/plinko" component={PlinkoGamePage} />
-        <Route path="/admin">
-          {() => <AdminPage />}
-        </Route>
         <Route component={NotFound} />
       </Switch>
     </Layout>
