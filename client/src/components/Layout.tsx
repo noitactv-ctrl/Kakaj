@@ -171,6 +171,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <button className="text-[#ffe177] lg:hidden" onClick={() => setNavOpen(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
+          {user && (
+            <Link href="/deposit">
+              <div
+                className="pixel-button ml-3 flex min-h-9 items-center gap-2 border-[3px] border-black !bg-[#ffe177] px-2.5 py-2 text-[9px] !text-[#17110a] shadow-[2px_2px_0_#050505] transition-colors hover:!bg-[#fff0c5]"
+                data-testid="button-header-balance"
+              >
+                <Coins className="h-3.5 w-3.5 text-[#b45f19]" />
+                <span>Balance ${(user.balance / 100).toFixed(2)}</span>
+                <span className="text-[#6d4b24]">+ Balance</span>
+              </div>
+            </Link>
+          )}
         </header>
         <div className="pixel-content-gutter min-h-[calc(100vh-56px)] py-4 lg:py-5">
           {children}

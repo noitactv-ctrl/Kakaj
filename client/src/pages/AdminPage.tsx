@@ -1047,20 +1047,6 @@ function OrdersSection() {
     onError: (e: any) => { toast({ title: "Error", description: e.message, variant: "destructive" }); }
   });
 
-  const replaceMutation = useMutation({
-    mutationFn: async (orderId: number) => {
-      const res = await apiRequest("POST", `/api/admin/orders/${orderId}/replace`, {});
-      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed"); }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
-      setSelectedOrder(null);
-      toast({ title: "Replacement stock sent to user" });
-    },
-    onError: (e: any) => { toast({ title: "Error", description: e.message, variant: "destructive" }); }
-  });
-
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
 
   if (selectedOrder) {
@@ -1120,17 +1106,9 @@ function OrdersSection() {
           {(current.status === "delivering" || current.status === "fulfilled" || current.status === "replaced") && (
             <div className="flex gap-2 border-b border-white/10 pb-4">
               <button
-                onClick={() => replaceMutation.mutate(current.id)}
-                disabled={replaceMutation.isPending}
-                className="flex-1 h-9 rounded-xl bg-primary/20 border border-primary/40 text-primary text-xs font-black hover:bg-primary/30 transition-colors disabled:opacity-50"
-                data-testid={`button-replace-${current.id}`}
-              >
-                {replaceMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mx-auto" /> : "↺ Replace (new stock)"}
-              </button>
-              <button
                 onClick={() => refundMutation.mutate(current.id)}
                 disabled={refundMutation.isPending || current.status === "refunded"}
-                className="flex-1 h-9 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-black hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+                className="w-full h-9 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-black hover:bg-orange-500/20 transition-colors disabled:opacity-50"
                 data-testid={`button-refund-${current.id}`}
               >
                 {refundMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mx-auto" /> : "$ Refund to Balance"}
@@ -3792,7 +3770,7 @@ function SupportSection() {
                       className="h-20 text-xs bg-[#0d0d0d] border-white/10 resize-none"
                     />
                     <div className="grid grid-cols-3 gap-2">
-                      {(["refund", "replace", "resolved"] as const).map(action => (
+                       {(["refund", "resolved"] as const).map(action => (
                         <Button
                           key={action}
                           size="sm"
@@ -3800,9 +3778,7 @@ function SupportSection() {
                            className={`h-9 rounded-none border-[3px] border-black text-[9px] font-semibold shadow-[2px_2px_0_#050505] ${
                             action === "refund"
                                ? "bg-[#43b94e] hover:bg-[#31973a] text-white"
-                              : action === "replace"
-                               ? "bg-[#2555c5] hover:bg-[#17337d] text-white"
-                               : "bg-[#a7a4aa] hover:bg-[#858287] text-[#17110a]"
+                              : "bg-[#a7a4aa] hover:bg-[#858287] text-[#17110a]"
                           }`}
                           onClick={() => actionMutation.mutate({ id: ticket.id, action })}
                         >

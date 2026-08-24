@@ -1073,18 +1073,6 @@ export async function registerRoutes(
     res.json(order);
   });
 
-  app.post("/api/admin/orders/:id/replace", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const order = await storage.replaceOrder(Number(req.params.id));
-      res.json(order);
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
-    }
-  });
-
   app.patch("/api/admin/users/:id", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
       return res.status(401).json({ message: "Unauthorized" });
@@ -1585,10 +1573,9 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     try {
       const userId = (req.user as any).id;
-      const { orderId, subject, description } = req.body;
+      const { orderId, description } = req.body;
 
       if (!orderId?.trim()) return res.status(400).json({ message: "Order ID is required" });
-      if (!subject?.trim()) return res.status(400).json({ message: "Issue type is required" });
       if (!description?.trim()) return res.status(400).json({ message: "Description is required" });
 
       // Validate that the order belongs to this user
@@ -1609,7 +1596,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Support tickets are only available for purchased items, not deposit orders." });
       }
 
-      const ticket = await storage.createSupportTicket({ ...req.body, userId });
+       const ticket = await storage.createSupportTicket({
+         orderId: orderId.trim(),
+         subject: "Refund",
+         description: description.trim(),
+         imageUrl: typeof req.body.imageUrl === "string" ? req.body.imageUrl.trim() : "",
+         userId,
+       });
       res.status(201).json(ticket);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
@@ -1635,6 +1628,9 @@ export async function registerRoutes(
       return res.status(401).json({ message: "Unauthorized" });
     }
     const { action, message } = req.body;
+      if (action !== "refund" && action !== "resolved") {
+        return res.status(400).json({ message: "Choose Refund or Resolve" });
+      }
     const ticket = await storage.getSupportTicket(Number(req.params.id));
     if (!ticket) return res.status(404).json({ message: "Ticket not found" });
 
@@ -1644,17 +1640,12 @@ export async function registerRoutes(
         if (order.length > 0) {
           await storage.refundOrder(order[0].id);
         }
-      } else if (action === "replace") {
-        const order = await db.select().from(orders).where(eq(orders.orderId, ticket.orderId)).limit(1);
-        if (order.length > 0) {
-          await storage.replaceOrder(order[0].id);
-        }
       }
     } catch (e: any) {
       return res.status(400).json({ message: e.message });
     }
 
-    const newStatus = action === "refund" ? "refunded" : action === "replace" ? "replaced" : "resolved";
+    const newStatus = action === "refund" ? "refunded" : "resolved";
     const updated = await storage.updateSupportTicket(Number(req.params.id), { 
       status: newStatus,
       adminMessage: message || ticket.adminMessage

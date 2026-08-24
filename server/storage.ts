@@ -55,7 +55,6 @@ export interface IStorage {
   getOrder(id: number): Promise<(Order & { items: (OrderItem & { stockItem: StockItem | null, variant: Variant | null })[] }) | undefined>;
   getAllOrders(): Promise<any[]>;
   refundOrder(orderId: number): Promise<Order>;
-  replaceOrder(orderId: number): Promise<Order>;
   
   // Wallet
   createTransaction(userId: number, amount: number, type: string, description: string): Promise<Transaction>;
@@ -986,60 +985,6 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(cryptoAddresses).values({ userId, currency, address }).returning();
     return created;
-  }
-
-  async replaceOrder(orderId: number): Promise<Order> {
-    return db.transaction(async (tx) => {
-      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
-      if (!order) throw new Error("Order not found");
-      if (!["delivering", "fulfilled", "replaced"].includes(order.status)) {
-        throw new Error("Only delivered orders can be replaced");
-      }
-
-      const items = await tx.select().from(orderItems)
-        .where(eq(orderItems.orderId, orderId))
-        .orderBy(asc(orderItems.id));
-      const productItems = items.filter((item) => item.itemType === "product" && item.variantId && item.stockItemId);
-      if (productItems.length === 0) {
-        throw new Error("This order has no product stock to replace");
-      }
-
-      const replacementParts: DeliveryParts = {};
-      for (const item of productItems) {
-        const result = await tx.execute(sql`
-          UPDATE stock_items
-          SET is_sold = true,
-              is_reserved = false,
-              order_id = ${order.id},
-              replacement_for_id = ${item.stockItemId}
-          WHERE id = (
-            SELECT id
-            FROM stock_items
-            WHERE variant_id = ${item.variantId}
-              AND is_sold = false
-              AND is_reserved = false
-            ORDER BY id
-            LIMIT 1
-            FOR UPDATE SKIP LOCKED
-          )
-          RETURNING *
-        `);
-        const replacement = result.rows[0] as StockItem | undefined;
-        if (!replacement) throw new Error("No replacement stock is available for this order");
-
-        await tx.update(orderItems)
-          .set({ stockItemId: replacement.id })
-          .where(eq(orderItems.id, item.id));
-        appendUniqueDeliveryContent(replacementParts, String(item.variantId), replacement.content);
-      }
-
-      const [updated] = await tx.update(orders)
-        .set({ status: "replaced", deliveryContent: serializeDeliveryParts(replacementParts) })
-        .where(eq(orders.id, orderId))
-        .returning();
-      if (!updated) throw new Error("Order could not be updated");
-      return updated;
-    });
   }
 
   async markOrderUnpaid(orderId: number): Promise<Order> {

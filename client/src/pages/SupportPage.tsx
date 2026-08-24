@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Send, TicketCheck, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, XCircle, ShoppingBag } from "lucide-react";
+import { Loader2, Send, TicketCheck, ChevronRight, AlertCircle, CheckCircle2, XCircle, ShoppingBag } from "lucide-react";
 
 type Ticket = {
   id: number;
@@ -28,7 +28,8 @@ function StatusBadge({ status }: { status: Ticket["status"] }) {
   const map: Record<string, { label: string; cls: string; Icon: any }> = {
     open:     { label: "Open",     cls: "bg-amber-500/15 text-amber-400 border-amber-500/25",   Icon: AlertCircle },
     refunded: { label: "Refunded", cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25", Icon: CheckCircle2 },
-    replaced: { label: "Replaced", cls: "bg-sky-500/15 text-sky-400 border-sky-500/25",         Icon: RefreshCw },
+    // Keep old records readable without offering replacement as a current workflow.
+    replaced: { label: "Closed",   cls: "bg-white/8 text-white/40 border-white/10",             Icon: CheckCircle2 },
     resolved: { label: "Resolved", cls: "bg-white/8 text-white/40 border-white/10",             Icon: XCircle },
   };
   const s = map[status] ?? map.open;
@@ -50,7 +51,6 @@ export default function SupportPage() {
   const [orderId, setOrderId] = useState("");
   const [orderIdError, setOrderIdError] = useState("");
   const [orderIdValid, setOrderIdValid] = useState(false);
-  const [issue, setIssue] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
 
@@ -95,11 +95,10 @@ export default function SupportPage() {
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (!validateOrderId()) throw new Error("Invalid Order ID");
-      if (!issue) throw new Error("Please select an issue type");
       if (!description.trim()) throw new Error("Please provide a description");
       const res = await apiRequest("POST", "/api/support", {
         orderId: orderId.trim(),
-        subject: issue,
+         subject: "Refund",
         description: description.trim(),
         imageUrl: imageUrl.trim(),
       });
@@ -112,7 +111,7 @@ export default function SupportPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/support"] });
       toast({ title: "Ticket submitted", description: "Our team will review it shortly." });
-      setOrderId(""); setIssue(""); setDescription(""); setImageUrl("");
+       setOrderId(""); setDescription(""); setImageUrl("");
       setAgreed(false); setOrderIdValid(false);
       setTab("history");
     },
@@ -160,7 +159,7 @@ export default function SupportPage() {
               </div>
               <ul className="text-xs text-white/55 space-y-1.5 leading-relaxed">
                 <li className="flex items-start gap-2"><ChevronRight className="h-3 w-3 text-primary shrink-0 mt-0.5" />Copy your <span className="text-primary font-medium">Order ID</span> from the Orders page</li>
-                <li className="flex items-start gap-2"><ChevronRight className="h-3 w-3 text-primary shrink-0 mt-0.5" />Choose Refund or Replace depending on your issue</li>
+                 <li className="flex items-start gap-2"><ChevronRight className="h-3 w-3 text-primary shrink-0 mt-0.5" />Refund requests are reviewed by the support team</li>
                 <li className="flex items-start gap-2"><ChevronRight className="h-3 w-3 text-primary shrink-0 mt-0.5" />Describe the problem clearly so we can help faster</li>
                 <li className="flex items-start gap-2"><ChevronRight className="h-3 w-3 text-primary shrink-0 mt-0.5" />Attach a screenshot link if applicable (imgur, etc.)</li>
               </ul>
@@ -202,27 +201,6 @@ export default function SupportPage() {
                     <AlertCircle className="h-3 w-3 shrink-0" />{orderIdError}
                   </p>
                 )}
-              </div>
-
-              {/* Issue Type */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Issue Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {["Refund", "Replace"].map(opt => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setIssue(opt)}
-                      className={`h-11 rounded-lg border text-sm font-semibold transition-all ${
-                        issue === opt
-                          ? "border-black bg-[#d94343] text-white"
-                          : "border-black bg-[#17337d] text-white/70 hover:text-white"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Description */}

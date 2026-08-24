@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { Link } from "wouter";
+import { Coins, ReceiptText } from "lucide-react";
 
 const RANKS = [
   { key: "newbie",  label: "Newbie",  emoji: "🌱", color: "text-white/45",   bar: "#ffffff40", border: "border-white/10",     glow: "",                     discount: 0,  threshold: 0,      next: 10000  },
@@ -32,8 +34,24 @@ export default function RanksPage() {
 
         {/* ── Hero ── */}
         <div className="pt-2 pb-5 space-y-1">
-          <p className="pixel-text text-[9px] text-[#ffe177]">REWARDS / MEMBER STATUS</p>
-          <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">RANK</h1>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="pixel-text text-[9px] text-[#ffe177]">REWARDS / MEMBER STATUS</p>
+              <h1 className="mt-3 text-xl leading-relaxed text-white sm:text-2xl">RANK</h1>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Link href="/deposit">
+                <span className="pixel-button inline-flex items-center gap-1.5 px-2.5 py-2 text-[8px]">
+                  <Coins className="h-3 w-3" /> ADD BALANCE
+                </span>
+              </Link>
+              <Link href="/orders">
+                <span className="pixel-button inline-flex items-center gap-1.5 px-2.5 py-2 text-[8px]">
+                  <ReceiptText className="h-3 w-3" /> ORDERS
+                </span>
+              </Link>
+            </div>
+          </div>
         </div>
 
         <div className="mb-6">

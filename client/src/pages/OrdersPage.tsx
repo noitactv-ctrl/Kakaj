@@ -3,7 +3,7 @@ import { useOrders } from "@/hooks/use-orders";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, CreditCard, ReceiptText } from "lucide-react";
+import { Loader2, CreditCard, ReceiptText, Coins, Crown } from "lucide-react";
 import { Link } from "wouter";
 
 type TabType = "all" | "cards" | "ach";
@@ -117,6 +117,18 @@ export default function OrdersPage() {
         <div>
           <h1 className="text-xl leading-relaxed text-white sm:text-2xl">ORDER HISTORY</h1>
           <p className="mt-2 font-mono text-[10px] text-white/45">{formatDateTime(now)}</p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link href="/deposit">
+            <span className="pixel-button inline-flex items-center gap-1.5 px-2.5 py-2 text-[8px]">
+              <Coins className="h-3 w-3" /> ADD BALANCE
+            </span>
+          </Link>
+          <Link href="/ranks">
+            <span className="pixel-button inline-flex items-center gap-1.5 px-2.5 py-2 text-[8px]">
+              <Crown className="h-3 w-3" /> RANKS
+            </span>
+          </Link>
         </div>
       </div>
 
