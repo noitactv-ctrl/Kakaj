@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Gift, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2, KeyRound, Landmark } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2, KeyRound, Landmark } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -1607,39 +1607,6 @@ function UsersSection() {
 
 function CodesSection() {
   const { toast } = useToast();
-  const [tab, setTab] = useState<"balance" | "discount">("discount");
-
-  // Balance codes state
-  const [amount, setAmount] = useState("");
-  const [count, setCount] = useState("1");
-  const [generated, setGenerated] = useState<string[]>([]);
-  const qc = useQueryClient();
-
-  const { data: balanceCodes, isLoading: balanceLoading } = useQuery<any[]>({
-    queryKey: ["/api/admin/codes"],
-  });
-
-  const generateMutation = useMutation({
-    mutationFn: async () => {
-      const amountCents = Math.round(parseFloat(amount) * 100);
-      if (isNaN(amountCents) || amountCents <= 0) throw new Error("Enter a valid amount");
-      const qty = parseInt(count) || 1;
-      if (qty < 1 || qty > 100) throw new Error("Quantity must be 1–100");
-      const res = await apiRequest("POST", "/api/admin/codes", { amount: amountCents, count: qty });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      setGenerated(data.codes || []);
-      qc.invalidateQueries({ queryKey: ["/api/admin/codes"] });
-      toast({ title: `${data.codes?.length || 0} code(s) generated` });
-    },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const copyAll = () => {
-    navigator.clipboard.writeText(generated.join("\n"));
-    toast({ title: "Copied all codes" });
-  };
 
   // Discount codes state
   const [dForm, setDForm] = useState({ code: "", type: "percent", value: "", minOrder: "", maxUses: "", expiresAt: "" });
@@ -1693,125 +1660,9 @@ function CodesSection() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Codes</h1>
+      <h1 className="text-2xl font-semibold">Coupons</h1>
 
-      {/* Tab toggle */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setTab("balance")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "balance"
-              ? "bg-primary text-white"
-              : "bg-[#0d0d0d] text-white/60 hover:bg-[#111]/5 hover:text-white/70"
-          }`}
-          data-testid="tab-balance-codes"
-        >
-          <Gift className="h-4 w-4" />
-          Balance Codes
-        </button>
-        <button
-          onClick={() => setTab("discount")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            tab === "discount"
-              ? "bg-primary text-white"
-              : "bg-[#0d0d0d] text-white/60 hover:bg-[#111]/5 hover:text-white/70"
-          }`}
-          data-testid="tab-discount-codes"
-        >
-          <Tag className="h-4 w-4" />
-          Discount Codes
-        </button>
-      </div>
-
-      {/* ── BALANCE CODES TAB ── */}
-      {tab === "balance" && (
-        <>
-          <Card className="bg-[#111] border-white/10">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Create Balance Code</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <p className="text-xs text-white/45">Amount ($)</p>
-                  <Input
-                    type="number" step="0.01" min="0.01" placeholder="e.g. 10.00"
-                    value={amount} onChange={e => setAmount(e.target.value)}
-                    className="bg-[#111]/5 border-white/10 h-9 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-white/45">Quantity (max 100)</p>
-                  <Input
-                    type="number" min="1" max="100" placeholder="1"
-                    value={count} onChange={e => setCount(e.target.value)}
-                    className="bg-[#111]/5 border-white/10 h-9 text-sm"
-                  />
-                </div>
-              </div>
-              <Button className="w-full gap-2" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>
-                {generateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Create Code
-              </Button>
-
-              {generated.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-white/45">Generated codes</p>
-                    <button onClick={copyAll} className="text-xs text-primary hover:opacity-80 transition-opacity">Copy All</button>
-                  </div>
-                  <div className="bg-[#111]/5 border border-white/10 rounded-lg p-3 space-y-1 max-h-48 overflow-y-auto">
-                    {generated.map((c) => (
-                      <div key={c} className="flex items-center justify-between group">
-                        <span className="text-xs font-mono text-green-400">{c}</span>
-                        <button
-                          onClick={() => { navigator.clipboard.writeText(c); toast({ title: "Copied" }); }}
-                          className="text-[10px] text-white/40 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
-                        >Copy</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-[#111] border-white/10">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Balance Codes ({balanceCodes?.length ?? 0})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {balanceLoading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-              ) : !balanceCodes?.length ? (
-                <p className="text-xs text-white/45 text-center py-8">No codes generated yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {balanceCodes.map((c: any) => (
-                    <div key={c.id} className="flex items-center justify-between bg-[#111]/5 border border-white/10 rounded-lg px-3 py-2.5">
-                      <div>
-                        <p className="text-sm font-bold text-white font-mono">{c.code}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs font-bold text-green-400">${(c.amount / 100).toFixed(2)}</span>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.isUsed ? "bg-[#0d0d0d] text-white/40" : "bg-green-500/20 text-green-400"}`}>
-                            {c.isUsed ? "Used" : "Available"}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[11px] text-white/40">{new Date(c.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      {/* ── DISCOUNT CODES TAB ── */}
-      {tab === "discount" && (
-        <>
-          <Card className="bg-[#111] border-white/10">
+      <Card className="bg-[#111] border-white/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Create Discount Code</CardTitle>
             </CardHeader>
@@ -1879,9 +1730,9 @@ function CodesSection() {
                 Create Code
               </Button>
             </CardContent>
-          </Card>
+      </Card>
 
-          <Card className="bg-[#111] border-white/10">
+      <Card className="bg-[#111] border-white/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Discount Codes ({discountList.length})</CardTitle>
             </CardHeader>
@@ -1925,9 +1776,7 @@ function CodesSection() {
                 </div>
               )}
             </CardContent>
-          </Card>
-        </>
-      )}
+      </Card>
     </div>
   );
 }
