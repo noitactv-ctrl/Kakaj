@@ -253,6 +253,7 @@ function DashboardSection() {
 }
 
 function DepositsSection() {
+  const { toast } = useToast();
   const { data: deposits, isLoading, refetch } = useQuery({
     queryKey: ["/api/admin/deposits"],
     queryFn: async () => {
@@ -262,10 +263,42 @@ function DepositsSection() {
     },
     refetchInterval: 30000,
   });
+  const approveMutation = useMutation({
+    mutationFn: async (orderId: number) => {
+      const res = await apiRequest("POST", `/api/admin/orders/${orderId}/manual-deposit-approve`, {});
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Unable to approve deposit");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", "manual-deposits"] });
+      toast({ title: "Deposit confirmed — balance credited" });
+    },
+    onError: (error: Error) => toast({ title: "Unable to approve deposit", description: error.message, variant: "destructive" }),
+  });
+  const markUnpaidMutation = useMutation({
+    mutationFn: async (orderId: number) => {
+      const res = await apiRequest("POST", `/api/admin/orders/${orderId}/manual-deposit-unpaid`, {});
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Unable to mark deposit unpaid");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", "manual-deposits"] });
+      toast({ title: "Deposit marked unpaid" });
+    },
+    onError: (error: Error) => toast({ title: "Unable to mark deposit unpaid", description: error.message, variant: "destructive" }),
+  });
 
   const statusBadge = (status: string, type: string) => {
     if (status === "fulfilled" || status === "delivering") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-mono">credited</span>;
-    if (status === "pending") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-mono">{type === "cashapp" ? "awaiting admin" : "pending"}</span>;
+    if (status === "pending") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-mono">{type === "crypto" ? "pending" : "awaiting admin"}</span>;
     if (status === "waiting_payment") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-mono">unpaid</span>;
     return <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#111]/5 text-white/45 font-mono">{status}</span>;
   };
@@ -275,7 +308,7 @@ function DepositsSection() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Deposits</h1>
-          <p className="text-sm text-muted-foreground mt-1">All crypto and CashApp deposits from all users</p>
+          <p className="text-sm text-muted-foreground mt-1">All crypto and manual deposits from all users</p>
         </div>
         <Button size="sm" variant="outline" className="text-xs border-white/10" onClick={() => refetch()}>Refresh</Button>
       </div>
@@ -295,6 +328,7 @@ function DepositsSection() {
                 <TableHead className="text-white/45 text-xs">Status</TableHead>
                 <TableHead className="text-white/45 text-xs">Note</TableHead>
                 <TableHead className="text-white/45 text-xs">Date</TableHead>
+                <TableHead className="text-white/45 text-xs text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -310,6 +344,31 @@ function DepositsSection() {
                   <TableCell>{statusBadge(d.status, d.type)}</TableCell>
                   <TableCell className="text-[10px] font-mono text-white/45">{d.paymentNote ?? "—"}</TableCell>
                   <TableCell className="text-[10px] text-white/45">{new Date(d.createdAt).toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    {d.type !== "crypto" && d.status === "pending" && d.orderId ? (
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => approveMutation.mutate(d.orderId)}
+                          disabled={approveMutation.isPending || markUnpaidMutation.isPending}
+                          className="h-7 bg-green-600 hover:bg-green-500 text-[10px]"
+                          data-testid={`button-approve-deposit-${d.orderId}`}
+                        >
+                          {approveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirm"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => markUnpaidMutation.mutate(d.orderId)}
+                          disabled={approveMutation.isPending || markUnpaidMutation.isPending}
+                          className="h-7 border-red-500/30 text-red-300 hover:bg-red-500/10 text-[10px]"
+                          data-testid={`button-unpaid-deposit-${d.orderId}`}
+                        >
+                          Unpaid
+                        </Button>
+                      </div>
+                    ) : <span className="text-xs text-white/25">—</span>}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1885,6 +1944,58 @@ function HandleSettingCard({ label, description, settingKey, placeholder, color 
   );
 }
 
+function PaymentDescriptionSettingCard({ method, label, color }: { method: "cashapp" | "chime" | "venmo" | "zelle"; label: string; color: string }) {
+  const { toast } = useToast();
+  const [input, setInput] = useState("");
+  const { data } = useQuery<{ description: string }>({
+    queryKey: [`/api/admin/settings/${method}-description`],
+  });
+  useEffect(() => {
+    if (data !== undefined) setInput(data.description ?? "");
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/admin/settings/${method}-description`, { description: input });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Unable to save description");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/settings/${method}-description`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/site-settings/manual-payments"] });
+      toast({ title: `${label} description saved` });
+    },
+    onError: (error: Error) => toast({ title: "Unable to save description", description: error.message, variant: "destructive" }),
+  });
+
+  return (
+    <Card className="bg-[#111] border-white/10">
+      <CardContent className="p-4 space-y-2">
+        <p className="font-bold text-sm" style={{ color }}>{label} customer description</p>
+        <p className="text-xs text-muted-foreground">Shown below this payment method on the top-up page.</p>
+        <Textarea
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          maxLength={160}
+          rows={2}
+          placeholder={`Instructions for customers paying with ${label}`}
+          className="resize-none bg-[#0d0d0d] border-white/10 text-white text-xs"
+          data-testid={`input-${method}-description`}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[10px] text-white/40">{input.length}/160</span>
+          <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid={`button-save-${method}-description`}>
+            {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save description"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function FeeSettingCard({ method, label, color }: { method: string; label: string; color: string }) {
   const { toast } = useToast();
   const [input, setInput] = useState("");
@@ -2171,6 +2282,7 @@ function IntegrationsSection() {
             placeholder="$YourCashTag"
             color="#00D632"
           />
+          <PaymentDescriptionSettingCard method="cashapp" label="CashApp" color="#00D632" />
           <MinDepositCard method="cashapp" label="CashApp" color="#00D632" />
           <FeeSettingCard method="cashapp" label="CashApp" color="#00D632" />
         </div>
@@ -2187,6 +2299,7 @@ function IntegrationsSection() {
             placeholder="@YourVenmo"
             color="#3D95CE"
           />
+          <PaymentDescriptionSettingCard method="venmo" label="Venmo" color="#3D95CE" />
           <MinDepositCard method="venmo" label="Venmo" color="#3D95CE" />
           <HandleSettingCard
             label="Zelle Handle"
@@ -2195,6 +2308,7 @@ function IntegrationsSection() {
             placeholder="+1 (555) 000-0000 or email"
             color="#9B59E8"
           />
+          <PaymentDescriptionSettingCard method="zelle" label="Zelle" color="#9B59E8" />
           <MinDepositCard method="zelle" label="Zelle" color="#9B59E8" />
           <FeeSettingCard method="zelle" label="Zelle" color="#9B59E8" />
           <HandleSettingCard
@@ -2204,6 +2318,7 @@ function IntegrationsSection() {
             placeholder="+1 (555) 000-0000"
             color="#7BC67E"
           />
+          <PaymentDescriptionSettingCard method="chime" label="Chime" color="#7BC67E" />
           <MinDepositCard method="chime" label="Chime" color="#7BC67E" />
           <FeeSettingCard method="chime" label="Chime" color="#7BC67E" />
         </div>
@@ -2511,6 +2626,7 @@ function FeatureTogglesCard() {
 
 function methodMeta(method: string) {
   if (method === "Chime") return { color: "#7BC67E", label: "Chime", icon: "C" };
+  if (method === "Venmo") return { color: "#3D95CE", label: "Venmo", icon: "V" };
   if (method === "Zelle") return { color: "#9B59E8", label: "Zelle", icon: "Z" };
   return { color: "#00D632", label: "CashApp", icon: "$" };
 }
@@ -2520,19 +2636,19 @@ function CashAppSection() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [paymentTypeFilter, setPaymentTypeFilter] = useState<"all" | "CashApp" | "Chime" | "Zelle">("all");
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<"all" | "CashApp" | "Chime" | "Venmo" | "Zelle">("all");
 
   const { data: allOrders, isLoading } = useQuery({
-    queryKey: ["/api/admin/orders"],
+    queryKey: ["/api/admin/orders", "manual-deposits"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/orders");
+      const res = await fetch("/api/admin/orders?includeManualDeposits=true");
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
     refetchInterval: 6000,
   });
 
-  const manualOrders = (allOrders || []).filter((o: any) => ["CashApp", "Chime", "Zelle"].includes(o.paymentMethod));
+  const manualOrders = (allOrders || []).filter((o: any) => ["CashApp", "Chime", "Venmo", "Zelle"].includes(o.paymentMethod));
   const pendingOrders = manualOrders.filter((o: any) => o.status === "pending");
   const cq = searchQuery.trim().toLowerCase();
   const typeFiltered = (showHistory ? manualOrders : pendingOrders).filter((o: any) =>
@@ -2547,30 +2663,39 @@ function CashAppSection() {
 
   const cashappCount = pendingOrders.filter((o: any) => o.paymentMethod === "CashApp").length;
   const chimeCount = pendingOrders.filter((o: any) => o.paymentMethod === "Chime").length;
+  const venmoCount = pendingOrders.filter((o: any) => o.paymentMethod === "Venmo").length;
   const zelleCount = pendingOrders.filter((o: any) => o.paymentMethod === "Zelle").length;
 
   const fulfillMutation = useMutation({
-    mutationFn: async (orderId: number) => {
-      const res = await apiRequest("POST", `/api/admin/orders/${orderId}/cashapp-fulfill`, {});
+    mutationFn: async ({ orderId, isDepositOnly }: { orderId: number; isDepositOnly: boolean }) => {
+      const endpoint = isDepositOnly
+        ? `/api/admin/orders/${orderId}/manual-deposit-approve`
+        : `/api/admin/orders/${orderId}/cashapp-fulfill`;
+      const res = await apiRequest("POST", endpoint, {});
       if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed"); }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", "manual-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/deposits"] });
       setSelectedOrder(null);
-      toast({ title: "Deposit confirmed — balance credited" });
+      toast({ title: variables.isDepositOnly ? "Deposit confirmed — balance credited" : "Payment confirmed — stock delivered" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const markUnpaidMutation = useMutation({
-    mutationFn: async (orderId: number) => {
-      const res = await apiRequest("POST", `/api/admin/orders/${orderId}/mark-unpaid`, {});
+    mutationFn: async ({ orderId, isDepositOnly }: { orderId: number; isDepositOnly: boolean }) => {
+      const endpoint = isDepositOnly
+        ? `/api/admin/orders/${orderId}/manual-deposit-unpaid`
+        : `/api/admin/orders/${orderId}/mark-unpaid`;
+      const res = await apiRequest("POST", endpoint, {});
       if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed"); }
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", "manual-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/deposits"] });
       setSelectedOrder(null);
       toast({ title: "Marked unpaid" });
     },
@@ -2591,6 +2716,7 @@ function CashAppSection() {
     }
     const groupedEntries = Object.entries(grouped);
     const isPending = current.status === "pending";
+    const isDepositOnly = !Array.isArray(current.items) || current.items.length === 0;
 
     return (
       <div className="space-y-4">
@@ -2601,7 +2727,7 @@ function CashAppSection() {
               <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white" style={{ background: meta.color }}>
                 {meta.icon}
               </div>
-              <h2 className="text-lg font-black text-white">{meta.label} Deposit</h2>
+              <h2 className="text-lg font-black text-white">{meta.label} {isDepositOnly ? "Deposit" : "Payment"}</h2>
             </div>
             <Badge className={statusBadgeClass(current.status)}>{statusLabel(current.status)}</Badge>
           </div>
@@ -2616,16 +2742,16 @@ function CashAppSection() {
               </div>
             )}
             <div>
-              <p className="text-[10px] text-white/45 mb-0.5">Amount to receive</p>
+              <p className="text-[10px] text-white/45 mb-0.5">{isDepositOnly ? "Amount to receive" : "Amount due"}</p>
               <p className="text-2xl font-black text-white">${(current.total / 100).toFixed(2)}</p>
-              <p className="text-[10px] text-white/40 font-mono mt-0.5">user specified this amount — confirm only if received exactly this</p>
+              <p className="text-[10px] text-white/40 font-mono mt-0.5">{isDepositOnly ? "user specified this amount — confirm only if received exactly this" : "confirm only after the customer payment is received"}</p>
             </div>
           </div>
 
           {isPending && (
             <div className="flex gap-3">
               <button
-                onClick={() => fulfillMutation.mutate(current.id)}
+                onClick={() => fulfillMutation.mutate({ orderId: current.id, isDepositOnly })}
                 disabled={fulfillMutation.isPending}
                 className="flex-1 h-11 rounded-xl text-white text-sm font-black transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: `${meta.color}30`, border: `1px solid ${meta.color}60` }}
@@ -2634,7 +2760,7 @@ function CashAppSection() {
                 {fulfillMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <>✓ Confirm Received</>}
               </button>
               <button
-                onClick={() => markUnpaidMutation.mutate(current.id)}
+                onClick={() => markUnpaidMutation.mutate({ orderId: current.id, isDepositOnly })}
                 disabled={markUnpaidMutation.isPending}
                 className="flex-1 h-11 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-black hover:bg-red-500/20 transition-colors disabled:opacity-50"
                 data-testid={`button-cashapp-unpaid-${current.id}`}
@@ -2686,6 +2812,7 @@ function CashAppSection() {
           { key: "all", label: "All", count: pendingOrders.length, color: "text-white/70" },
           { key: "CashApp", label: "CashApp", count: cashappCount, color: "text-[#00D632]" },
           { key: "Chime", label: "Chime", count: chimeCount, color: "text-[#7BC67E]" },
+          { key: "Venmo", label: "Venmo", count: venmoCount, color: "text-[#3D95CE]" },
           { key: "Zelle", label: "Zelle", count: zelleCount, color: "text-[#9B59E8]" },
         ].map(({ key, label, count, color }) => (
           <button

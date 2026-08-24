@@ -419,11 +419,11 @@ export async function registerRoutes(
         .orderBy(desc(cryptoPayments.createdAt))
         .limit(30);
 
-      // Manual deposit orders (CashApp, Chime, Zelle)
+      // Manual deposit orders
       const cashappRows = await db
         .select()
         .from(orders)
-        .where(and(eq(orders.userId, userId), sql`${orders.paymentMethod} IN ('CashApp','Chime','Zelle')`))
+        .where(and(eq(orders.userId, userId), sql`${orders.paymentMethod} IN ('CashApp','Chime','Venmo','Zelle')`))
         .orderBy(desc(orders.createdAt))
         .limit(30);
 
@@ -452,7 +452,7 @@ export async function registerRoutes(
 
       const cashappDeposits = depositOnlyCashapp.map(o => ({
         id: `cashapp_${o.id}`,
-        type: (o.paymentMethod?.toLowerCase() ?? "cashapp") as "cashapp" | "chime" | "zelle",
+        type: (o.paymentMethod?.toLowerCase() ?? "cashapp") as "cashapp" | "chime" | "venmo" | "zelle",
         amount: o.total,
         status: o.status,
         paymentNote: o.paymentNote,
@@ -495,7 +495,7 @@ export async function registerRoutes(
         })
         .from(orders)
         .leftJoin(users, eq(orders.userId, users.id))
-        .where(sql`${orders.paymentMethod} IN ('CashApp','Chime','Zelle')`)
+        .where(sql`${orders.paymentMethod} IN ('CashApp','Chime','Venmo','Zelle')`)
         .orderBy(desc(orders.createdAt))
         .limit(200);
 
@@ -518,6 +518,7 @@ export async function registerRoutes(
         ...depositOnlyCashapp.map(o => ({
           id: `cashapp_${o.id}`, type: o.paymentMethod?.toLowerCase() ?? "cashapp", username: o.username ?? "?",
           amount: o.total, status: o.status, paymentNote: o.paymentNote, createdAt: o.createdAt,
+          orderId: o.id,
         })),
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -1020,7 +1021,10 @@ export async function registerRoutes(
         ? true
         : !depositMethods.has(o.paymentMethod)
     );
-    res.json(productOrders);
+    const includeManualDeposits = req.query.includeManualDeposits === "true";
+    res.json(includeManualDeposits
+      ? allOrders.filter((o: any) => Array.isArray(o.items) && o.items.length > 0 || depositMethods.has(o.paymentMethod))
+      : productOrders);
   });
 
   // Admin/Worker - Get all users
@@ -2155,6 +2159,31 @@ export async function registerRoutes(
     res.json({ handle: handle.trim() });
   });
 
+  const manualDescriptionMethods = ["cashapp", "chime", "venmo", "zelle"] as const;
+  app.get("/api/admin/settings/:method-description", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
+    const method = String(req.params.method || "").toLowerCase();
+    if (!manualDescriptionMethods.includes(method as typeof manualDescriptionMethods[number])) {
+      return res.status(404).json({ message: "Unknown payment method" });
+    }
+    const description = await storage.getSetting(`${method}_description`, "");
+    res.json({ description });
+  });
+
+  app.post("/api/admin/settings/:method-description", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
+    const method = String(req.params.method || "").toLowerCase();
+    const { description } = req.body;
+    if (!manualDescriptionMethods.includes(method as typeof manualDescriptionMethods[number])) {
+      return res.status(404).json({ message: "Unknown payment method" });
+    }
+    if (typeof description !== "string" || description.trim().length > 160) {
+      return res.status(400).json({ message: "Description must be 160 characters or fewer" });
+    }
+    await storage.setSetting(`${method}_description`, description.trim());
+    res.json({ description: description.trim() });
+  });
+
   // ── Admin: Min deposit per payment method ──────────────────────────────────
   app.get("/api/admin/settings/min-deposits", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
@@ -2193,7 +2222,8 @@ export async function registerRoutes(
   // ── Public: manual payment methods config (for deposit page) ─────────────
   app.get("/api/site-settings/manual-payments", async (req, res) => {
     const [methods, cashappTag, chimeHandle, zelleHandle, venmoHandle,
-           cashappFee, chimeFee, zelleFee] = await Promise.all([
+           cashappFee, chimeFee, zelleFee, cashappDescription, chimeDescription,
+           zelleDescription, venmoDescription] = await Promise.all([
       storage.getPaymentMethodsConfig(),
       storage.getSetting("cashapp_tag", ""),
       storage.getSetting("chime_handle", ""),
@@ -2202,12 +2232,16 @@ export async function registerRoutes(
       storage.getSetting("cashapp_fee", "0"),
       storage.getSetting("chime_fee", "0"),
       storage.getSetting("zelle_fee", "0"),
+      storage.getSetting("cashapp_description", ""),
+      storage.getSetting("chime_description", ""),
+      storage.getSetting("zelle_description", ""),
+      storage.getSetting("venmo_description", ""),
     ]);
     res.json({
-      cashapp: { enabled: methods.cashapp === true && !!cashappTag.trim(), tag: cashappTag, url: getCashAppUrl(cashappTag), fee: parseFloat(cashappFee) || 0 },
-      chime:   { enabled: methods.chime === true && !!chimeHandle.trim(), handle: chimeHandle, fee: parseFloat(chimeFee) || 0 },
-      zelle:   { enabled: methods.zelle === true && !!zelleHandle.trim(), handle: zelleHandle, fee: parseFloat(zelleFee) || 0 },
-      venmo:   { enabled: methods.venmo === true && !!venmoHandle.trim(), handle: venmoHandle, fee: 0 },
+      cashapp: { enabled: methods.cashapp === true && !!cashappTag.trim(), tag: cashappTag, url: getCashAppUrl(cashappTag), fee: parseFloat(cashappFee) || 0, description: cashappDescription },
+      chime:   { enabled: methods.chime === true && !!chimeHandle.trim(), handle: chimeHandle, fee: parseFloat(chimeFee) || 0, description: chimeDescription },
+      zelle:   { enabled: methods.zelle === true && !!zelleHandle.trim(), handle: zelleHandle, fee: parseFloat(zelleFee) || 0, description: zelleDescription },
+      venmo:   { enabled: methods.venmo === true && !!venmoHandle.trim(), handle: venmoHandle, fee: 0, description: venmoDescription },
     });
   });
 
@@ -2392,6 +2426,37 @@ export async function registerRoutes(
         deliveryContent: "",
       }).returning();
       res.status(201).json({ order, paymentNote, handle });
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  // ── Admin: approve a manual deposit ──────────────────────────────────────
+  app.post("/api/admin/orders/:id/manual-deposit-approve", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const paidAmount = req.body.paidAmount !== undefined
+        ? Math.round(Number(req.body.paidAmount) * 100)
+        : undefined;
+      if (paidAmount !== undefined && (!Number.isSafeInteger(paidAmount) || paidAmount <= 0)) {
+        return res.status(400).json({ message: "Valid paid amount required" });
+      }
+      const order = await storage.approveManualDeposit(Number(req.params.id), paidAmount);
+      res.json(order);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/admin/orders/:id/manual-deposit-unpaid", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const order = await storage.markManualDepositUnpaid(Number(req.params.id));
+      res.json(order);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }

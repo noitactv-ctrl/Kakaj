@@ -129,6 +129,8 @@ export interface IStorage {
 
   // CashApp (with optional paidAmount)
   fulfillCashappOrder(orderId: number, paidAmount?: number): Promise<Order>;
+  approveManualDeposit(orderId: number, paidAmount?: number): Promise<Order>;
+  markManualDepositUnpaid(orderId: number): Promise<Order>;
 
   // Crypto Addresses
   getCryptoAddresses(userId: number): Promise<CryptoAddress[]>;
@@ -821,6 +823,72 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, orderId));
   }
 
+  async approveManualDeposit(orderId: number, paidAmount?: number): Promise<Order> {
+    return db.transaction(async (tx) => {
+      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) throw new Error("Order not found");
+      if (order.status !== "pending") throw new Error("Deposit is not in a payable state");
+
+      const manualMethods = ["CashApp", "Chime", "Venmo", "Zelle"];
+      if (!manualMethods.includes(order.paymentMethod || "")) {
+        throw new Error("Order is not a manual deposit");
+      }
+
+      const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+      if (items.length > 0) throw new Error("Order contains items and cannot be approved as a deposit");
+
+      const grossAmount = paidAmount ?? order.total;
+      if (!Number.isSafeInteger(grossAmount) || grossAmount <= 0) {
+        throw new Error("A valid paid amount is required");
+      }
+
+      const feeKey = order.paymentMethod === "CashApp" ? "cashapp_fee"
+        : order.paymentMethod === "Chime" ? "chime_fee"
+        : order.paymentMethod === "Zelle" ? "zelle_fee"
+        : null;
+      let feePct = 0;
+      if (feeKey) {
+        const [feeSetting] = await tx.select({ value: siteSettings.value })
+          .from(siteSettings)
+          .where(eq(siteSettings.key, feeKey));
+        feePct = parseFloat(feeSetting?.value || "0") || 0;
+      }
+
+      const credit = calculateDepositCredit(grossAmount, feePct);
+      const [approved] = await tx.update(orders)
+        .set({ status: "fulfilled", paidAmount: grossAmount, total: grossAmount })
+        .where(and(eq(orders.id, orderId), eq(orders.status, "pending")))
+        .returning();
+      if (!approved) throw new Error("Deposit was already handled");
+
+      await tx.update(users)
+        .set({ balance: sql`balance + ${credit.creditCents}` })
+        .where(eq(users.id, order.userId));
+
+      const feeNote = credit.feeCents > 0
+        ? ` (${feePct}% fee: -$${(credit.feeCents / 100).toFixed(2)})`
+        : "";
+      await tx.insert(transactions).values({
+        userId: order.userId,
+        amount: grossAmount - credit.feeCents,
+        type: "deposit",
+        description: `${order.paymentMethod} deposit confirmed (${order.orderId})${feeNote}`,
+        paymentMethod: order.paymentMethod,
+      });
+      if (credit.bonusCents > 0) {
+        await tx.insert(transactions).values({
+          userId: order.userId,
+          amount: credit.bonusCents,
+          type: "deposit_bonus",
+          description: `Deposit bonus (+${credit.bonusPercent}%)`,
+          paymentMethod: order.paymentMethod,
+        });
+      }
+
+      return approved;
+    });
+  }
+
   async fulfillCashappOrder(orderId: number, paidAmount?: number): Promise<Order> {
     const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
     if (!order) throw new Error("Order not found");
@@ -829,6 +897,9 @@ export class DatabaseStorage implements IStorage {
     }
 
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    if (items.length === 0) {
+      return this.approveManualDeposit(orderId, paidAmount);
+    }
     const deliveryParts: Record<string, string[]> = {};
 
     for (const item of items) {
@@ -866,49 +937,6 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Deposit-only order (no items) — credit user's wallet balance with paidAmount
-    if (items.length === 0) {
-      const grossAmount = paidAmount !== undefined ? paidAmount : order.total;
-      // Apply configured fee for manual payment methods (CashApp, Chime, Zelle)
-      let feeRate = 0;
-      const manualMethods = ["CashApp", "Chime", "Zelle"];
-      if (manualMethods.includes(order.paymentMethod || "")) {
-        const feeKey = order.paymentMethod === "CashApp" ? "cashapp_fee"
-          : order.paymentMethod === "Chime" ? "chime_fee" : "zelle_fee";
-        const feePct = parseFloat(await this.getSetting(feeKey, "0")) || 0;
-        feeRate = feePct / 100;
-      }
-      const credit = calculateDepositCredit(grossAmount, feeRate * 100);
-      const creditAmount = credit.creditCents;
-      const feeAmount = credit.feeCents;
-      await db.update(users)
-        .set({ balance: sql`balance + ${creditAmount}` })
-        .where(eq(users.id, order.userId));
-      const feePct = Math.round(feeRate * 10000) / 100;
-      const feeNote = feeAmount > 0 ? ` (${feePct}% fee: -$${(feeAmount/100).toFixed(2)})` : "";
-      await db.insert(transactions).values({
-        userId: order.userId,
-        amount: grossAmount - feeAmount,
-        type: "deposit",
-        description: `${order.paymentMethod || "Manual"} deposit confirmed (${order.orderId})${feeNote}`,
-        paymentMethod: order.paymentMethod || "CashApp",
-      });
-      if (credit.bonusCents > 0) {
-        await db.insert(transactions).values({
-          userId: order.userId,
-          amount: credit.bonusCents,
-          type: "deposit_bonus",
-          description: `Deposit bonus (+${credit.bonusPercent}%)`,
-          paymentMethod: order.paymentMethod || "CashApp",
-        });
-      }
-      const [updated] = await db.update(orders)
-        .set({ status: "fulfilled", paidAmount: grossAmount, total: grossAmount })
-        .where(eq(orders.id, orderId))
-        .returning();
-      return updated;
-    }
-
     const deliveryContent = JSON.stringify(
       Object.fromEntries(Object.entries(deliveryParts).map(([k, v]) => [k, v.join("\n\n")]))
     );
@@ -917,6 +945,30 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, orderId))
       .returning();
     return updated;
+  }
+
+  async markManualDepositUnpaid(orderId: number): Promise<Order> {
+    return db.transaction(async (tx) => {
+      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) throw new Error("Order not found");
+      if (order.status !== "pending") throw new Error("Deposit is not pending");
+      if (!["CashApp", "Chime", "Venmo", "Zelle"].includes(order.paymentMethod || "")) {
+        throw new Error("Order is not a manual deposit");
+      }
+
+      const items = await tx.select({ id: orderItems.id })
+        .from(orderItems)
+        .where(eq(orderItems.orderId, orderId))
+        .limit(1);
+      if (items.length > 0) throw new Error("Order contains items and cannot be marked as an unpaid deposit");
+
+      const [updated] = await tx.update(orders)
+        .set({ status: "waiting_payment" })
+        .where(and(eq(orders.id, orderId), eq(orders.status, "pending")))
+        .returning();
+      if (!updated) throw new Error("Deposit was already handled");
+      return updated;
+    });
   }
 
   async getCryptoAddresses(userId: number): Promise<CryptoAddress[]> {
@@ -971,14 +1023,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async markOrderUnpaid(orderId: number): Promise<Order> {
-    // Release held stock back to available
-    await this.releaseHeldStock(orderId);
-    const [updated] = await db.update(orders)
-      .set({ status: "waiting_payment" })
-      .where(eq(orders.id, orderId))
-      .returning();
-    if (!updated) throw new Error("Order not found");
-    return updated;
+    return db.transaction(async (tx) => {
+      const [updated] = await tx.update(orders)
+        .set({ status: "waiting_payment" })
+        .where(and(eq(orders.id, orderId), eq(orders.status, "pending")))
+        .returning();
+      if (!updated) {
+        const [existing] = await tx.select({ id: orders.id }).from(orders).where(eq(orders.id, orderId));
+        if (!existing) throw new Error("Order not found");
+        throw new Error("Order is not pending");
+      }
+
+      await tx.update(stockItems)
+        .set({ isReserved: false, orderId: null })
+        .where(and(eq(stockItems.orderId, orderId), eq(stockItems.isReserved, true), eq(stockItems.isSold, false)));
+      return updated;
+    });
   }
 
   async cancelPendingOrder(orderId: number): Promise<void> {
