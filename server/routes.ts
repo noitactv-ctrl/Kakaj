@@ -9,7 +9,7 @@ import { createPlisioInvoice, mapPlisioStatus, PlisioInvoiceCreationError, verif
 import { applyPlisioPaymentStatus } from "./crypto-settlement";
 import { hashPassword, comparePassword } from "./auth";
 import { randomInt, randomUUID } from "crypto";
-import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, achs, bankRoutingItems, products, redeemCodes } from "@shared/schema";
+import { cryptoPayments, orders, orderItems, variants, userIps, users, mails, mailReads, discountCodes, transactions, stockItems, cards, bankRoutingItems, products, redeemCodes } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, ne, desc, sql, inArray } from "drizzle-orm";
 import { calculateDepositCredit } from "@shared/deposit";
@@ -2489,99 +2489,6 @@ export async function registerRoutes(
       "user1@email.com\npass1\nextra_info1\n\nuser2@email.com\npass2\nextra_info2"
     );
   }
-
-  // ── ACH ──────────────────────────────────────────────────────
-  app.get("/api/ach", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const { rows } = await db.execute(sql`
-      SELECT a.id, a.bank_name, a.balance, a.price, a.is_sold, a.seller_id, a.created_at
-      FROM achs a
-      WHERE a.is_sold = false
-      ORDER BY a.created_at DESC
-    `) as any;
-    res.json(rows.map((r: any) => ({
-      id: r.id, bankName: r.bank_name, balance: r.balance,
-      price: r.price, isSold: r.is_sold, sellerId: r.seller_id, createdAt: r.created_at,
-    })));
-  });
-
-  app.post("/api/ach", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
-      return res.status(403).json({ message: "Unauthorized" });
-    }
-    const { bankName, balance, fullItem, price } = req.body;
-    if (!bankName || !balance || !fullItem || !price) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
-    const ach = await storage.createAch({
-      bankName: String(bankName).trim(),
-      balance: String(balance).trim(),
-      fullItem: String(fullItem).trim(),
-      price: Math.round(parseFloat(String(price)) * 100),
-    });
-    res.status(201).json(ach);
-  });
-
-  app.post("/api/ach/:id/purchase", async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    try {
-      const achId = Number(req.params.id);
-      const userId = (req.user as any).id;
-      const ach = await storage.getAch(achId);
-      if (!ach || ach.isSold) return res.status(404).json({ message: "ACH not found or sold" });
-
-      // Apply rank discount
-      const rankResult = await db.select({ total: sql<number>`COALESCE(SUM(amount), 0)` })
-        .from(transactions)
-        .where(and(eq(transactions.userId, userId), sql`amount > 0`, sql`type IN ('deposit', 'manual_deposit')`));
-      const totalDeposited = Number(rankResult[0]?.total ?? 0);
-      const rankPct = totalDeposited >= 100000 ? 10 : totalDeposited >= 50000 ? 5 : totalDeposited >= 10000 ? 2 : 0;
-      const finalPrice = rankPct > 0 ? Math.max(0, Math.round(ach.price * (1 - rankPct / 100))) : ach.price;
-
-      const user = await storage.getUser(userId);
-      if (!user || user.balance < finalPrice) {
-        return res.status(400).json({ message: "Insufficient balance" });
-      }
-
-      await storage.updateUserBalance(userId, -finalPrice);
-      await storage.createTransaction(userId, -finalPrice, "purchase", `Purchased ACH: ${ach.bankName}`);
-
-      await storage.purchaseAch(achId);
-
-      const publicOrderId = Math.random().toString(36).substring(2, 15);
-      const [achOrder] = await db.insert(orders).values({
-        userId,
-        orderId: `ACH-${publicOrderId}`,
-        total: finalPrice,
-        paidAmount: finalPrice,
-        status: "fulfilled",
-        deliveryContent: ach.fullItem,
-        paymentMethod: "wallet",
-      }).returning();
-
-      // Insert order item so the products tab is populated
-      await db.insert(orderItems).values({
-        orderId: achOrder.id,
-        variantId: null,
-        cardId: null,
-        itemType: "ach",
-        price: ach.price,
-        quantity: 1,
-      });
-
-      res.json({ success: true, deliveryContent: ach.fullItem });
-    } catch (e: any) {
-      res.status(400).json({ message: e.message });
-    }
-  });
-
-  app.delete("/api/admin/ach/:id", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
-      return res.status(403).json({ message: "Unauthorized" });
-    }
-    await storage.deleteAch(Number(req.params.id));
-    res.json({ success: true });
-  });
 
   // ── Public Bank Routing Catalog ──────────────────────────────
   const routingInputSchema = z.object({

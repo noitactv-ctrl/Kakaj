@@ -28,7 +28,6 @@ const adminSections = [
   { id: "products",  label: "Products",  Icon: Package },
   { id: "cards", label: "Cards",      Icon: CreditCard },
   { id: "routings", label: "Bank", Icon: Landmark },
-  { id: "ach",      label: "ACH",       Icon: Wallet },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
@@ -141,7 +140,6 @@ export default function AdminPage() {
             {activeSection === "products"     && <ProductsSection />}
             {activeSection === "cards"        && <AdminCardsSection />}
             {activeSection === "routings"     && <AdminRoutingSection />}
-            {activeSection === "ach"          && <AdminAchSection />}
             {activeSection === "orders"       && <OrdersSection />}
             {activeSection === "cashapp"      && <CashAppSection />}
             {activeSection === "users"        && <UsersSection canManageStaff={isOwner} />}
@@ -3177,129 +3175,6 @@ function AdminCardsSection() {
       )}
 
       {tab === "bases" && <AdminBasesTab />}
-    </div>
-  );
-}
-
-function AdminAchSection() {
-  const { toast } = useToast();
-  const qc = queryClient;
-  const [bankName, setBankName] = useState("");
-  const [balance, setBalance] = useState("");
-  const [fullItem, setFullItem] = useState("");
-  const [price, setPrice] = useState("");
-
-  const { data: achList, isLoading } = useQuery<any[]>({ queryKey: ["/api/ach"] });
-
-  const addMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/ach", { bankName, balance, fullItem, price });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.message || "Failed"); }
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/ach"] });
-      setBankName(""); setBalance(""); setFullItem(""); setPrice("");
-      toast({ title: "ACH added" });
-    },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/admin/ach/${id}`);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/ach"] });
-      toast({ title: "ACH deleted" });
-    },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
-  return (
-    <div className="space-y-5">
-      <h2 className="text-base font-bold text-white">ACH Management</h2>
-
-      <div className="bg-[#111] border border-white/10 rounded-xl p-4 space-y-3">
-        <p className="text-xs font-bold text-white/45 uppercase tracking-widest">Add ACH</p>
-
-        <div className="space-y-1">
-          <label className="text-[10px] text-white/45 uppercase tracking-widest">Bank</label>
-          <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="Chase, Wells Fargo..." className="bg-[#111]/5 border-white/10" data-testid="input-ach-bank" />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-[10px] text-white/45 uppercase tracking-widest">Balance</label>
-          <div className="flex items-center bg-[#111]/5 border border-white/10 rounded-md overflow-hidden">
-            <span className="pl-3 pr-1 text-sm text-white/45 font-mono select-none">$</span>
-            <input
-              value={balance}
-              onChange={e => setBalance(e.target.value.replace(/[^0-9,.\-]/g, ""))}
-              placeholder="4,990 or 3,298.09"
-              type="text"
-              inputMode="decimal"
-              className="flex-1 bg-transparent py-2 pr-3 text-sm text-white font-mono outline-none placeholder:text-white/30"
-              data-testid="input-ach-balance"
-            />
-          </div>
-          <p className="text-[10px] text-white/40">e.g. 4,990 or 3,298.09 — $ is added automatically</p>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-[10px] text-white/45 uppercase tracking-widest">Full Item</label>
-          <textarea
-            value={fullItem}
-            onChange={e => setFullItem(e.target.value)}
-            placeholder={"routing|account|name|address"}
-            rows={3}
-            className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
-            data-testid="input-ach-full-item"
-          />
-          <p className="text-[9px] text-white/30">only shown to buyer after purchase</p>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-[10px] text-white/45 uppercase tracking-widest">Price ($)</label>
-          <Input value={price} onChange={e => setPrice(e.target.value)} placeholder="10.00" type="number" step="0.01" className="bg-[#111]/5 border-white/10" data-testid="input-ach-price" />
-        </div>
-
-        <Button
-          onClick={() => addMutation.mutate()}
-          disabled={addMutation.isPending || !bankName || !balance || !fullItem || !price}
-          size="sm"
-          className="w-full h-8 text-xs"
-          data-testid="btn-add-ach"
-        >
-          {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add ACH"}
-        </Button>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-xs text-white/40">{(achList ?? []).length} ACH total</p>
-        {isLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-        ) : (
-          (achList ?? []).map((a: any) => (
-            <div key={a.id} className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between">
-              <div className="space-y-0.5 min-w-0 flex-1">
-                <p className="text-sm font-bold text-white">{a.bankName}</p>
-                <p className="text-[10px] text-white/40 font-mono">{a.balance}</p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0 ml-2">
-                <span className="font-mono text-sm text-white">${(a.price / 100).toFixed(2)}</span>
-                <button
-                  onClick={() => deleteMutation.mutate(a.id)}
-                  disabled={deleteMutation.isPending}
-                  className="text-white/30 hover:text-destructive transition-colors"
-                  data-testid={`btn-delete-ach-${a.id}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 }
