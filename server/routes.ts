@@ -1415,6 +1415,10 @@ export async function registerRoutes(
     })));
   });
 
+  app.post("/api/cards", (_req, res) => {
+    res.status(410).json({ message: "Card intake is no longer available." });
+  });
+
   app.post("/api/cards", async (req, res) => {
     if (!req.isAuthenticated() || ((req.user as any).role !== 'admin' && !(req.user as any).isWorker)) {
       return res.status(401).json({ message: "Unauthorized" });
