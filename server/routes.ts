@@ -112,7 +112,13 @@ async function getEnabledCryptoCurrency(currencyCode: unknown) {
 
 async function getCryptoReadiness() {
   const methods = await storage.getPaymentMethodsConfig();
-  const hasApiKey = Boolean(await getRuntimeSetting("plisio_api_key"));
+  let hasApiKey = false;
+  try {
+    hasApiKey = Boolean(await getRuntimeSetting("plisio_api_key"));
+  } catch {
+    // A stale encrypted value must not break the public storefront. The admin
+    // can replace the provider setting without exposing its previous value.
+  }
   let hasTrustedPublicUrl = false;
   try {
     await getPlisioPublicAppUrl();

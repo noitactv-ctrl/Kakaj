@@ -5,6 +5,8 @@ import { applyPlisioPaymentStatus } from "./crypto-settlement";
 import { findPlisioOperationsByOrderNumbers, mapPlisioStatus } from "./plisio";
 import { getRuntimeSetting } from "./settings";
 
+let hasLoggedUnavailableProviderKey = false;
+
 function merchantOrderNumber(metadata: string | null): string | null {
   if (!metadata) return null;
   try {
@@ -32,7 +34,18 @@ function requestedCurrency(metadata: string | null): string | null {
  * terminally failing the local payment.
  */
 export async function reconcilePlisioIntents(): Promise<void> {
-  if (!(await getRuntimeSetting("plisio_api_key"))) return;
+  try {
+    if (!(await getRuntimeSetting("plisio_api_key"))) return;
+    hasLoggedUnavailableProviderKey = false;
+  } catch (error) {
+    // Keep a bad or stale encrypted provider setting from turning the periodic
+    // reconciliation job into a stream of unhandled runtime errors.
+    if (!hasLoggedUnavailableProviderKey) {
+      console.warn("[plisio-reconciler] Provider key is unavailable; reconciliation is paused.");
+      hasLoggedUnavailableProviderKey = true;
+    }
+    return;
+  }
 
   const intents = await db
     .select()

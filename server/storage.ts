@@ -767,11 +767,11 @@ export class DatabaseStorage implements IStorage {
     return order;
   }
 
-  async fulfillPendingOrder(orderId: number): Promise<void> {
-    await db.transaction(async (tx) => {
+  async fulfillPendingOrder(orderId: number): Promise<Order> {
+    return db.transaction(async (tx) => {
       const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
       if (!order) throw new Error("Order not found");
-      if (order.status !== "pending") return;
+      if (order.status !== "pending") throw new Error("Order is not in a payable state");
 
       const items = await tx.select().from(orderItems)
         .where(eq(orderItems.orderId, orderId))
@@ -809,9 +809,12 @@ export class DatabaseStorage implements IStorage {
       }
 
       const deliveryContent = serializeDeliveryParts(deliveryParts);
-      await tx.update(orders)
+      const [updated] = await tx.update(orders)
         .set({ status: "delivering", deliveryContent, paidAmount: order.total })
-        .where(and(eq(orders.id, orderId), eq(orders.status, "pending")));
+        .where(and(eq(orders.id, orderId), eq(orders.status, "pending")))
+        .returning();
+      if (!updated) throw new Error("Order is not in a payable state");
+      return updated;
     });
   }
 
@@ -986,49 +989,57 @@ export class DatabaseStorage implements IStorage {
   }
 
   async replaceOrder(orderId: number): Promise<Order> {
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-    if (!order) throw new Error("Order not found");
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-    const replacementParts: DeliveryParts = {};
-
-    for (const item of items) {
-      if (!item.variantId) continue;
-      const [variant] = await db.select().from(variants).where(eq(variants.id, item.variantId));
-      if (!variant) continue;
-      const key = String(item.variantId);
-      for (let i = 0; i < (item.quantity ?? 1); i++) {
-        const stock = await this.reserveStockItem(item.variantId);
-        if (!stock) throw new Error(`No replacement stock available for ${variant.name}`);
-        appendUniqueDeliveryContent(replacementParts, key, stock.content);
+    return db.transaction(async (tx) => {
+      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) throw new Error("Order not found");
+      if (!["delivering", "fulfilled", "replaced"].includes(order.status)) {
+        throw new Error("Only delivered orders can be replaced");
       }
-    }
 
-    // Preserve each delivered record as a whole value so replacements can be
-    // compared without splitting or changing a seller's original text.
-    const legacyDeliveryKey = "__order_delivery";
-    let existing: Record<string, unknown> = {};
-    try {
-      const parsed = JSON.parse(order.deliveryContent || "{}");
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) existing = parsed;
-    } catch {
-      if (order.deliveryContent) existing = { [legacyDeliveryKey]: order.deliveryContent };
-    }
-    const merged: DeliveryParts = {};
-    for (const [key, value] of Object.entries(existing)) {
-      if (Array.isArray(value)) {
-        for (const record of value) appendUniqueDeliveryContent(merged, key, typeof record === "string" ? record : "");
-      } else if (typeof value === "string") {
-        appendUniqueDeliveryContent(merged, key, value);
+      const items = await tx.select().from(orderItems)
+        .where(eq(orderItems.orderId, orderId))
+        .orderBy(asc(orderItems.id));
+      const productItems = items.filter((item) => item.itemType === "product" && item.variantId && item.stockItemId);
+      if (productItems.length === 0) {
+        throw new Error("This order has no product stock to replace");
       }
-    }
-    for (const [key, values] of Object.entries(replacementParts)) {
-      for (const value of values) appendUniqueDeliveryContent(merged, key, value);
-    }
-    const [updated] = await db.update(orders)
-      .set({ status: "replaced", deliveryContent: serializeDeliveryParts(merged) })
-      .where(eq(orders.id, orderId))
-      .returning();
-    return updated;
+
+      const replacementParts: DeliveryParts = {};
+      for (const item of productItems) {
+        const result = await tx.execute(sql`
+          UPDATE stock_items
+          SET is_sold = true,
+              is_reserved = false,
+              order_id = ${order.id},
+              replacement_for_id = ${item.stockItemId}
+          WHERE id = (
+            SELECT id
+            FROM stock_items
+            WHERE variant_id = ${item.variantId}
+              AND is_sold = false
+              AND is_reserved = false
+            ORDER BY id
+            LIMIT 1
+            FOR UPDATE SKIP LOCKED
+          )
+          RETURNING *
+        `);
+        const replacement = result.rows[0] as StockItem | undefined;
+        if (!replacement) throw new Error("No replacement stock is available for this order");
+
+        await tx.update(orderItems)
+          .set({ stockItemId: replacement.id })
+          .where(eq(orderItems.id, item.id));
+        appendUniqueDeliveryContent(replacementParts, String(item.variantId), replacement.content);
+      }
+
+      const [updated] = await tx.update(orders)
+        .set({ status: "replaced", deliveryContent: serializeDeliveryParts(replacementParts) })
+        .where(eq(orders.id, orderId))
+        .returning();
+      if (!updated) throw new Error("Order could not be updated");
+      return updated;
+    });
   }
 
   async markOrderUnpaid(orderId: number): Promise<Order> {
@@ -1091,13 +1102,18 @@ export class DatabaseStorage implements IStorage {
     
     const result = [];
     for (const o of userOrders) {
+      const mayViewDelivery = ["delivering", "fulfilled", "replaced"].includes(o.status);
       const oItems = await db.select().from(orderItems).where(eq(orderItems.orderId, o.id));
       const itemsWithDetails = [];
       for (const i of oItems) {
-        const [stockItem] = i.stockItemId ? await db.select().from(stockItems).where(eq(stockItems.id, i.stockItemId)) : [undefined];
+        const [stockItem] = mayViewDelivery && i.stockItemId
+          ? await db.select().from(stockItems).where(eq(stockItems.id, i.stockItemId))
+          : [undefined];
         const [variant] = i.variantId ? await db.select().from(variants).where(eq(variants.id, i.variantId)) : [undefined];
         const [product] = variant?.productId ? await db.select().from(products).where(eq(products.id, variant.productId)) : [undefined];
-        const [card] = i.cardId ? await db.select().from(cards).where(eq(cards.id, i.cardId)) : [undefined];
+        const [card] = mayViewDelivery && i.cardId
+          ? await db.select().from(cards).where(eq(cards.id, i.cardId))
+          : [undefined];
         itemsWithDetails.push({ ...i, stockItem: stockItem || null, variant: variant || null, card: card || null, productName: product?.name || null });
       }
       result.push({ ...o, items: itemsWithDetails });
@@ -1109,12 +1125,17 @@ export class DatabaseStorage implements IStorage {
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
     if (!order) return undefined;
 
+    const mayViewDelivery = ["delivering", "fulfilled", "replaced"].includes(order.status);
     const oItems = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
     const itemsWithDetails = [];
     for (const i of oItems) {
-      const [stockItem] = i.stockItemId ? await db.select().from(stockItems).where(eq(stockItems.id, i.stockItemId)) : [undefined];
+      const [stockItem] = mayViewDelivery && i.stockItemId
+        ? await db.select().from(stockItems).where(eq(stockItems.id, i.stockItemId))
+        : [undefined];
       const [variant] = i.variantId ? await db.select().from(variants).where(eq(variants.id, i.variantId)) : [undefined];
-      const [card] = i.cardId ? await db.select().from(cards).where(eq(cards.id, i.cardId)) : [undefined];
+      const [card] = mayViewDelivery && i.cardId
+        ? await db.select().from(cards).where(eq(cards.id, i.cardId))
+        : [undefined];
       itemsWithDetails.push({ ...i, stockItem: stockItem || null, variant: variant || null, card: card || null });
     }
     
@@ -1185,12 +1206,10 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async updateOrderDelivery(orderId: number, deliveryContent: string): Promise<Order> {
-    const [order] = await db.update(orders).set({
-      deliveryContent,
-      status: "fulfilled" as any
-    }).where(eq(orders.id, orderId)).returning();
-    return order;
+  async updateOrderDelivery(orderId: number, _deliveryContent: string): Promise<Order> {
+    // Delivery data must always be generated from the exact stock IDs assigned
+    // to this order. Never let an admin request inject unrelated inventory.
+    return this.fulfillPendingOrder(orderId);
   }
 
   async createTransaction(userId: number, amount: number, type: string, description: string): Promise<Transaction> {
