@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, BadgeCheck, Code2, KeyRound, Landmark } from "lucide-react";
+ import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, Code2, KeyRound, Landmark } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -34,7 +34,6 @@ const adminSections = [
   { id: "deposits", label: "Deposits",   Icon: Wallet },
   { id: "codes",    label: "Coupons",    Icon: Tag },
   { id: "users",    label: "Users",      Icon: Users },
-  { id: "sellers",  label: "Sellers",    Icon: BadgeCheck },
   { id: "support",  label: "Support",    Icon: MessageSquare },
   { id: "integrations", label: "Settings", Icon: Settings },
 ];
@@ -146,7 +145,6 @@ export default function AdminPage() {
             {activeSection === "orders"       && <OrdersSection />}
             {activeSection === "cashapp"      && <CashAppSection />}
             {activeSection === "users"        && <UsersSection canManageStaff={isOwner} />}
-            {activeSection === "sellers"      && <SellersSection />}
             {activeSection === "support"      && <SupportSection />}
             {activeSection === "deposits"     && <DepositsSection />}
             {activeSection === "codes"        && <CodesSection />}
@@ -2468,12 +2466,12 @@ function ApiSecretsSettings() {
 
 function FeatureTogglesCard() {
   const { toast } = useToast();
-  const { data: features, isLoading: featuresLoading } = useQuery<{ reseller: boolean; ranks: boolean; logs: boolean; cards: boolean }>({
+  const { data: features, isLoading: featuresLoading } = useQuery<{ ranks: boolean; logs: boolean; cards: boolean }>({
     queryKey: ["/api/settings/features"],
   });
 
   const toggleFeature = useMutation({
-    mutationFn: async (body: { reseller?: boolean; ranks?: boolean; logs?: boolean; cards?: boolean }) => {
+    mutationFn: async (body: { ranks?: boolean; logs?: boolean; cards?: boolean }) => {
       const res = await apiRequest("POST", "/api/admin/settings/features", body);
       return res.json();
     },
@@ -2487,7 +2485,6 @@ function FeatureTogglesCard() {
   const FEATURES = [
     { key: "ranks" as const, label: "Ranks", desc: "Show/hide the Ranks page and nav link" },
     { key: "cards" as const, label: "Cards", desc: "Show/hide the Cards page and nav link" },
-    { key: "reseller" as const, label: "Become Reseller", desc: "Show/hide the Reseller application page" },
   ];
 
   return (

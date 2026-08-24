@@ -1,14 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 
 export type FeatureVisibility = {
-  reseller: boolean;
   ranks: boolean;
   logs: boolean;
   cards: boolean;
 };
 
 const defaultFeatures: FeatureVisibility = {
-  reseller: true,
   ranks: true,
   logs: true,
   cards: true,
