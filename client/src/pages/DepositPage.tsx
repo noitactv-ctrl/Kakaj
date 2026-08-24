@@ -46,12 +46,12 @@ function methodLabel(type: string) {
 
 function StatusBadge({ status }: { status: string }) {
   if (["completed","delivering","fulfilled"].includes(status))
-    return <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-green-400"><CheckCircle2 className="h-3 w-3" />Balance credited</span>;
+    return <span className="flex items-center gap-1 text-[10px] font-mono text-green-400"><CheckCircle2 className="h-3 w-3" />credited</span>;
   if (["failed","expired"].includes(status))
-    return <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-red-400/70"><XCircle className="h-3 w-3" />{status === "expired" ? "Expired" : "Payment failed"}</span>;
+    return <span className="flex items-center gap-1 text-[10px] font-mono text-red-400/70"><XCircle className="h-3 w-3" />{status}</span>;
   if (status === "underpaid")
-    return <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-yellow-400/70"><AlertTriangle className="h-3 w-3" />Amount too low</span>;
-  return <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-white/45 animate-pulse"><Clock className="h-3 w-3" />Waiting for payment</span>;
+    return <span className="flex items-center gap-1 text-[10px] font-mono text-yellow-400/70"><AlertTriangle className="h-3 w-3" />underpaid</span>;
+  return <span className="flex items-center gap-1 text-[10px] font-mono text-white/30 animate-pulse"><Clock className="h-3 w-3" />pending</span>;
 }
 
 function DepositRow({ deposit }: { deposit: Deposit }) {
@@ -74,7 +74,7 @@ function DepositRow({ deposit }: { deposit: Deposit }) {
             </span>
             <StatusBadge status={deposit.status} />
           </div>
-        <p className="text-[9px] text-white/35 font-mono">
+          <p className="text-[9px] text-white/20 font-mono">
             {methodLabel(deposit.type)}{deposit.type === "crypto" && deposit.currency ? ` · ${deposit.currency}` : ""} · {new Date(deposit.createdAt).toLocaleDateString()}
           </p>
         </div>
@@ -112,9 +112,9 @@ function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset
             <p className="mt-1 font-mono text-[10px] text-white/70">Note: {result.note}</p>
           </div>
         )}
-        <p className="text-[10px] text-white/45 font-mono text-center">Include the exact note. An admin will confirm your payment and credit your balance.</p>
+        <p className="text-[10px] text-white/20 font-mono text-center">include the exact note · admin will confirm and credit balance</p>
         <button onClick={onReset} className="w-full text-[11px] text-white/25 hover:text-white/50 transition-colors font-mono pt-1" data-testid="btn-new-deposit">
-          ← Start a new deposit
+          ← create new deposit
         </button>
       </div>
     </div>
@@ -323,7 +323,7 @@ export default function DepositPage() {
         ) : (
           <div className="pixel-panel space-y-4 bg-[#10215e] p-4 sm:p-5">
             <div className="space-y-2">
-                  <p className="pixel-label">ADD FUNDS TO YOUR BALANCE</p>
+              <p className="pixel-label">ENTER AMOUNT</p>
               <input
                  type="text"
                  inputMode="decimal"
@@ -337,22 +337,22 @@ export default function DepositPage() {
               {selectedOption ? (
                 <p className="font-mono text-[10px] leading-relaxed text-[#abbceb]">
                   {selectedOption === "crypto"
-                     ? `Minimum $${selectedMinimum.toFixed(2)}. Send the exact crypto amount shown after you continue — not the USD amount.`
-                     : `Minimum deposit: $${selectedMinimum.toFixed(2)} for ${selected?.label ?? "this method"}.`}
+                    ? `Minimum $${selectedMinimum.toFixed(2)} for ${selectedCrypto?.ticker ?? "crypto"} (${selectedCrypto?.name ?? "Crypto"}). You must send the exact crypto amount shown (not USD). Wrong amount = no credit.`
+                    : `Minimum $${selectedMinimum.toFixed(2)} for ${selected?.label ?? "this method"}.`}
                 </p>
               ) : (
                 <p className="font-mono text-[10px] text-[#abbceb]">Pick a payment method below — your balance credits automatically.</p>
               )}
               {selectedOption && amountCents >= Math.round(selectedMinimum * 100) && (
                 <div className="flex items-center justify-between border-[3px] border-black bg-[#0a1645] px-3 py-3">
-                   <span className="text-[10px] font-bold text-white">Balance credit</span>
+                  <span className="text-[10px] font-bold text-white">You receive</span>
                   <span className="font-mono text-sm font-bold text-[#ffe177]">${(depositCredit.creditCents / 100).toFixed(2)}</span>
                 </div>
               )}
             </div>
 
             <div className="border-[3px] border-black bg-[#0a1645] p-4">
-               <p className="pixel-label">DEPOSIT BONUS LEVELS</p>
+              <p className="pixel-label">BONUS TIERS</p>
               <div className="mt-3 flex flex-wrap gap-2.5">
                 {DEPOSIT_BONUS_TIERS.slice(0, 5).map(tier => (
                   <div key={tier.minCents} className={`border-[3px] border-black px-4 py-3 text-center ${activeTier?.minCents === tier.minCents ? "bg-[#43b94e]" : "bg-[#152d75]"}`}>
@@ -364,7 +364,7 @@ export default function DepositPage() {
             </div>
 
             <div className="space-y-2">
-               <p className="pixel-label">HOW WOULD YOU LIKE TO PAY?</p>
+              <p className="pixel-label">CHOOSE A PAYMENT METHOD</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {paymentOptions.map(opt => {
                   const isActive = selectedOption === opt.id;
@@ -393,14 +393,14 @@ export default function DepositPage() {
               )}
                {cryptoReadiness?.enabled && !cryptoReadiness.available && (
                  <p className="border border-amber-400/25 bg-amber-400/10 px-3 py-3 font-mono text-[10px] leading-relaxed text-amber-100/80">
-                   Crypto deposits are currently unavailable. Please use another payment method or contact support.
+                   Crypto deposits are temporarily unavailable. Please choose another payment method.
                  </p>
                )}
             </div>
 
             {isSelectedCrypto && (
               <div className="space-y-2 border-[3px] border-black bg-[#0a1645] p-3">
-                 <p className="pixel-label">SELECT YOUR PAYMENT COIN</p>
+                <p className="pixel-label">CHOOSE A PAYMENT COIN</p>
                 <CryptoCoinSelector
                   currencies={cryptoCurrencies}
                   value={selectedCryptoCode}
@@ -419,7 +419,7 @@ export default function DepositPage() {
               {isPending
                 ? "PROCESSING..."
                 : isSelectedCrypto && selectedCrypto
-                   ? `PAY WITH ${selectedCrypto.ticker}`
+                  ? `PAY WITH ${selectedCrypto.ticker}`
                   : selected
                     ? `TOPUP WITH ${selected.label.toUpperCase()}`
                     : "SELECT A METHOD"}

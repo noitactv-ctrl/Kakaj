@@ -17,7 +17,7 @@ export function CryptoCoinIcon({ ticker, color, className = "" }: {
 }) {
   return (
     <span
-      className={`crypto-coin-icon inline-flex aspect-square shrink-0 items-center justify-center overflow-hidden rounded-full border-0 font-black text-[9px] leading-none text-white shadow-none ${className}`}
+      className={`inline-flex aspect-square shrink-0 items-center justify-center overflow-hidden rounded-full font-black text-[9px] leading-none text-white ${className}`}
       style={{ backgroundColor: color }}
       aria-label={ticker}
     >
@@ -44,7 +44,7 @@ export function CryptoCoinSelector({
   if (currencies.length === 0) {
     return (
       <p className="border-[2px] border-black bg-[#0a1645] px-3 py-3 font-mono text-[10px] text-[#abbceb]">
-        No supported coins are enabled right now.
+        No crypto currencies are available right now.
       </p>
     );
   }

@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 :root {
-  --site-content-max: 46rem;
+  --site-content-max: 70rem;
   --site-page-gutter: 1rem;
   --pixel-control-height: 2.5rem;
   --background: 0 0% 3%;
@@ -36,7 +36,7 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground antialiased; font-family: var(--font-body); font-size: 16px; font-weight: 500; line-height: 1.45; }
+  body { @apply bg-background text-foreground antialiased; font-family: var(--font-body); }
   h1, h2, h3, h4, h5, h6 { font-family: var(--font-pixel); }
 }
 
@@ -77,7 +77,7 @@
   .pixel-input { width: 100%; border: 3px solid #050505; border-radius: 0; background: #ffe1aa; color: #1b130b; padding: 0.75rem 0.9rem; font-family: var(--font-mono); font-size: 0.78rem; outline: none; box-shadow: 2px 2px 0 #050505; }
   .pixel-input::placeholder { color: #735c44; }
   .pixel-input:focus { background: #fff0c9; }
-  .pixel-label { font-family: var(--font-pixel); font-size: 0.56rem; font-weight: 700; letter-spacing: 0.02em; line-height: 1.5; color: #ffe177; }
+  .pixel-label { font-family: var(--font-pixel); font-size: 0.56rem; color: #ffe177; }
   .pixel-status-yes, .pixel-status-no { display: inline-flex; align-items: center; justify-content: center; border: 2px solid #050505; padding: 0.24rem 0.42rem; font-family: var(--font-pixel); font-size: 0.5rem; }
   .pixel-status-yes { background: #43b94e; color: #fff; }
   .pixel-status-no { background: #697184; color: #f7f2e9; }
@@ -102,21 +102,6 @@
 
 .pixel-shell .pixel-input {
   min-height: var(--pixel-control-height);
-  font-size: 0.75rem;
-}
-
-.pixel-shell p,
-.pixel-shell li,
-.pixel-shell label {
-  font-size: 0.875rem;
-  line-height: 1.325;
-}
-
-.pixel-shell .text-sm {
-  font-size: 0.875rem;
-}
-
-.pixel-shell .text-xs {
   font-size: 0.75rem;
 }
 
@@ -151,13 +136,6 @@
 .pixel-shell .rounded-2xl,
 .pixel-shell .rounded-full {
   border-radius: 0 !important;
-}
-
-.pixel-shell .crypto-coin-icon {
-  border: 0 !important;
-  border-radius: 9999px !important;
-  box-shadow: none !important;
-  overflow: hidden;
 }
 
 .pixel-shell .bg-\[\#111\],

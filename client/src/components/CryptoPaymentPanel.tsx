@@ -123,7 +123,7 @@ export function CryptoPaymentPanel({
           <CryptoCoinIcon ticker={coinTicker} color={coinColor} className="h-7 w-7 flex-shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-bold">Pay with {coinName}</p>
-            <p className="font-mono text-[10px] font-medium text-[#c2cdf3]">{coinTicker} · secure payment details</p>
+            <p className="font-mono text-[10px] text-[#aab6e6]">{coinTicker} · secure in-app invoice</p>
           </div>
         </div>
         <div className={`flex flex-shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold ${statusDetails.color}`}>
@@ -136,9 +136,9 @@ export function CryptoPaymentPanel({
         {!terminal && (
           <div className="border-[2px] border-[#f5d000] bg-[#18296d] px-3 py-2.5 text-center">
             <p className="font-mono text-[10px] font-bold leading-relaxed text-[#fff0c5]">
-              Send exactly{" "}
+              Send the exact amount only{" "}
               <span className="font-black text-[#ff7924]">{exactCryptoAmount} {coinTicker}</span>
-              {" "}— sending a different amount will not be credited.
+              {" "}— do not send a different amount. Wrong amount = no credit.
             </p>
           </div>
         )}
@@ -198,7 +198,7 @@ export function CryptoPaymentPanel({
             rel="noopener noreferrer"
             className="inline-flex h-9 flex-1 items-center justify-center gap-2 border-[2px] border-[#080808] bg-[#fff0c5] px-3 font-mono text-[10px] font-bold text-[#111a42] shadow-[2px_2px_0_#080808] hover:bg-white"
           >
-             OPEN SECURE HOSTED CHECKOUT <ExternalLink className="h-3.5 w-3.5" />
+            OPEN HOSTED FALLBACK <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
         <button type="button" onClick={onReset} className="flex w-full items-center justify-center gap-1 pt-1 font-mono text-[10px] text-white/35 hover:text-white/70">

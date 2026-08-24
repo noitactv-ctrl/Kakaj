@@ -2112,8 +2112,8 @@ function CryptoCurrencySettingsRow({ currency }: { currency: CryptoCurrencyOptio
     <Card className="overflow-hidden border-white/10 bg-[#192337]" data-testid={`card-crypto-currency-${currency.code}`}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center">
-            <CryptoCoinIcon ticker={currency.ticker} color={currency.color} className="h-10 w-10" />
+          <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-[#101827]">
+            <CryptoCoinIcon ticker={currency.ticker} color={currency.color} className="h-8 w-8" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">

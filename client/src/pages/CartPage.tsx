@@ -556,7 +556,7 @@ export default function CartPage() {
 
         {/* Payment processor */}
         <div>
-           <p className="pixel-label mb-2">{hasCardPurchase ? "CARD PURCHASE · BALANCE ONLY" : "HOW WOULD YOU LIKE TO PAY?"}</p>
+          <p className="pixel-label mb-2">{hasCardPurchase ? "CARD PAYOUT · BALANCE ONLY" : "SELECT PAYMENT PROCESSOR"}</p>
           {hasCardPurchase && (
             <p className="mb-2 text-[10px] font-mono text-[#b9cfff]">Cards are paid from your available balance.</p>
           )}
@@ -602,7 +602,7 @@ export default function CartPage() {
                 </button>
                 {selectedMethod === "crypto" && (
                   <div className="mt-2 border-t border-white/10 pt-2">
-                     <p className="mb-2 px-1 text-[10px] font-mono font-bold text-white/70">SELECT YOUR PAYMENT COIN</p>
+                    <p className="mb-2 px-1 text-[10px] font-mono font-bold text-white/55">CHOOSE A PAYMENT COIN</p>
                     <CryptoCoinSelector
                       currencies={cryptoCurrencies}
                       value={selectedCryptoCode}
@@ -615,7 +615,7 @@ export default function CartPage() {
             )}
             {!hasCardPurchase && cryptoReadiness?.enabled && !cryptoReadiness.available && (
               <p className="border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/80">
-                Crypto payments are currently unavailable. Please use another payment method or contact support.
+                Crypto payments are temporarily unavailable. Please choose another payment method.
               </p>
             )}
 
