@@ -69,6 +69,14 @@ export const uploadedImages = pgTable("uploaded_images", {
 });
 
 // === PRODUCTS ===
+export const productCategories = pgTable("product_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  normalizedName: text("normalized_name").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -391,6 +399,7 @@ export const cryptoCurrencies = pgTable("crypto_currencies", {
 
 // === TYPES ===
 export type User = typeof users.$inferSelect;
+export type ProductCategory = typeof productCategories.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Variant = typeof variants.$inferSelect;
 export type StockItem = typeof stockItems.$inferSelect;

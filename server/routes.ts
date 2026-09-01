@@ -333,7 +333,9 @@ export async function registerRoutes(
 
   app.post(api.products.create.path, async (req, res) => {
     if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
-    const product = await storage.createProduct(req.body);
+    const parsed = api.products.create.input.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid product" });
+    const product = await storage.createProduct(parsed.data);
     res.status(201).json(product);
   });
 
@@ -965,14 +967,77 @@ export async function registerRoutes(
 
   app.patch("/api/admin/products/:id", async (req, res) => {
     if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
-    const product = await storage.updateProduct(Number(req.params.id), req.body);
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid product ID." });
+    const parsed = api.products.create.input.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid product" });
+    const product = await storage.updateProduct(id, parsed.data);
+    if (!product) return res.status(404).json({ message: "Product not found." });
     res.json(product);
   });
 
   app.delete("/api/admin/products/:id", async (req, res) => {
     if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
-    await storage.deleteProduct(Number(req.params.id));
-    res.json({ success: true });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid product ID." });
+    try {
+      await storage.deleteProduct(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error?.message === "PRODUCT_IN_USE") {
+        return res.status(409).json({ message: "This product has order history and cannot be deleted. Hide it instead." });
+      }
+      throw error;
+    }
+  });
+
+  app.get(api.productCategories.list.path, async (req, res) => {
+    if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
+    res.json(await storage.getProductCategories());
+  });
+
+  app.post(api.productCategories.create.path, async (req, res) => {
+    if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
+    const parsed = api.productCategories.create.input.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid category" });
+
+    const category = await storage.createProductCategory(parsed.data.name);
+    if (!category) return res.status(409).json({ message: "That category already exists." });
+    res.status(201).json(category);
+  });
+
+  app.patch(api.productCategories.update.path, async (req, res) => {
+    if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid category ID." });
+    const parsed = api.productCategories.update.input.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid category" });
+
+    try {
+      const category = await storage.renameProductCategory(id, parsed.data.name);
+      if (!category) return res.status(404).json({ message: "Category not found." });
+      res.json(category);
+    } catch (error: any) {
+      if (error?.message === "CATEGORY_EXISTS") return res.status(409).json({ message: "That category already exists." });
+      throw error;
+    }
+  });
+
+  app.delete(api.productCategories.delete.path, async (req, res) => {
+    if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid category ID." });
+
+    try {
+      const deleted = await storage.deleteProductCategory(id);
+      if (!deleted) return res.status(404).json({ message: "Category not found." });
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error?.message === "CATEGORY_IN_USE") {
+        return res.status(409).json({ message: "Move products out of this category before deleting it." });
+      }
+      throw error;
+    }
   });
 
   app.post("/api/admin/clear-all-data", async (req, res) => {
@@ -1003,8 +1068,17 @@ export async function registerRoutes(
 
   app.delete("/api/admin/variants/:id", async (req, res) => {
     if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
-    await storage.deleteVariant(Number(req.params.id));
-    res.json({ success: true });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid variant ID." });
+    try {
+      await storage.deleteVariant(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      if (error?.message === "VARIANT_IN_USE") {
+        return res.status(409).json({ message: "This variant has order history and cannot be deleted." });
+      }
+      throw error;
+    }
   });
 
   app.post("/api/admin/stock", async (req, res) => {
@@ -1327,6 +1401,25 @@ export async function registerRoutes(
     if (!filename || !mimeType || !data) {
       return res.status(400).json({ message: "Missing required fields" });
     }
+    const allowedImageTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+    if (!allowedImageTypes.has(mimeType)) {
+      return res.status(400).json({ message: "Choose a PNG, JPG, WEBP, or GIF image." });
+    }
+    if (typeof data !== "string" || data.length > 7_000_000) {
+      return res.status(400).json({ message: "Choose an image smaller than 5 MB." });
+    }
+    const imageBuffer = Buffer.from(data, "base64");
+    if (imageBuffer.length === 0 || imageBuffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ message: "Choose an image smaller than 5 MB." });
+    }
+    const hasExpectedSignature =
+      (mimeType === "image/png" && imageBuffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) ||
+      (mimeType === "image/jpeg" && imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8 && imageBuffer[2] === 0xff) ||
+      (mimeType === "image/gif" && ["GIF87a", "GIF89a"].includes(imageBuffer.subarray(0, 6).toString("ascii"))) ||
+      (mimeType === "image/webp" && imageBuffer.subarray(0, 4).toString("ascii") === "RIFF" && imageBuffer.subarray(8, 12).toString("ascii") === "WEBP");
+    if (!hasExpectedSignature) {
+      return res.status(400).json({ message: "The uploaded file does not match its image type." });
+    }
     const image = await storage.uploadImage(filename, mimeType, data);
     res.status(201).json({ id: image.id, url: `/api/images/${image.id}` });
   });
@@ -1339,6 +1432,7 @@ export async function registerRoutes(
     const buffer = Buffer.from(image.data, 'base64');
     res.setHeader('Content-Type', image.mimeType);
     res.setHeader('Content-Length', buffer.length);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.send(buffer);
   });
 

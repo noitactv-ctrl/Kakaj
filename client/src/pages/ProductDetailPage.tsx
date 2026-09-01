@@ -6,12 +6,28 @@ import { useProducts } from "@/hooks/use-products";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
+function DetailArtwork({ image, name }: { image?: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (image && !failed) {
+    return <img src={image} alt={name} className="h-full min-h-[290px] w-full bg-[#080a0d] object-contain p-5 contrast-125 transition-transform duration-300 hover:scale-[1.02]" onError={() => setFailed(true)} />;
+  }
+  return (
+    <div className="relative flex h-full min-h-[290px] items-center justify-center overflow-hidden bg-[#080a0d]">
+      <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(135deg,transparent_48%,#3b3b3b_49%,transparent_51%),linear-gradient(45deg,transparent_48%,#262626_49%,transparent_51%)] [background-size:26px_26px]" />
+      <div className="relative border-[3px] border-[#ffcf3f] bg-[#171a20] px-5 py-4 text-center shadow-[4px_4px_0_#050505]">
+        <Package className="mx-auto h-12 w-12 text-[#ffcf3f]" strokeWidth={1.25} />
+        <p className="mt-3 max-w-[180px] text-[9px] font-bold leading-relaxed text-white/70">{name}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductDetailPage() {
   const [, params] = useRoute("/product/:name");
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: products, isLoading } = useProducts();
+  const { data: products, isLoading, isError, refetch } = useProducts();
   const productName = decodeURIComponent(params?.name ?? "");
   const product = products?.find(item => item.name === productName);
   const [variantId, setVariantId] = useState("");
@@ -63,7 +79,11 @@ export default function ProductDetailPage() {
   });
 
   if (isLoading) {
-    return <div className="flex min-h-[420px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#ff2933]" /></div>;
+    return <div className="pixel-panel mx-auto mt-8 flex min-h-[260px] max-w-4xl items-center justify-center bg-[#151515]"><Loader2 className="h-6 w-6 animate-spin text-[#ff2933]" /></div>;
+  }
+
+  if (isError) {
+    return <div className="pixel-panel mx-auto mt-8 flex min-h-[260px] max-w-lg flex-col items-center justify-center bg-[#151515] px-5 text-center"><Package className="h-8 w-8 text-[#ffcf3f]" /><p className="mt-4 text-sm font-bold text-white">PRODUCT FILE UNAVAILABLE</p><p className="mt-2 text-xs text-white/55">We could not load this product right now.</p><button className="pixel-button mt-5 px-4 py-3 text-[8px]" onClick={() => refetch()}>TRY AGAIN</button></div>;
   }
 
   if (!product) {
@@ -87,18 +107,12 @@ export default function ProductDetailPage() {
       </Link>
       <div className="pixel-panel mx-auto grid max-w-4xl overflow-hidden bg-[#151515] md:grid-cols-[1fr_1fr]">
         <div className="min-h-[290px] border-b-[3px] border-black md:border-b-0 md:border-r-[3px]">
-          {product.image ? (
-            <img src={product.image} alt={product.name} className="h-full min-h-[290px] w-full object-cover" />
-          ) : (
-            <div className="flex h-full min-h-[290px] items-center justify-center bg-[#191919]">
-              <Package className="h-24 w-24 text-white/20" strokeWidth={1} />
-            </div>
-          )}
+          <DetailArtwork image={product.image} name={product.name} />
         </div>
         <div className="flex flex-col gap-5 p-5 sm:p-7">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-widest text-[#ff5360]">{product.category || "LOG PRODUCT"}</p>
-            <h1 className="mt-2 text-lg leading-relaxed text-white sm:text-xl">{product.name}</h1>
+            <h1 className="mt-2 inline-block border-[3px] border-[#ffcf3f] bg-[#ffcf3f] px-2 py-2 text-sm leading-relaxed text-[#111] shadow-[3px_3px_0_#050505] sm:text-base">{product.name}</h1>
             <p className="mt-3 text-xs leading-relaxed text-white/55">{product.description || "Digital product delivered after purchase."}</p>
           </div>
 

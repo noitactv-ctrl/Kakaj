@@ -26,6 +26,7 @@ import { CryptoCoinIcon, type CryptoCurrencyOption } from "@/components/CryptoCo
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { id: "cards", label: "Cards",      Icon: CreditCard },
+  { id: "products", label: "Products", Icon: Package },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
@@ -136,6 +137,7 @@ export default function AdminPage() {
           <div className="pixel-page w-full">
             {activeSection === "dashboard"    && <DashboardSection />}
             {activeSection === "cards"        && <AdminCardsSection />}
+            {activeSection === "products"     && <ProductsSection />}
             {activeSection === "orders"       && <OrdersSection />}
             {activeSection === "cashapp"      && <CashAppSection />}
             {activeSection === "users"        && <UsersSection canManageStaff={isOwner} />}
@@ -394,34 +396,117 @@ function StatCard({ title, value, icon: Icon, color }: any) {
   );
 }
 
+type ProductCategoryRecord = {
+  id: number;
+  name: string;
+  normalizedName: string;
+  productCount: number;
+};
+
+function ProductImageField({
+  id,
+  value,
+  uploading,
+  onFile,
+  onRemove,
+}: {
+  id: string;
+  value?: string;
+  uploading: boolean;
+  onFile: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <FormLabel>Product Image <span className="font-normal text-white/40">(optional)</span></FormLabel>
+      <div className="flex flex-col gap-3 border border-white/10 bg-black p-3 sm:flex-row sm:items-center">
+        <div className="flex h-28 w-full shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-[#070707] sm:w-36">
+          {value ? (
+            <img src={value} alt="Product preview" className="h-full w-full object-contain p-2" />
+          ) : (
+            <div className="text-center text-white/35">
+              <ImageIcon className="mx-auto h-7 w-7" />
+              <p className="mt-2 text-[10px]">No image selected</p>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-1 flex-wrap gap-2">
+          <label htmlFor={id}>
+            <span className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 text-xs font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white">
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              {value ? "Replace image" : "Upload image"}
+            </span>
+          </label>
+          <input id={id} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" disabled={uploading} onChange={onFile} />
+          {value && (
+            <Button type="button" size="sm" variant="outline" className="h-9 text-xs" onClick={onRemove} disabled={uploading}>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />Remove
+            </Button>
+          )}
+          <p className="w-full text-[11px] leading-relaxed text-white/45">PNG, JPG, WEBP, or GIF up to 5 MB. Images display on a black product stage.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductsSection() {
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [expandedProduct, setExpandedProduct] = useState<number | null>(null);
   const [managingStock, setManagingStock] = useState<number | null>(null);
   const [editingVariant, setEditingVariant] = useState<number | null>(null);
   const [isUploadingAddImage, setIsUploadingAddImage] = useState(false);
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
-  const { data: products, isLoading } = useProducts();
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const { data: products, isLoading, isError, refetch } = useQuery<any[]>({ queryKey: ["/api/admin/products"] });
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<ProductCategoryRecord[]>({
+    queryKey: [api.productCategories.list.path],
+  });
+
+  const invalidateProducts = () => {
+    queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
+  };
+
+  const invalidateCategories = () => {
+    queryClient.invalidateQueries({ queryKey: [api.productCategories.list.path] });
+  };
 
   const handleProductImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, formType: "add" | "edit") => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "IMAGE NOT ACCEPTED", description: "Choose a PNG, JPG, WEBP, or GIF image.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "IMAGE TOO LARGE", description: "Choose an image smaller than 5 MB.", variant: "destructive" });
+      return;
+    }
     const setUploading = formType === "add" ? setIsUploadingAddImage : setIsUploadingEditImage;
     const form = formType === "add" ? addForm : editForm;
     setUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = (event.target?.result as string).split(",")[1];
-        const res = await apiRequest("POST", "/api/upload", { filename: file.name, mimeType: file.type, data: base64 });
-        const data = await res.json();
-        form.setValue("image", data.url);
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Could not read that image."));
+        reader.readAsDataURL(file);
+      });
+      const base64 = dataUrl.split(",")[1];
+      const res = await apiRequest("POST", "/api/upload", { filename: file.name, mimeType: file.type, data: base64 });
+      const data = await res.json();
+      form.setValue("image", data.url, { shouldDirty: true });
+      toast({ title: "IMAGE READY", description: "The image will be saved with the product." });
+    } catch (error: any) {
+      toast({ title: "IMAGE UPLOAD FAILED", description: error.message, variant: "destructive" });
+    } finally {
       setUploading(false);
     }
   };
@@ -461,11 +546,13 @@ function ProductsSection() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      invalidateProducts();
+      invalidateCategories();
       addForm.reset();
       setShowAddForm(false);
       toast({ title: "Product added" });
-    }
+    },
+    onError: (error: Error) => toast({ title: "PRODUCT NOT SAVED", description: error.message, variant: "destructive" }),
   });
 
   const editMutation = useMutation({
@@ -474,10 +561,12 @@ function ProductsSection() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      invalidateProducts();
+      invalidateCategories();
       setEditingProduct(null);
       toast({ title: "Product updated" });
-    }
+    },
+    onError: (error: Error) => toast({ title: "PRODUCT NOT UPDATED", description: error.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -485,9 +574,11 @@ function ProductsSection() {
       await apiRequest("DELETE", `/api/admin/products/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      invalidateProducts();
+      invalidateCategories();
       toast({ title: "Product deleted" });
-    }
+    },
+    onError: (error: Error) => toast({ title: "PRODUCT NOT DELETED", description: error.message, variant: "destructive" }),
   });
 
   const pinMutation = useMutation({
@@ -496,8 +587,23 @@ function ProductsSection() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      invalidateProducts();
     }
+  });
+
+  const activeMutation = useMutation({
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/products/${id}`, { active });
+      return res.json();
+    },
+    onSuccess: (_product, variables) => {
+      invalidateProducts();
+      toast({
+        title: variables.active ? "PRODUCT VISIBLE" : "PRODUCT HIDDEN",
+        description: variables.active ? "Customers can now find this product." : "The product is hidden without removing order history.",
+      });
+    },
+    onError: (error: Error) => toast({ title: "VISIBILITY NOT UPDATED", description: error.message, variant: "destructive" }),
   });
 
   const addVariantMutation = useMutation({
@@ -511,10 +617,11 @@ function ProductsSection() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      invalidateProducts();
       variantForm.reset({ name: "", price: "", minQuantity: "1" });
       toast({ title: "Variant added" });
-    }
+    },
+    onError: (error: Error) => toast({ title: "VARIANT NOT ADDED", description: error.message, variant: "destructive" }),
   });
 
 
@@ -523,12 +630,65 @@ function ProductsSection() {
       await apiRequest("DELETE", `/api/admin/variants/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.products.list.path] });
+      invalidateProducts();
       toast({ title: "Variant deleted" });
-    }
+    },
+    onError: (error: Error) => toast({ title: "VARIANT NOT DELETED", description: error.message, variant: "destructive" }),
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest(api.productCategories.create.method, api.productCategories.create.path, { name });
+      return res.json();
+    },
+    onSuccess: () => {
+      setNewCategoryName("");
+      invalidateCategories();
+      toast({ title: "CATEGORY ADDED", description: "It is now available when editing products." });
+    },
+    onError: (error: Error) => toast({ title: "CATEGORY NOT ADDED", description: error.message, variant: "destructive" }),
+  });
+
+  const renameCategoryMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const path = api.productCategories.update.path.replace(":id", String(id));
+      const res = await apiRequest(api.productCategories.update.method, path, { name });
+      return res.json();
+    },
+    onSuccess: () => {
+      setEditingCategoryId(null);
+      setEditingCategoryName("");
+      invalidateCategories();
+      invalidateProducts();
+      toast({ title: "CATEGORY RENAMED", description: "Assigned products were updated too." });
+    },
+    onError: (error: Error) => toast({ title: "CATEGORY NOT RENAMED", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const path = api.productCategories.delete.path.replace(":id", String(id));
+      await apiRequest(api.productCategories.delete.method, path);
+    },
+    onSuccess: () => {
+      invalidateCategories();
+      toast({ title: "CATEGORY DELETED" });
+    },
+    onError: (error: Error) => toast({ title: "CATEGORY NOT DELETED", description: error.message, variant: "destructive" }),
   });
 
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center border border-red-500/25 bg-red-500/10 px-5 py-16 text-center">
+        <Package className="h-9 w-9 text-red-300" />
+        <p className="mt-4 text-sm font-bold text-white">Products could not be loaded.</p>
+        <p className="mt-2 text-xs text-white/55">Check the server connection and try again.</p>
+        <Button className="mt-5" size="sm" onClick={() => refetch()}>Retry</Button>
+      </div>
+    );
+  }
 
   const startEdit = (product: any) => {
     setEditingProduct(product);
@@ -538,12 +698,97 @@ function ProductsSection() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Products</h1>
-        <Button size="sm" onClick={() => { setShowAddForm(!showAddForm); setEditingProduct(null); }} className="gap-1.5 text-xs">
-          <Plus className="h-3.5 w-3.5" />Add Product
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowCategories(value => !value)} className="gap-1.5 text-xs">
+            <Tag className="h-3.5 w-3.5" />Categories
+          </Button>
+          <Button size="sm" onClick={() => { setShowAddForm(!showAddForm); setEditingProduct(null); }} className="gap-1.5 text-xs">
+            <Plus className="h-3.5 w-3.5" />Add Product
+          </Button>
+        </div>
       </div>
+
+      {showCategories && (
+        <Card className="border-primary/20 bg-[#111]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Product Categories</CardTitle>
+                <p className="mt-1 text-xs text-white/45">Create reusable categories and keep product filters consistent.</p>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => setShowCategories(false)}><X className="h-4 w-4" /></Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form
+              className="flex flex-col gap-2 sm:flex-row"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (newCategoryName.trim()) createCategoryMutation.mutate(newCategoryName);
+              }}
+            >
+              <Input
+                value={newCategoryName}
+                onChange={event => setNewCategoryName(event.target.value)}
+                placeholder="New category name"
+                maxLength={60}
+                className="border-white/10 bg-white/5 text-sm"
+                data-testid="input-new-product-category"
+              />
+              <Button type="submit" size="sm" className="h-10 shrink-0 gap-1.5 text-xs" disabled={!newCategoryName.trim() || createCategoryMutation.isPending}>
+                {createCategoryMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Add Category
+              </Button>
+            </form>
+
+            {categoriesLoading ? (
+              <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+            ) : categories.length === 0 ? (
+              <p className="border border-dashed border-white/15 px-4 py-6 text-center text-xs text-white/45">No categories yet. Add one above.</p>
+            ) : (
+              <div className="space-y-2">
+                {categories.map(category => (
+                  <div key={category.id} className="flex flex-col gap-2 border border-white/10 bg-black/30 p-3 sm:flex-row sm:items-center">
+                    {editingCategoryId === category.id ? (
+                      <>
+                        <Input value={editingCategoryName} onChange={event => setEditingCategoryName(event.target.value)} maxLength={60} className="h-9 border-white/10 bg-white/5 text-sm" autoFocus />
+                        <div className="flex shrink-0 gap-2">
+                          <Button size="sm" className="h-9 text-xs" disabled={!editingCategoryName.trim() || renameCategoryMutation.isPending} onClick={() => renameCategoryMutation.mutate({ id: category.id, name: editingCategoryName })}>Save</Button>
+                          <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={() => setEditingCategoryId(null)}>Cancel</Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-white">{category.name}</p>
+                          <p className="text-[11px] text-white/40">{category.productCount} assigned product{category.productCount === 1 ? "" : "s"}</p>
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <Button size="icon" variant="ghost" className="h-8 w-8" title="Rename category" onClick={() => { setEditingCategoryId(category.id); setEditingCategoryName(category.name); }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            title={category.productCount > 0 ? "Move assigned products before deleting" : "Delete category"}
+                            disabled={category.productCount > 0 || deleteCategoryMutation.isPending}
+                            onClick={() => { if (confirm(`Delete category "${category.name}"?`)) deleteCategoryMutation.mutate(category.id); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {showAddForm && (
         <Card className="bg-[#111] border-primary/20">
@@ -560,6 +805,7 @@ function ProductsSection() {
                   <FormItem>
                     <FormLabel>Product Name</FormLabel>
                     <FormControl><Input {...field} className="bg-[#111]/5 border-white/10" /></FormControl>
+                    <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={addForm.control} name="description" render={({ field }) => (
@@ -578,9 +824,26 @@ function ProductsSection() {
                 <FormField control={addForm.control} name="category" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category <span className="text-white/40 font-normal">(optional)</span></FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="e.g. Food, Retail, Entertainment" className="bg-[#111]/5 border-white/10 text-sm" />
-                    </FormControl>
+                    <Select value={field.value || "__none__"} onValueChange={value => field.onChange(value === "__none__" ? "" : value)}>
+                      <FormControl>
+                        <SelectTrigger className="border-white/10 bg-white/5 text-sm"><SelectValue placeholder="Choose a category" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">No category</SelectItem>
+                        {categories.map(category => <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+                <FormField control={addForm.control} name="image" render={({ field }) => (
+                  <FormItem>
+                    <ProductImageField
+                      id="add-product-image"
+                      value={field.value}
+                      uploading={isUploadingAddImage}
+                      onFile={event => handleProductImageUpload(event, "add")}
+                      onRemove={() => field.onChange("")}
+                    />
                   </FormItem>
                 )} />
                 <Button type="submit" size="sm" className="w-full text-xs" disabled={addMutation.isPending}>
@@ -607,6 +870,7 @@ function ProductsSection() {
                   <FormItem>
                     <FormLabel>Product Name</FormLabel>
                     <FormControl><Input {...field} className="bg-[#111]/5 border-white/10" /></FormControl>
+                    <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={editForm.control} name="description" render={({ field }) => (
@@ -625,9 +889,26 @@ function ProductsSection() {
                 <FormField control={editForm.control} name="category" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category <span className="text-white/40 font-normal">(optional)</span></FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="e.g. Food, Retail, Entertainment" className="bg-[#111]/5 border-white/10 text-sm" />
-                    </FormControl>
+                    <Select value={field.value || "__none__"} onValueChange={value => field.onChange(value === "__none__" ? "" : value)}>
+                      <FormControl>
+                        <SelectTrigger className="border-white/10 bg-white/5 text-sm"><SelectValue placeholder="Choose a category" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">No category</SelectItem>
+                        {categories.map(category => <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="image" render={({ field }) => (
+                  <FormItem>
+                    <ProductImageField
+                      id="edit-product-image"
+                      value={field.value}
+                      uploading={isUploadingEditImage}
+                      onFile={event => handleProductImageUpload(event, "edit")}
+                      onRemove={() => field.onChange("")}
+                    />
                   </FormItem>
                 )} />
                 <Button type="submit" size="sm" className="w-full text-xs" disabled={editMutation.isPending}>
@@ -641,15 +922,28 @@ function ProductsSection() {
 
       <div className="space-y-3">
         {products?.map((product: any) => (
-          <div key={product.id} className="bg-[#111] border border-white/10 rounded-lg overflow-hidden">
+          <div key={product.id} className="overflow-hidden rounded-lg border border-white/10 bg-black">
             <div className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <div>
-                  <p className="font-bold text-sm">{product.name}</p>
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-14 w-16 shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-[#080808]">
+                  {product.image ? <img src={product.image} alt="" className="h-full w-full object-contain p-1.5" /> : <ImageIcon className="h-5 w-5 text-white/25" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="inline-block max-w-full truncate border border-primary/40 bg-primary/15 px-2 py-1 text-sm font-bold text-primary">{product.name}</p>
+                  {product.category && <p className="mt-1 truncate text-[11px] text-white/45">{product.category}</p>}
                   <p className="text-xs text-muted-foreground">{product.variants?.length || 0} variant(s)</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <label className="flex items-center gap-2 border border-white/10 bg-white/5 px-2 py-1.5" title={product.active ? "Visible to customers" : "Hidden from customers"}>
+                  <span className="text-[10px] font-bold text-white/50">{product.active ? "LIVE" : "HIDDEN"}</span>
+                  <Switch
+                    checked={product.active}
+                    disabled={activeMutation.isPending}
+                    onCheckedChange={active => activeMutation.mutate({ id: product.id, active })}
+                    aria-label={`${product.active ? "Hide" : "Show"} ${product.name}`}
+                  />
+                </label>
                 <Button
                   variant="ghost" size="icon"
                   className={`h-8 w-8 ${product.pinned ? "text-primary" : "text-muted-foreground hover:text-primary"}`}

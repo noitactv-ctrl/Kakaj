@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { ChevronDown, Loader2, Package, Search, ShieldX, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -22,19 +21,16 @@ function ProductArtwork({ product }: { product: Product }) {
     return (
       <img
         src={product.image}
-        alt=""
-        className="h-full w-full object-cover"
+        alt={product.name}
+        className="h-full w-full object-contain p-2"
         onError={() => setImageFailed(true)}
       />
     );
   }
 
   return (
-    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#161616]">
-      <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(135deg,transparent_48%,#3b3b3b_49%,transparent_51%),linear-gradient(45deg,transparent_48%,#262626_49%,transparent_51%)] [background-size:22px_22px]" />
-      <div className="relative flex h-16 w-16 items-center justify-center border-[3px] border-[#777] bg-[#242424] text-[#a9a9a9] shadow-[4px_4px_0_#090909]">
-        <Package className="h-8 w-8" strokeWidth={1.5} />
-      </div>
+    <div className="flex h-full w-full items-center justify-center bg-[#202020] text-[#a0a0a0]">
+      <Package className="h-7 w-7" strokeWidth={1.8} />
     </div>
   );
 }
@@ -51,44 +47,49 @@ function ProductTile({ product }: { product: Product }) {
   return (
     <Link href={`/product/${encodeURIComponent(product.name)}`}>
       <article
-        className="group flex h-full cursor-pointer flex-col overflow-hidden border-[2px] border-[#292929] bg-[#151515] shadow-[3px_3px_0_#050505] transition-colors hover:border-[#555]"
+        className="group flex h-full min-h-[236px] cursor-pointer flex-col rounded-xl border border-[#282828] bg-[#171717] p-5 transition-colors hover:border-[#3a3a3a] hover:bg-[#1a1a1a]"
         data-testid={`card-product-${product.id}`}
       >
-        <div className="relative h-40 border-b-[2px] border-[#2a2a2a] sm:h-44">
-          <ProductArtwork product={product} />
-          {product.pinned && (
-            <span className="absolute left-2 top-2 border-[2px] border-black bg-[#ffcf3f] px-1.5 py-1 text-[8px] font-bold text-black">
-              FEATURED
-            </span>
-          )}
-        </div>
-        <div className="flex flex-1 flex-col gap-3 p-3">
-          <div className="min-h-[45px]">
-            <h2 className="line-clamp-2 text-sm font-bold leading-tight text-white">{product.name}</h2>
+        <div className="flex items-start gap-3">
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-[#303030] bg-[#202020]">
+            <ProductArtwork product={product} />
+          </div>
+          <div className="min-w-0 pt-0.5">
+            <h2 className="truncate text-sm font-bold leading-tight text-[#f4f4f4]">{product.name}</h2>
             {product.category && (
-              <p className="mt-1 text-[10px] text-white/45">{product.category}</p>
+              <span className="mt-1.5 inline-flex rounded bg-[#090909] px-2 py-0.5 text-[10px] font-medium text-[#d2d2d2]">
+                {product.category}
+              </span>
             )}
           </div>
-          <p className="line-clamp-2 min-h-[30px] text-[10px] leading-relaxed text-white/55">
-            {product.description || "Digital product delivered after purchase."}
-          </p>
-          <div className="mt-auto flex items-end justify-between gap-2">
-            <div>
-              <p className="text-[9px] text-white/40">PRICE PER LINE</p>
-              <p className="mt-1 font-mono text-sm font-bold text-white">
-                {price > 0 ? `$${(price / 100).toFixed(2)}` : "Unavailable"}
-                {comparePrice && comparePrice > price && (
-                  <span className="ml-1 text-[9px] text-white/30 line-through">${(comparePrice / 100).toFixed(2)}</span>
-                )}
-              </p>
-            </div>
-            <span className={`border-[2px] border-black px-1.5 py-1 text-[9px] font-bold ${availableStock > 0 ? "bg-[#ededed] text-black" : "bg-[#3f3f3f] text-white/55"}`}>
-              {availableStock > 0 ? availableStock : "SOLD OUT"}
+        </div>
+
+        <p className="mt-3 line-clamp-1 min-h-5 text-xs leading-5 text-[#9a9a9a]">
+          {product.description || "Digital product delivered after purchase."}
+        </p>
+
+        <div className="mt-3 space-y-2 text-xs">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[#929292]">Price per line</span>
+            <span className="font-bold text-[#f4f4f4]">
+              {price > 0 ? `$${(price / 100).toFixed(2)}` : "Unavailable"}
+              {comparePrice && comparePrice > price && (
+                <span className="ml-1.5 text-[10px] font-normal text-[#686868] line-through">${(comparePrice / 100).toFixed(2)}</span>
+              )}
             </span>
           </div>
-          <div className={`flex min-h-9 items-center justify-center gap-2 border-[2px] border-black px-2 py-2 text-[9px] font-bold text-white shadow-[2px_2px_0_#050505] ${availableStock > 0 ? "bg-[#ff2933] group-hover:bg-[#ff4650]" : "bg-[#555]"}`}>
-            <ShoppingCart className="h-3.5 w-3.5" />
-            {availableStock > 0 ? "PURCHASE" : "OUT OF STOCK"}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[#929292]">Available stock</span>
+            <span className="min-w-6 rounded-md bg-[#eeeeee] px-1.5 py-0.5 text-center text-[10px] font-bold text-[#202020]">
+              {availableStock}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-auto pt-3">
+          <div className={`flex h-8 w-full items-center justify-center gap-2 rounded-md text-xs font-medium transition-colors ${availableStock > 0 ? "bg-[#ff2933] text-[#121212] group-hover:bg-[#ff414a]" : "bg-[#3a3a3a] text-[#999]"}`}>
+            <ShoppingCart className="h-3.5 w-3.5" strokeWidth={1.8} />
+            <span>{availableStock > 0 ? "Purchase" : "Out of stock"}</span>
           </div>
         </div>
       </article>
@@ -98,7 +99,7 @@ function ProductTile({ product }: { product: Product }) {
 
 export default function LogsPage() {
   const { user } = useAuth();
-  const { data: products, isLoading, isError } = useProducts();
+  const { data: products, isLoading, isError, refetch } = useProducts();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
@@ -127,7 +128,14 @@ export default function LogsPage() {
   }
 
   if (isError) {
-    return <div className="flex min-h-[420px] items-center justify-center text-sm text-red-400">Failed to load products. Please refresh.</div>;
+    return (
+      <div className="pixel-panel mx-auto flex min-h-[260px] max-w-lg flex-col items-center justify-center bg-[#151515] px-5 text-center">
+        <Package className="h-8 w-8 text-[#ffcf3f]" />
+        <p className="mt-4 text-sm font-bold text-white">CATALOG UNAVAILABLE</p>
+        <p className="mt-2 text-xs leading-relaxed text-white/55">The log shelf did not respond. Try again in a moment.</p>
+        <button className="pixel-button mt-5 px-4 py-3 text-[8px]" onClick={() => refetch()}>RETRY CATALOG</button>
+      </div>
+    );
   }
 
   if (user?.isBanned) {
@@ -194,7 +202,7 @@ export default function LogsPage() {
           <p className="mt-2 text-xs text-white/35">Try another search or category.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filteredProducts.map(product => <ProductTile key={product.id} product={product} />)}
         </div>
       )}

@@ -3,10 +3,10 @@ import { useOrders } from "@/hooks/use-orders";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { Loader2, CreditCard, ReceiptText, Coins, Crown } from "lucide-react";
+import { Loader2, ReceiptText, Coins, Crown } from "lucide-react";
 import { Link } from "wouter";
 
-type TabType = "all" | "cards" | "ach";
+type TabType = "all" | "logs" | "cards" | "ach";
 
 const rankLabels: Record<string, string> = {
   newbie: "Newbie",
@@ -28,7 +28,8 @@ function formatDateTime(date: Date): string {
 }
 
 function isAchOrder(order: any): boolean {
-  return (order.orderId ?? "").startsWith("ACH-");
+  return (order.orderId ?? "").startsWith("ACH-") ||
+    (order.items ?? []).some((item: any) => item.itemType === "ach");
 }
 
 function isCardOrder(order: any): boolean {
@@ -36,6 +37,10 @@ function isCardOrder(order: any): boolean {
     (order.orderId ?? "").startsWith("CARD-") ||
     (!isAchOrder(order) && (order.items ?? []).some((i: any) => i.itemType === "card" || i.cardId != null))
   );
+}
+
+function isLogOrder(order: any): boolean {
+  return (order.items ?? []).some((item: any) => item.itemType === "product");
 }
 
 function statusBadge(status: string) {
@@ -56,7 +61,7 @@ function statusBadge(status: string) {
 }
 
 export default function OrdersPage() {
-  const { data: orders, isLoading, isError } = useOrders();
+  const { data: orders, isLoading, isError, refetch } = useOrders();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<TabType>("all");
@@ -76,7 +81,8 @@ export default function OrdersPage() {
 
   const cardOrders = useMemo(() => allOrders.filter(isCardOrder), [allOrders]);
   const achOrders = useMemo(() => allOrders.filter(isAchOrder), [allOrders]);
-  const tabOrders = tab === "cards" ? cardOrders : tab === "ach" ? achOrders : allOrders;
+  const logOrders = useMemo(() => allOrders.filter(isLogOrder), [allOrders]);
+  const tabOrders = tab === "cards" ? cardOrders : tab === "logs" ? logOrders : tab === "ach" ? achOrders : allOrders;
 
   const filteredOrders = useMemo(() => {
     if (!search.trim()) return tabOrders;
@@ -97,8 +103,11 @@ export default function OrdersPage() {
 
   if (isError) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] text-sm text-red-400">
-        Failed to load orders. Please refresh.
+      <div className="pixel-panel mx-auto flex min-h-[260px] max-w-lg flex-col items-center justify-center bg-[#10215e] px-5 text-center">
+        <ReceiptText className="h-8 w-8 text-[#ffcf3f]" />
+        <p className="mt-4 text-sm font-bold text-white">HISTORY UNAVAILABLE</p>
+        <p className="mt-2 text-xs text-white/55">Your purchases could not be loaded.</p>
+        <button className="pixel-button mt-5 px-4 py-3 text-[8px]" onClick={() => refetch()}>RETRY HISTORY</button>
       </div>
     );
   }
@@ -107,6 +116,7 @@ export default function OrdersPage() {
 
   const tabs: { key: TabType; label: string; count: number; href?: string }[] = [
     { key: "all", label: "all", count: allOrders.length },
+    { key: "logs", label: "logs", count: logOrders.length, href: "/logs" },
     { key: "cards", label: "cards", count: cardOrders.length, href: "/cards" },
     ...(achOrders.length > 0 ? [{ key: "ach" as TabType, label: "ach", count: achOrders.length }] : []),
   ];
@@ -173,16 +183,16 @@ export default function OrdersPage() {
         <div className="pixel-panel bg-[#10215e] px-5 py-14 text-center">
           <ReceiptText className="mx-auto h-8 w-8 text-[#ffe177]" />
           <h2 className="mt-5 text-sm leading-relaxed text-white">NO ORDERS YET</h2>
-          <p className="mx-auto mt-3 max-w-md text-xs text-white/55">When you buy cards or top up, your activity will show up here.</p>
+           <p className="mx-auto mt-3 max-w-md text-xs text-white/55">When you buy logs, cards, or add balance, your activity will show up here.</p>
           <div className="mt-5 flex justify-center">
-            <Link href="/cards"><span className="pixel-button inline-flex items-center gap-2 px-3 py-3 text-[8px]"><CreditCard className="h-3 w-3" />BROWSE CARDS</span></Link>
+             <Link href="/logs" className="pixel-button inline-flex items-center gap-2 px-3 py-3 text-[8px]"><ReceiptText className="h-3 w-3" />BROWSE LOGS</Link>
           </div>
         </div>
       ) : (
         <div className="space-y-2">
           {filteredOrders.map((order: any) => {
             const isCard = isCardOrder(order);
-            const isFulfilled = order.status === "fulfilled" || order.status === "delivering" || order.status === "replaced";
+            const isLog = isLogOrder(order);
             return (
               <button
                 key={order.id}
@@ -194,8 +204,8 @@ export default function OrdersPage() {
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] font-mono text-white/40 truncate">#{order.orderId}</p>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${isCard ? "bg-blue-900/30 text-blue-400" : isAchOrder(order) ? "bg-cyan-900/30 text-cyan-400" : "bg-purple-900/30 text-purple-400"}`}>
-                        {isCard ? "card" : isAchOrder(order) ? "ach" : "order"}
+                       <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${isCard ? "bg-blue-900/30 text-blue-400" : isAchOrder(order) ? "bg-cyan-900/30 text-cyan-400" : isLog ? "bg-red-900/30 text-red-300" : "bg-white/10 text-white/60"}`}>
+                         {isCard ? "card" : isAchOrder(order) ? "ach" : isLog ? "log" : "other"}
                       </span>
                     </div>
                     <p className="text-xs text-white/60">

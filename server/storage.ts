@@ -2,8 +2,8 @@ import { db } from "./db";
 import { formatCardDeliveryContent } from "./card-privacy";
 import { appendUniqueDeliveryContent, serializeDeliveryParts, type DeliveryParts } from "./delivery-content";
 import { 
-  users, products, variants, stockItems, orders, orderItems, transactions, redeemCodes, announcements, uploadedImages, cards, cardBases, supportTickets, cryptoPayments, mails, mailReads, siteSettings, discountCodes, sellerApplications, achs, cryptoAddresses, cryptoCurrencies,
-  type User, type InsertUser, type Product, type InsertProduct, type Variant, type InsertVariant,
+  users, productCategories, products, variants, stockItems, orders, orderItems, transactions, redeemCodes, announcements, uploadedImages, cards, cardBases, supportTickets, cryptoPayments, mails, mailReads, siteSettings, discountCodes, sellerApplications, achs, cryptoAddresses, cryptoCurrencies,
+  type User, type InsertUser, type ProductCategory, type Product, type InsertProduct, type Variant, type InsertVariant,
   type StockItem, type Order, type OrderItem, type Transaction, type RedeemCode, type Announcement, type InsertAnnouncement, type UploadedImage,
   type Card, type InsertCard, type CardBase, type SellerApplication, type Ach, type InsertAch, type CryptoAddress, type CryptoCurrency
 } from "@shared/schema";
@@ -30,6 +30,10 @@ export interface IStorage {
   updateUser(id: number, data: Partial<User>): Promise<User>;
 
   // Products & Variants
+  getProductCategories(): Promise<(ProductCategory & { productCount: number })[]>;
+  createProductCategory(name: string): Promise<ProductCategory | undefined>;
+  renameProductCategory(id: number, name: string): Promise<ProductCategory | undefined>;
+  deleteProductCategory(id: number): Promise<boolean>;
   getProducts(): Promise<(Product & { variants: (Variant & { stockCount: number })[] })[]>;
   getAllProducts(): Promise<(Product & { variants: (Variant & { stockCount: number })[] })[]>;
   getProduct(id: number): Promise<(Product & { variants: (Variant & { stockCount: number })[] }) | undefined>;
@@ -263,6 +267,133 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  private normalizeProductCategoryName(name: string): string {
+    return name.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+  }
+
+  private cleanProductCategoryName(name: string): string {
+    return name.trim().replace(/\s+/g, " ");
+  }
+
+  private async ensureProductCategory(name: string, executor: any = db, lockForAssignment = false): Promise<string> {
+    const cleanName = this.cleanProductCategoryName(name);
+    if (!cleanName) return "";
+
+    const normalizedName = this.normalizeProductCategoryName(cleanName);
+    if (lockForAssignment) {
+      await executor.execute(sql`select pg_advisory_xact_lock(hashtext(${normalizedName}))`);
+    }
+
+    const [existing] = await executor.select().from(productCategories).where(eq(productCategories.normalizedName, normalizedName));
+    if (existing) return existing.name;
+
+    const [created] = await executor
+      .insert(productCategories)
+      .values({ name: cleanName, normalizedName })
+      .onConflictDoNothing({ target: productCategories.normalizedName })
+      .returning();
+    if (created) return created.name;
+
+    const [concurrent] = await executor.select().from(productCategories).where(eq(productCategories.normalizedName, normalizedName));
+    return concurrent?.name ?? cleanName;
+  }
+
+  private async syncProductCategoriesFromProducts(): Promise<void> {
+    const rows = await db
+      .selectDistinct({ name: products.category })
+      .from(products)
+      .where(sql`trim(coalesce(${products.category}, '')) <> ''`);
+
+    for (const row of rows) {
+      if (!row.name) continue;
+      const canonicalName = await this.ensureProductCategory(row.name);
+      if (canonicalName !== row.name) {
+        await db.update(products).set({ category: canonicalName }).where(eq(products.category, row.name));
+      }
+    }
+  }
+
+  async getProductCategories(): Promise<(ProductCategory & { productCount: number })[]> {
+    await this.syncProductCategoriesFromProducts();
+    const categories = await db.select().from(productCategories).orderBy(asc(productCategories.name));
+    const result = [];
+
+    for (const category of categories) {
+      const [usage] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(products)
+        .where(sql`lower(regexp_replace(trim(coalesce(${products.category}, '')), '[[:space:]]+', ' ', 'g')) = ${category.normalizedName}`);
+      result.push({ ...category, productCount: Number(usage.count) });
+    }
+
+    return result;
+  }
+
+  async createProductCategory(name: string): Promise<ProductCategory | undefined> {
+    const cleanName = this.cleanProductCategoryName(name);
+    const normalizedName = this.normalizeProductCategoryName(cleanName);
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${normalizedName}))`);
+      const [created] = await tx
+        .insert(productCategories)
+        .values({ name: cleanName, normalizedName })
+        .onConflictDoNothing({ target: productCategories.normalizedName })
+        .returning();
+      return created;
+    });
+  }
+
+  async renameProductCategory(id: number, name: string): Promise<ProductCategory | undefined> {
+    const cleanName = this.cleanProductCategoryName(name);
+    const normalizedName = this.normalizeProductCategoryName(cleanName);
+
+    return db.transaction(async (tx) => {
+      let [current] = await tx.select().from(productCategories).where(eq(productCategories.id, id));
+      if (!current) return undefined;
+
+      for (const lockName of Array.from(new Set([current.normalizedName, normalizedName])).sort()) {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockName}))`);
+      }
+
+      [current] = await tx.select().from(productCategories).where(eq(productCategories.id, id));
+      if (!current) return undefined;
+      const [duplicate] = await tx.select().from(productCategories).where(eq(productCategories.normalizedName, normalizedName));
+      if (duplicate && duplicate.id !== id) throw new Error("CATEGORY_EXISTS");
+
+      const [updated] = await tx
+        .update(productCategories)
+        .set({ name: cleanName, normalizedName, updatedAt: new Date() })
+        .where(eq(productCategories.id, id))
+        .returning();
+
+      await tx
+        .update(products)
+        .set({ category: cleanName })
+        .where(sql`lower(regexp_replace(trim(coalesce(${products.category}, '')), '[[:space:]]+', ' ', 'g')) = ${current.normalizedName}`);
+
+      return updated;
+    });
+  }
+
+  async deleteProductCategory(id: number): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      let [category] = await tx.select().from(productCategories).where(eq(productCategories.id, id));
+      if (!category) return false;
+
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${category.normalizedName}))`);
+      [category] = await tx.select().from(productCategories).where(eq(productCategories.id, id));
+      if (!category) return false;
+      const [usage] = await tx
+        .select({ count: sql<number>`count(*)` })
+        .from(products)
+        .where(sql`lower(regexp_replace(trim(coalesce(${products.category}, '')), '[[:space:]]+', ' ', 'g')) = ${category.normalizedName}`);
+      if (Number(usage.count) > 0) throw new Error("CATEGORY_IN_USE");
+
+      await tx.delete(productCategories).where(eq(productCategories.id, id));
+      return true;
+    });
+  }
+
   async getProducts(): Promise<(Product & { variants: (Variant & { stockCount: number })[] })[]> {
     const allProducts = await db.select().from(products).where(eq(products.active, true));
     return this.enrichProductsWithVariants(allProducts);
@@ -312,13 +443,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    const [prod] = await db.insert(products).values(insertProduct).returning();
-    return prod;
+    return db.transaction(async (tx) => {
+      const category = insertProduct.category ? await this.ensureProductCategory(insertProduct.category, tx, true) : "";
+      const [prod] = await tx.insert(products).values({ ...insertProduct, category }).returning();
+      return prod;
+    });
   }
 
   async updateProduct(id: number, data: Partial<Product>): Promise<Product> {
-    const [prod] = await db.update(products).set(data).where(eq(products.id, id)).returning();
-    return prod;
+    return db.transaction(async (tx) => {
+      const nextData = { ...data };
+      if ("category" in nextData) {
+        nextData.category = nextData.category ? await this.ensureProductCategory(nextData.category, tx, true) : "";
+      }
+      const [prod] = await tx.update(products).set(nextData).where(eq(products.id, id)).returning();
+      return prod;
+    });
   }
 
   async createVariant(insertVariant: InsertVariant): Promise<Variant> {
@@ -332,18 +472,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteVariant(id: number): Promise<void> {
-    await db.delete(stockItems).where(eq(stockItems.variantId, id));
-    await db.delete(variants).where(eq(variants.id, id));
+    await db.transaction(async (tx) => {
+      const [usage] = await tx.select({ count: sql<number>`count(*)` }).from(orderItems).where(eq(orderItems.variantId, id));
+      if (Number(usage.count) > 0) throw new Error("VARIANT_IN_USE");
+      await tx.delete(stockItems).where(eq(stockItems.variantId, id));
+      await tx.delete(variants).where(eq(variants.id, id));
+    });
   }
 
   async deleteProduct(id: number): Promise<void> {
-    const prodVariants = await db.select().from(variants).where(eq(variants.productId, id));
-    for (const v of prodVariants) {
-      await db.delete(orderItems).where(eq(orderItems.variantId, v.id));
-      await db.delete(stockItems).where(eq(stockItems.variantId, v.id));
-    }
-    await db.delete(variants).where(eq(variants.productId, id));
-    await db.delete(products).where(eq(products.id, id));
+    await db.transaction(async (tx) => {
+      const prodVariants = await tx.select().from(variants).where(eq(variants.productId, id));
+      for (const variant of prodVariants) {
+        const [usage] = await tx.select({ count: sql<number>`count(*)` }).from(orderItems).where(eq(orderItems.variantId, variant.id));
+        if (Number(usage.count) > 0) throw new Error("PRODUCT_IN_USE");
+      }
+      for (const variant of prodVariants) {
+        await tx.delete(stockItems).where(eq(stockItems.variantId, variant.id));
+      }
+      await tx.delete(variants).where(eq(variants.productId, id));
+      await tx.delete(products).where(eq(products.id, id));
+    });
   }
 
   async addStockItems(variantId: number, content: string, sellerId?: number): Promise<{ added: number; skipped: number }> {

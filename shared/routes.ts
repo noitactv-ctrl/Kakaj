@@ -5,7 +5,7 @@ import {
   insertVariantSchema, 
   insertAnnouncementSchema,
   insertRedeemCodeSchema,
-  users, products, variants, orders, transactions, announcements
+  users, productCategories, products, variants, orders, transactions, announcements
 } from './schema';
 
 export type PublicUser = Omit<typeof users.$inferSelect, 'password' | 'loginCode'> & {
@@ -101,6 +101,47 @@ export const api = {
       responses: {
         201: z.custom<typeof products.$inferSelect>(),
         401: errorSchemas.unauthorized,
+      },
+    },
+  },
+  productCategories: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/admin/product-categories',
+      responses: {
+        200: z.array(z.custom<typeof productCategories.$inferSelect & { productCount: number }>()),
+        401: errorSchemas.unauthorized,
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/admin/product-categories',
+      input: z.object({ name: z.string().trim().min(1, "Category name is required").max(60, "Category names must be 60 characters or fewer") }),
+      responses: {
+        201: z.custom<typeof productCategories.$inferSelect>(),
+        400: errorSchemas.validation,
+        409: errorSchemas.validation,
+      },
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/admin/product-categories/:id',
+      input: z.object({ name: z.string().trim().min(1, "Category name is required").max(60, "Category names must be 60 characters or fewer") }),
+      responses: {
+        200: z.custom<typeof productCategories.$inferSelect>(),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+        409: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/admin/product-categories/:id',
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+        409: errorSchemas.validation,
       },
     },
   },
