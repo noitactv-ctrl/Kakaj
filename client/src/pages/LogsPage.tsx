@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronDown, Loader2, Package, Search, ShieldX, ShoppingCart } from "lucide-react";
+import { Loader2, Package, Search, ShieldX, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useProducts } from "@/hooks/use-products";
 
@@ -160,49 +160,55 @@ export default function LogsPage() {
   }
 
   return (
-    <div className="pixel-page space-y-5 pb-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl leading-relaxed text-white sm:text-2xl">LOGS</h1>
-          <p className="mt-1 text-xs text-white/45">Browse and add log products to your cart</p>
+    <div className="pixel-page space-y-4 pb-8">
+      <div className="pixel-panel sticky top-[68px] z-30 space-y-3 bg-[#10276a] px-3 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl leading-relaxed text-white sm:text-2xl">LOGS</h1>
+            <p className="mt-1 text-xs text-white/55">Browse and add log products to your cart</p>
+          </div>
+          <Link href="/orders">
+            <span className="pixel-button inline-flex items-center gap-2 !bg-[#ff2933] px-3 py-3 text-[8px] !text-white">
+              <ShoppingCart className="h-3 w-3" />
+              MY PURCHASES
+            </span>
+          </Link>
         </div>
-        <Link href="/orders">
-          <span className="pixel-button inline-flex items-center gap-2 !bg-[#ff2933] px-3 py-3 text-[8px] !text-white">
-            <ShoppingCart className="h-3 w-3" />
-            MY PURCHASES
-          </span>
-        </Link>
-      </div>
-
-      <section className="pixel-panel bg-[#151515] p-3">
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#725d42]" />
             <input
               value={search}
               onChange={event => setSearch(event.target.value)}
-              placeholder="Search logs..."
-              className="pixel-input h-10 border-[#373737] bg-[#222] pl-10 text-xs text-white placeholder:text-white/35 focus:bg-[#292929]"
+              placeholder="SEARCH LOGS..."
+              className="pixel-input h-11 pl-10 text-xs"
               data-testid="input-search-logs"
             />
           </div>
-          <div className="relative sm:w-44">
-            <select
-              value={category}
-              onChange={event => setCategory(event.target.value)}
-              className="pixel-input h-10 appearance-none border-[#373737] bg-[#222] pr-8 text-xs text-white"
-              data-testid="filter-product-category"
-            >
-              <option value="all">All Categories</option>
-               {categories.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-          </div>
         </div>
-        <p className="mt-3 text-[10px] text-white/40">
+        <div className="flex flex-wrap gap-2 border-t-2 border-black/60 pt-3" data-testid="filter-product-category">
+          <button
+            type="button"
+            onClick={() => setCategory("all")}
+            className={`pixel-button px-3 py-2 text-[8px] ${category === "all" ? "!bg-[#ee292b] !text-white" : ""}`}
+          >
+            ALL CATEGORIES
+          </button>
+          {categories.map(option => (
+            <button
+              type="button"
+              key={option.key}
+              onClick={() => setCategory(option.key)}
+              className={`pixel-button px-3 py-2 text-[8px] ${category === option.key ? "!bg-[#ee292b] !text-white" : ""}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] text-[#ffe177]">
           {filteredProducts.length} product{filteredProducts.length === 1 ? "" : "s"} available
         </p>
-      </section>
+       </div>
 
       {filteredProducts.length === 0 ? (
         <div className="pixel-panel bg-[#151515] px-5 py-16 text-center">

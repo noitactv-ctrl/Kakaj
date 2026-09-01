@@ -1,9 +1,10 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { Gift, Loader2, ShieldCheck } from "lucide-react";
 import { useWallet } from "@/hooks/use-wallet";
 
 export default function RedeemPage() {
   const [code, setCode] = useState("");
+  const codeInputRef = useRef<HTMLInputElement>(null);
   const { redeemCode } = useWallet();
 
   function handleSubmit(event: FormEvent) {
@@ -24,9 +25,14 @@ export default function RedeemPage() {
 
       <section className="pixel-panel space-y-5 bg-[#151515] p-5 sm:p-7">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#ff2933] text-[#121212]">
+          <button
+            type="button"
+            className="pixel-button flex h-12 w-12 shrink-0 items-center justify-center !bg-[#ff2933] !p-0 !text-[#121212]"
+            onClick={() => codeInputRef.current?.focus()}
+            aria-label="Focus redeem code input"
+          >
             <Gift className="h-6 w-6" />
-          </div>
+          </button>
           <div>
             <h2 className="text-base font-bold text-white">Enter your code</h2>
             <p className="mt-1 text-xs text-white/45">Codes can only be used once.</p>
@@ -37,11 +43,12 @@ export default function RedeemPage() {
           <label className="block space-y-2">
             <span className="pixel-label">REDEEM CODE</span>
             <input
+              ref={codeInputRef}
               value={code}
               onChange={event => setCode(event.target.value.toUpperCase())}
               placeholder="VOUCH-XXXXXXXX"
               autoComplete="off"
-              className="pixel-input h-12 w-full border-[#373737] bg-[#222] font-mono text-sm uppercase tracking-wider text-white placeholder:text-white/25"
+              className="pixel-input h-12 w-full"
               data-testid="input-redeem-code"
             />
           </label>

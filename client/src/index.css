@@ -131,13 +131,6 @@
 .pro-card { @apply bg-[#101a4a] border border-[#314caa] rounded-none shadow-sm; }
 .item-row { @apply border border-[#273d88] bg-[#111b4d] rounded-none p-3 hover:bg-[#17245f] transition-colors; }
 
-.pixel-shell .rounded-lg,
-.pixel-shell .rounded-xl,
-.pixel-shell .rounded-2xl,
-.pixel-shell .rounded-full {
-  border-radius: 0 !important;
-}
-
 .pixel-shell .bg-\[\#111\],
 .pixel-shell .bg-\[\#0d0d0d\],
 .pixel-shell .bg-\[\#1a1a1a\] {

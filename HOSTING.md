@@ -1,4 +1,4 @@
-# Self-hosting NYCHQ
+# Self-hosting BEASTCC
 
 This guide runs the website on your own Linux server, VPS, or container host.
 It does not copy the current Replit database or provider accounts. The

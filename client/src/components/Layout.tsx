@@ -80,7 +80,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="px-3 pt-3 pb-2 space-y-3">
         <Link href={features.cards ? "/cards" : "/deposit"}>
           <div className="pixel-button sidebar-brand-button flex h-[48px] items-center justify-center !text-white">
-            <p className="pixel-logo-text">NYCHQ</p>
+            <p className="pixel-logo-text">BEASTCC</p>
           </div>
         </Link>
         <div className="flex h-[26px] items-center gap-1.5 border-[3px] border-[#0a1021] bg-[#5f90ef] px-2 text-white shadow-[2px_2px_0_#0a1021]">

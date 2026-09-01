@@ -111,7 +111,7 @@ export const insertVariantSchema = createInsertSchema(variants).omit({ id: true 
 export const stockItems = pgTable("stock_items", {
   id: serial("id").primaryKey(),
   variantId: integer("variant_id").notNull().references(() => variants.id),
-  sellerId: integer("seller_id").references(() => users.id), // NULL = admin/NYCHQ (top tier)
+  sellerId: integer("seller_id").references(() => users.id), // NULL = admin/BEASTCC (top tier)
   content: text("content").notNull(),
   isSold: boolean("is_sold").default(false).notNull(),
   isReserved: boolean("is_reserved").default(false).notNull(),

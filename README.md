@@ -1,4 +1,4 @@
-# NYCHQ Website
+# BEASTCC Website
 
 This is a React, Express, and PostgreSQL digital marketplace. For complete
 self-hosting instructions, see [`HOSTING.md`](./HOSTING.md).
