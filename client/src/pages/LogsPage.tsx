@@ -11,7 +11,7 @@ type Product = {
   image?: string | null;
   category?: string | null;
   pinned?: boolean;
-  variants: { id: number; price: number; comparePrice?: number | null; stockCount: number }[];
+  variants: { id: number; name: string; price: number; comparePrice?: number | null; stockCount: number }[];
 };
 
 function ProductArtwork({ product }: { product: Product }) {
@@ -31,6 +31,7 @@ function ProductTile({ product, onCategorySelect }: { product: Product; onCatego
   const availableStock = inStockVariants.reduce((total, variant) => total + variant.stockCount, 0);
   const price = lowestVariant?.price ?? 0;
   const comparePrice = lowestVariant?.comparePrice;
+  const options = product.variants ?? [];
 
   const openProduct = () => setLocation(`/product/${encodeURIComponent(product.name)}`);
 
@@ -45,11 +46,11 @@ function ProductTile({ product, onCategorySelect }: { product: Product; onCatego
             openProduct();
           }
         }}
-        className="group flex h-full min-h-[236px] cursor-pointer flex-col overflow-hidden rounded-2xl bg-[#171717] p-5 transition-colors hover:bg-[#1a1a1a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ff2933]"
+        className="group flex h-full min-h-[258px] cursor-pointer flex-col overflow-hidden rounded-2xl bg-[#10215e] p-4 shadow-[4px_4px_0_#050505] transition-colors hover:bg-[#163078] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ff2933]"
         data-testid={`card-product-${product.id}`}
       >
         <div className="flex items-start gap-3">
-          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md bg-[#202020]">
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[#1d3d93]">
             <ProductArtwork product={product} />
           </div>
           <div className="min-w-0 pt-0.5">
@@ -57,7 +58,7 @@ function ProductTile({ product, onCategorySelect }: { product: Product; onCatego
             {product.category && (
               <button
                 type="button"
-                className="mt-1.5 inline-flex max-w-full truncate rounded bg-[#090909] px-2 py-0.5 text-[10px] font-medium text-[#d2d2d2] transition-colors hover:bg-[#303030] hover:text-white"
+                className="pixel-button mt-1.5 inline-flex max-w-full truncate !min-h-0 !border-2 !px-2 !py-1 !text-[8px] !leading-none transition-colors hover:!bg-[#ee292b] hover:!text-white"
                 onClick={event => {
                   event.stopPropagation();
                   onCategorySelect(product.category!);
@@ -70,13 +71,25 @@ function ProductTile({ product, onCategorySelect }: { product: Product; onCatego
           </div>
         </div>
 
-        <p className="mt-3 line-clamp-1 min-h-5 text-xs leading-5 text-[#9a9a9a]">
-          {product.description || "Digital product delivered after purchase."}
-        </p>
+        <div className="mt-4 min-h-[43px]">
+          <p className="pixel-label">OPTIONS</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {options.length > 0 ? options.map(option => (
+              <span
+                key={option.id}
+                className={`rounded-md bg-[#0a1645] px-2 py-1 text-[10px] font-mono text-white/80 ${option.stockCount === 0 ? "text-white/30 line-through" : ""}`}
+              >
+                {option.name}
+              </span>
+            )) : (
+              <span className="text-[10px] font-mono text-white/40">No options available</span>
+            )}
+          </div>
+        </div>
 
         <div className="mt-3 space-y-2 text-xs">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[#929292]">Price per line</span>
+            <span className="text-[#abbceb]">Starting price</span>
             <span className="font-bold text-[#f4f4f4]">
               {price > 0 ? `$${(price / 100).toFixed(2)}` : "Unavailable"}
               {comparePrice && comparePrice > price && (
@@ -85,7 +98,7 @@ function ProductTile({ product, onCategorySelect }: { product: Product; onCatego
             </span>
           </div>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[#929292]">Available stock</span>
+            <span className="text-[#abbceb]">Available stock</span>
             <span className="min-w-6 rounded-md bg-[#eeeeee] px-1.5 py-0.5 text-center text-[10px] font-bold text-[#202020]">
               {availableStock}
             </span>
@@ -93,7 +106,7 @@ function ProductTile({ product, onCategorySelect }: { product: Product; onCatego
         </div>
 
         <div className="mt-auto pt-3">
-          <div className={`flex h-8 w-full items-center justify-center gap-2 rounded-md text-xs font-medium transition-colors ${availableStock > 0 ? "bg-[#ff2933] text-[#121212] group-hover:bg-[#ff414a]" : "bg-[#3a3a3a] text-[#999]"}`}>
+          <div className={`pixel-button flex h-10 w-full items-center justify-center gap-2 !border-2 !text-[8px] transition-colors ${availableStock > 0 ? "!bg-[#ee292b] !text-white group-hover:!bg-[#ff414a]" : "!bg-[#3a3a3a] !text-[#999]"}`}>
             <ShoppingCart className="h-3.5 w-3.5" strokeWidth={1.8} />
             <span>{availableStock > 0 ? "Add to cart" : "Out of stock"}</span>
           </div>
