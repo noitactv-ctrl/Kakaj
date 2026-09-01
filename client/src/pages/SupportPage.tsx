@@ -64,6 +64,11 @@ export default function SupportPage() {
     staleTime: 60000,
   });
 
+  function existingTicketForOrder(value: string) {
+    const normalized = value.trim();
+    return (tickets ?? []).some(ticket => ticket.orderId === normalized);
+  }
+
   // Validate order ID against user's real orders
   function handleOrderIdChange(val: string) {
     setOrderId(val);
@@ -83,6 +88,10 @@ export default function SupportPage() {
       setOrderIdError("Order ID not found. Check your Orders page for the correct ID.");
       return false;
     }
+    if (existingTicketForOrder(trimmed)) {
+      setOrderIdError("This order already has a support ticket. You can only submit one ticket per order.");
+      return false;
+    }
     if (!match.items?.some(item => item.itemType === "card" || item.cardId != null || item.variantId != null)) {
       setOrderIdError("Support tickets are only available for purchased items, not deposit orders.");
       return false;
@@ -94,7 +103,7 @@ export default function SupportPage() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      if (!validateOrderId()) throw new Error("Invalid Order ID");
+       if (!validateOrderId()) throw new Error(orderIdError || "Invalid Order ID");
       if (!description.trim()) throw new Error("Please provide a description");
       const res = await apiRequest("POST", "/api/support", {
         orderId: orderId.trim(),

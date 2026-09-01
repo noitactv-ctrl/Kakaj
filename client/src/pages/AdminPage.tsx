@@ -4032,6 +4032,13 @@ function SupportSection() {
   const [actionTicketId, setActionTicketId] = useState<number | null>(null);
   const [adminMessage, setAdminMessage] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [showExactPurchaseTime, setShowExactPurchaseTime] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 60000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const { data: tickets, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/support"],
@@ -4066,6 +4073,18 @@ function SupportSection() {
   const open   = (tickets ?? []).filter((t: any) => t.status === "open");
   const closed = (tickets ?? []).filter((t: any) => t.status !== "open");
   const displayed = showHistory ? closed : open;
+
+  const formatElapsedSincePurchase = (purchaseAt: string | null | undefined) => {
+    if (!purchaseAt) return "Purchase time unavailable";
+    const elapsed = Math.max(0, now - new Date(purchaseAt).getTime());
+    const minutes = Math.floor(elapsed / 60000);
+    if (minutes < 1) return "Just purchased";
+    if (minutes < 60) return `${minutes}m since purchase`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ${minutes % 60}m since purchase`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h since purchase`;
+  };
 
   return (
     <div className="pixel-page space-y-5">
@@ -4112,7 +4131,19 @@ function SupportSection() {
                    </span>
                   <span className="text-[10px] text-white/35 font-mono">#{ticket.id}</span>
                 </div>
-                <p className="text-[11px] text-white/40 font-mono">Order: {ticket.orderId}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[11px] text-white/40 font-mono">Order: {ticket.orderId}</p>
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-md bg-[#17337d] px-2 py-1 text-[10px] font-mono text-[#ffe177] transition-colors hover:bg-[#2555c5]"
+                    title={ticket.purchaseAt ? `Purchased ${new Date(ticket.purchaseAt).toLocaleString("en-US")}` : "Purchase time unavailable"}
+                    onClick={() => setShowExactPurchaseTime(current => current === ticket.id ? null : ticket.id)}
+                  >
+                    {showExactPurchaseTime === ticket.id && ticket.purchaseAt
+                      ? `Purchased ${new Date(ticket.purchaseAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                      : formatElapsedSincePurchase(ticket.purchaseAt)}
+                  </button>
+                </div>
                 {ticket.user?.username && (
                   <p className="text-[11px] text-white/35">User: <span className="text-white/60">{ticket.user.username}</span></p>
                 )}

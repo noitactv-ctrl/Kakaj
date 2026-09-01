@@ -87,6 +87,7 @@ export interface IStorage {
 
   // Support
   createSupportTicket(ticket: any): Promise<any>;
+  createSupportTicketForOrder(ticket: any): Promise<any>;
   getSupportTickets(userId?: number): Promise<any[]>;
   getSupportTicket(id: number): Promise<any>;
   updateSupportTicket(id: number, data: any): Promise<any>;
@@ -1407,10 +1408,36 @@ export class DatabaseStorage implements IStorage {
     return t;
   }
 
+  async createSupportTicketForOrder(ticket: any): Promise<any> {
+    const rows = await db.transaction(async (tx) => {
+      const lockKey = `${ticket.userId}:${ticket.orderId}`;
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
+
+      const [existing] = await tx
+        .select({ id: supportTickets.id })
+        .from(supportTickets)
+        .where(and(
+          eq(supportTickets.userId, ticket.userId),
+          eq(supportTickets.orderId, ticket.orderId),
+        ))
+        .limit(1);
+      if (existing) throw new Error("TICKET_EXISTS");
+
+      return tx.insert(supportTickets).values(ticket).returning();
+    });
+    return rows[0];
+  }
+
   async getSupportTickets(userId?: number): Promise<any[]> {
-    const q = db.select().from(supportTickets).orderBy(desc(supportTickets.createdAt));
-    if (userId) return q.where(eq(supportTickets.userId, userId));
-    return q;
+    const q = db
+      .select({ ticket: supportTickets, purchaseAt: orders.createdAt })
+      .from(supportTickets)
+      .leftJoin(orders, eq(orders.orderId, supportTickets.orderId))
+      .orderBy(desc(supportTickets.createdAt));
+    const rows = userId
+      ? await q.where(eq(supportTickets.userId, userId))
+      : await q;
+    return rows.map(({ ticket, purchaseAt }) => ({ ...ticket, purchaseAt }));
   }
 
   async getSupportTicket(id: number): Promise<any> {

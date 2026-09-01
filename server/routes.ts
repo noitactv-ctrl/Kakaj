@@ -1716,7 +1716,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Support tickets are only available for purchased items, not deposit orders." });
       }
 
-       const ticket = await storage.createSupportTicket({
+       const ticket = await storage.createSupportTicketForOrder({
          orderId: orderId.trim(),
          subject: "Refund",
          description: description.trim(),
@@ -1725,6 +1725,9 @@ export async function registerRoutes(
        });
       res.status(201).json(ticket);
     } catch (e: any) {
+      if (e?.message === "TICKET_EXISTS") {
+        return res.status(409).json({ message: "You can only submit one support ticket for each order." });
+      }
       res.status(400).json({ message: e.message });
     }
   });
