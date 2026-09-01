@@ -959,11 +959,15 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || (req.user as any).role !== 'admin') {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const { amount, count } = req.body;
+    const parsed = api.admin.generateCodes.input.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid redeem code settings" });
+    }
+    const { amount, count } = parsed.data;
     const codes = [];
     
     for (let i = 0; i < count; i++) {
-      const randomStr = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const randomStr = `${Date.now().toString(36)}${Math.random().toString(36).substring(2, 10)}`.substring(0, 12).toUpperCase();
       const codeStr = `VOUCH-${randomStr}`;
       await storage.createRedeemCode(codeStr, amount);
       codes.push(codeStr);
