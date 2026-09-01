@@ -47,11 +47,11 @@ function ProductTile({ product }: { product: Product }) {
   return (
     <Link href={`/product/${encodeURIComponent(product.name)}`}>
       <article
-        className="group flex h-full min-h-[236px] cursor-pointer flex-col rounded-xl border border-[#282828] bg-[#171717] p-5 transition-colors hover:border-[#3a3a3a] hover:bg-[#1a1a1a]"
+        className="group flex h-full min-h-[236px] cursor-pointer flex-col rounded-xl bg-[#171717] p-5 transition-colors hover:bg-[#1a1a1a]"
         data-testid={`card-product-${product.id}`}
       >
         <div className="flex items-start gap-3">
-          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-[#303030] bg-[#202020]">
+          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md bg-[#202020]">
             <ProductArtwork product={product} />
           </div>
           <div className="min-w-0 pt-0.5">
