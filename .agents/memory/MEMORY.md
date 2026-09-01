@@ -18,3 +18,4 @@
 - [Manual deposit settlement](manual-deposit-settlement.md) — manual top-ups require atomic pending-only settlement; item-bearing CashApp orders stay on product fulfillment.
 - [Exact stock fulfillment](exact-stock-fulfillment.md) — deliver only each order’s assigned stock; transactional rollback is required if any assignment is unavailable.
 - [Refund-only ticket resolution](refund-only-ticket-resolution.md) — support tickets use refund or resolve actions only; replacement is retired from active workflows.
+- [Site-wide crosshair cursor](site-wide-crosshair-cursor.md) — preserve the pixel crosshair across the whole storefront, including cards and controls that set cursor utilities.
