@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation, useRoute } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { Link, useRoute } from "wouter";
 import { ArrowLeft, Loader2, Minus, Package, Plus, ShoppingCart } from "lucide-react";
 import { useProducts } from "@/hooks/use-products";
+import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 
 function DetailArtwork({ image, name }: { image?: string | null; name: string }) {
   const [failed, setFailed] = useState(false);
@@ -24,9 +24,8 @@ function DetailArtwork({ image, name }: { image?: string | null; name: string })
 
 export default function ProductDetailPage() {
   const [, params] = useRoute("/product/:name");
-  const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const addItem = useCart(state => state.addItem);
   const { data: products, isLoading, isError, refetch } = useProducts();
   const productName = decodeURIComponent(params?.name ?? "");
   const product = products?.find(item => item.name === productName);
@@ -41,10 +40,6 @@ export default function ProductDetailPage() {
   const maxQuantity = selectedVariant?.stockCount ?? 0;
   const total = (selectedVariant?.price ?? 0) * quantity;
 
-  const { data: rank } = useQuery<{ discountPct?: number }>({ queryKey: ["/api/user/rank"] });
-  const discountPct = rank?.discountPct ?? 0;
-  const discountedTotal = Math.round(total * (1 - discountPct / 100));
-
   useEffect(() => {
     const firstAvailable = product?.variants.find(variant => variant.stockCount > 0);
     if (firstAvailable && !variantId) setVariantId(String(firstAvailable.id));
@@ -54,28 +49,25 @@ export default function ProductDetailPage() {
     if (selectedVariant) setQuantity(Math.min(Math.max(quantity, minQuantity), maxQuantity));
   }, [selectedVariant, minQuantity, maxQuantity]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const purchaseMutation = useMutation({
+  const addToCartMutation = useMutation({
     mutationFn: async () => {
       if (!selectedVariant) throw new Error("Select an option first");
       if (quantity < minQuantity || quantity > maxQuantity) throw new Error("Quantity is no longer available");
-      const response = await apiRequest("POST", "/api/orders", {
-        items: [{ variantId: selectedVariant.id, quantity }],
-        cardIds: [],
+      addItem({
+        variantId: selectedVariant.id,
+        productId: product!.id,
+        productName: product!.name,
+        variantName: selectedVariant.name,
+        price: selectedVariant.price,
+        quantity,
+        image: product!.image ?? "",
+        minQuantity,
       });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || "Purchase failed");
-      }
-      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      toast({ title: "PURCHASE COMPLETE", description: "Your product is ready in My Purchases." });
-      setLocation("/orders");
+      toast({ title: "ADDED TO CART", description: `${product?.name} is ready for checkout from your cart.` });
     },
-    onError: (error: Error) => toast({ title: "PURCHASE FAILED", description: error.message, variant: "destructive" }),
+    onError: (error: Error) => toast({ title: "COULD NOT ADD TO CART", description: error.message, variant: "destructive" }),
   });
 
   if (isLoading) {
@@ -149,19 +141,18 @@ export default function ProductDetailPage() {
           <div className="flex items-end justify-between border-t-[2px] border-white/10 pt-4">
             <div>
               <p className="text-[9px] text-white/40">TOTAL</p>
-              <p className="mt-1 font-mono text-xl font-bold text-white">{discountedTotal > 0 ? `$${(discountedTotal / 100).toFixed(2)}` : "—"}</p>
+              <p className="mt-1 font-mono text-xl font-bold text-white">{total > 0 ? `$${(total / 100).toFixed(2)}` : "—"}</p>
             </div>
-            {discountPct > 0 && total > discountedTotal && <p className="text-[9px] font-bold text-[#ffcf3f]">{discountPct}% RANK DISCOUNT</p>}
           </div>
 
           <button
-            onClick={() => purchaseMutation.mutate()}
-            disabled={!available || !selectedVariant || purchaseMutation.isPending}
+            onClick={() => addToCartMutation.mutate()}
+            disabled={!available || !selectedVariant || addToCartMutation.isPending}
             className="pixel-button flex min-h-11 w-full items-center justify-center gap-2 !bg-[#ff2933] px-3 py-3 text-[9px] !text-white disabled:cursor-not-allowed disabled:opacity-45"
-            data-testid="button-purchase-product"
+            data-testid="button-add-product"
           >
-            {purchaseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
-            {purchaseMutation.isPending ? "PROCESSING..." : "PURCHASE NOW"}
+            {addToCartMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+            {addToCartMutation.isPending ? "ADDING..." : "ADD TO CART"}
           </button>
         </div>
       </div>

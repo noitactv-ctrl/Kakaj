@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ShoppingCart, X } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,14 +6,6 @@ import { useMutation } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
-interface AppliedDiscount {
-  id: number;
-  code: string;
-  type: "percent" | "fixed";
-  value: number;
-  discountAmount: number;
-}
 
 export function CartSidebar({ open, onClose }: {
   open: boolean;
@@ -33,8 +24,6 @@ export function CartSidebar({ open, onClose }: {
     clearCart,
     total,
   } = useCart();
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
 
   const itemCount = items.reduce((count, item) => count + item.quantity, 0)
     + cardItems.length
@@ -43,28 +32,6 @@ export function CartSidebar({ open, onClose }: {
   const cardSubtotal = cardItems.reduce((sum, card) => sum + card.price, 0);
   const cartTotal = productTotal + cardSubtotal + (bulkBundle?.discountedTotal ?? 0);
   const isEmpty = itemCount === 0;
-  const finalTotal = Math.max(0, cartTotal - (appliedDiscount?.discountAmount ?? 0));
-
-  useEffect(() => {
-    if (appliedDiscount) setAppliedDiscount(null);
-  }, [cartTotal]);
-
-  const validateDiscountMutation = useMutation({
-    mutationFn: async (code: string) => {
-      const response = await apiRequest("POST", "/api/discount/validate", { code, cartTotal });
-      if (!response.ok) {
-        const error = await response.json().catch(() => null);
-        throw new Error(error?.message || "Invalid discount code");
-      }
-      return response.json() as Promise<AppliedDiscount>;
-    },
-    onSuccess: (discount) => {
-      setAppliedDiscount(discount);
-      setCouponCode("");
-      toast({ title: "Coupon applied", description: `You save $${(discount.discountAmount / 100).toFixed(2)}.` });
-    },
-    onError: (error: Error) => toast({ title: "Coupon not valid", description: error.message, variant: "destructive" }),
-  });
 
   const balanceOrderMutation = useMutation({
     mutationFn: async () => {
@@ -76,7 +43,7 @@ export function CartSidebar({ open, onClose }: {
         items: items.map(item => ({ variantId: item.variantId, quantity: item.quantity })),
         cardIds: cardItems.map(card => card.id),
         bulkCardIds: bulkBundle?.cardIds ?? [],
-        discountCodeId: bulkBundle ? null : appliedDiscount?.id ?? null,
+        discountCodeId: null,
       });
       if (!response.ok) {
         const error = await response.json().catch(() => null);
@@ -99,15 +66,6 @@ export function CartSidebar({ open, onClose }: {
       toast({ title: "Checkout failed", description: error.message, variant: "destructive" });
     },
   });
-
-  const handleApplyCoupon = () => {
-    if (bulkBundle) {
-      toast({ title: "Bulk bundle locked", description: "The 50% bundle price cannot be combined with a coupon.", variant: "destructive" });
-      return;
-    }
-    const trimmed = couponCode.trim();
-    if (trimmed) validateDiscountMutation.mutate(trimmed);
-  };
 
   return (
     <aside
@@ -202,24 +160,6 @@ export function CartSidebar({ open, onClose }: {
         </div>
 
         <div className="shrink-0 space-y-2 border-t-[3px] border-black bg-[#10215e] p-2.5">
-          <div className="flex gap-1.5">
-            <input
-              value={couponCode}
-              onChange={event => setCouponCode(event.target.value)}
-              placeholder="Coupon code"
-              className="pixel-input h-8 min-w-0 flex-1 px-2 text-[10px]"
-              aria-label="Coupon code"
-            />
-            <button
-              onClick={handleApplyCoupon}
-              disabled={validateDiscountMutation.isPending || !couponCode.trim()}
-              className="pixel-button h-8 px-2 text-[8px] disabled:cursor-not-allowed disabled:opacity-45"
-              aria-label="Apply coupon"
-            >
-              {validateDiscountMutation.isPending ? "..." : "Apply"}
-            </button>
-          </div>
-
           <div className="flex items-end justify-between border-b-2 border-black/50 pb-2">
             <div>
               <p className="pixel-label">TOTAL</p>
@@ -228,10 +168,7 @@ export function CartSidebar({ open, onClose }: {
               </p>
             </div>
             <div className="text-right">
-              {appliedDiscount && (
-                <p className="font-mono text-[9px] text-[#72df7c]">-{(appliedDiscount.discountAmount / 100).toFixed(2)}</p>
-              )}
-              <p className="font-mono text-sm font-bold text-white">${(finalTotal / 100).toFixed(2)}</p>
+              <p className="font-mono text-sm font-bold text-white">${(cartTotal / 100).toFixed(2)}</p>
             </div>
           </div>
 

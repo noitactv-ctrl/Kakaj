@@ -89,7 +89,7 @@ function ProductTile({ product }: { product: Product }) {
         <div className="mt-auto pt-3">
           <div className={`flex h-8 w-full items-center justify-center gap-2 rounded-md text-xs font-medium transition-colors ${availableStock > 0 ? "bg-[#ff2933] text-[#121212] group-hover:bg-[#ff414a]" : "bg-[#3a3a3a] text-[#999]"}`}>
             <ShoppingCart className="h-3.5 w-3.5" strokeWidth={1.8} />
-            <span>{availableStock > 0 ? "Purchase" : "Out of stock"}</span>
+            <span>{availableStock > 0 ? "Add to cart" : "Out of stock"}</span>
           </div>
         </div>
       </article>
@@ -155,7 +155,7 @@ export default function LogsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl leading-relaxed text-white sm:text-2xl">LOGS</h1>
-          <p className="mt-1 text-xs text-white/45">Browse and purchase log products</p>
+          <p className="mt-1 text-xs text-white/45">Browse and add log products to your cart</p>
         </div>
         <Link href="/orders">
           <span className="pixel-button inline-flex items-center gap-2 !bg-[#ff2933] px-3 py-3 text-[8px] !text-white">

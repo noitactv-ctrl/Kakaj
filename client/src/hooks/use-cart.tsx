@@ -32,7 +32,6 @@ interface CartStore {
   items: CartItem[];
   cardItems: BulkCardItem[];
   bulkBundle: BulkCardBundle | null;
-  checkoutCouponCode: string;
   userId: number | null;
   addItem: (item: CartItem) => void;
   addCard: (card: BulkCardItem) => void;
@@ -41,8 +40,6 @@ interface CartStore {
   updateQuantity: (variantId: number, quantity: number) => void;
   setBulkBundle: (bundle: BulkCardBundle) => void;
   clearBulkBundle: () => void;
-  setCheckoutCouponCode: (code: string) => void;
-  consumeCheckoutCouponCode: () => void;
   clearCart: () => void;
   setUserId: (id: number | null) => void;
   total: () => number;
@@ -54,7 +51,6 @@ export const useCart = create<CartStore>()(
       items: [],
       cardItems: [],
       bulkBundle: null,
-      checkoutCouponCode: "",
       userId: null,
       addItem: (newItem) => set((state) => {
         const existing = state.items.find((i) => i.variantId === newItem.variantId);
@@ -87,13 +83,11 @@ export const useCart = create<CartStore>()(
       })),
       setBulkBundle: (bundle) => set({ items: [], cardItems: [], bulkBundle: bundle }),
       clearBulkBundle: () => set({ bulkBundle: null }),
-      setCheckoutCouponCode: (code) => set({ checkoutCouponCode: code }),
-      consumeCheckoutCouponCode: () => set({ checkoutCouponCode: "" }),
-      clearCart: () => set({ items: [], cardItems: [], bulkBundle: null, checkoutCouponCode: "" }),
+      clearCart: () => set({ items: [], cardItems: [], bulkBundle: null }),
       setUserId: (id) => {
         const current = get();
         if (current.userId !== id) {
-          set({ items: [], cardItems: [], bulkBundle: null, checkoutCouponCode: "", userId: id });
+          set({ items: [], cardItems: [], bulkBundle: null, userId: id });
         }
       },
       total: () => get().items.reduce((acc, item) => acc + (item.price * item.quantity), 0),
