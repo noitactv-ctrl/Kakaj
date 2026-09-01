@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Coins, Crown, Gamepad2, Menu, ShoppingCart,
-  Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck,
+  Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck, Package,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/hooks/use-cart";
@@ -34,9 +34,10 @@ const navigation: { label: string; items: NavItem[] }[] = [
     items: [{ href: "/support", label: "Tickets", icon: Ticket }],
   },
   {
-    label: "FEATURED",
+    label: "SHOPPING",
     items: [
-      { href: "/cards", label: "Cards", icon: CreditCard },
+      { href: "/cards", label: "Buy Cards", icon: CreditCard },
+      { href: "/logs", label: "Buy Logs", icon: Package },
     ],
   },
 ];
@@ -60,7 +61,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   if (location === "/auth") return <>{children}</>;
 
   const isActive = (href: string) =>
-    location === href || (href === "/deposit" && location === "/");
+    location === href ||
+    (href === "/deposit" && location === "/") ||
+    (href === "/logs" && location.startsWith("/product/"));
   const visibleNavigation = navigation
     .map((group) => ({
       ...group,

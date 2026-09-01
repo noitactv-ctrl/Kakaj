@@ -21,6 +21,8 @@ import CardsPage from "@/pages/CardsPage";
 import SupportPage from "@/pages/SupportPage";
 import PlinkoGamePage from "@/pages/PlinkoGamePage";
 import RoutingCatalogPage from "@/pages/RoutingCatalogPage";
+import LogsPage from "@/pages/LogsPage";
+import ProductDetailPage from "@/pages/ProductDetailPage";
 
 function Router() {
   const { user, isLoading } = useAuth();
@@ -44,7 +46,10 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/" component={DepositPage} />
         <Route path="/deposit" component={DepositPage} />
-        <Route path="/shop"><Redirect to={features.cards ? "/cards" : "/deposit"} /></Route>
+        <Route path="/shop"><Redirect to="/logs" /></Route>
+        <Route path="/products" component={LogsPage} />
+        <Route path="/logs" component={LogsPage} />
+        <Route path="/product/:name" component={ProductDetailPage} />
         <Route path="/order/:id" component={OrderDetailPageNew} />
         <Route path="/orders" component={OrdersPage} />
         <Route path="/ranks">{() => features.ranks ? <RanksPage /> : <Redirect to="/deposit" />}</Route>
