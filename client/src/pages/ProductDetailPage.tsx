@@ -8,13 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 
 function DetailArtwork({ image, name }: { image?: string | null; name: string }) {
   return (
-    <div className="relative flex h-full min-h-[290px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_30%_25%,#303030_0%,#111_60%,#080808_100%)] px-8 text-center">
-      <div
-        className="max-w-full break-words text-3xl font-black uppercase leading-none tracking-tight text-[#f4f4f4] sm:text-4xl"
-        style={{ textShadow: "2px 2px 0 #b4232d, 4px 4px 0 #74151c, 6px 6px 0 #2d080b" }}
-      >
-        {name}
-      </div>
+    <div className="flex h-full min-h-[290px] items-center justify-center overflow-hidden bg-[#202020] text-[#a0a0a0]">
+      <Package className="h-24 w-24" strokeWidth={1.2} />
     </div>
   );
 }
