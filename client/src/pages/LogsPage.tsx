@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ChevronDown, Loader2, Package, Search, ShieldX, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useProducts } from "@/hooks/use-products";
@@ -22,7 +22,8 @@ function ProductArtwork({ product }: { product: Product }) {
   );
 }
 
-function ProductTile({ product }: { product: Product }) {
+function ProductTile({ product, onCategorySelect }: { product: Product; onCategorySelect: (category: string) => void }) {
+  const [, setLocation] = useLocation();
   const inStockVariants = product.variants?.filter(variant => variant.stockCount > 0) ?? [];
   const lowestVariant = inStockVariants.length
     ? inStockVariants.reduce((lowest, variant) => variant.price < lowest.price ? variant : lowest)
@@ -31,10 +32,20 @@ function ProductTile({ product }: { product: Product }) {
   const price = lowestVariant?.price ?? 0;
   const comparePrice = lowestVariant?.comparePrice;
 
+  const openProduct = () => setLocation(`/product/${encodeURIComponent(product.name)}`);
+
   return (
-    <Link href={`/product/${encodeURIComponent(product.name)}`}>
       <article
-        className="group flex h-full min-h-[236px] cursor-pointer flex-col rounded-xl bg-[#171717] p-5 transition-colors hover:bg-[#1a1a1a]"
+        role="link"
+        tabIndex={0}
+        onClick={openProduct}
+        onKeyDown={event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openProduct();
+          }
+        }}
+        className="group flex h-full min-h-[236px] cursor-pointer flex-col rounded-xl bg-[#171717] p-5 transition-colors hover:bg-[#1a1a1a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ff2933]"
         data-testid={`card-product-${product.id}`}
       >
         <div className="flex items-start gap-3">
@@ -44,9 +55,17 @@ function ProductTile({ product }: { product: Product }) {
           <div className="min-w-0 pt-0.5">
             <h2 className="truncate text-sm font-bold leading-tight text-[#f4f4f4]">{product.name}</h2>
             {product.category && (
-              <span className="mt-1.5 inline-flex rounded bg-[#090909] px-2 py-0.5 text-[10px] font-medium text-[#d2d2d2]">
+              <button
+                type="button"
+                className="mt-1.5 inline-flex max-w-full truncate rounded bg-[#090909] px-2 py-0.5 text-[10px] font-medium text-[#d2d2d2] transition-colors hover:bg-[#303030] hover:text-white"
+                onClick={event => {
+                  event.stopPropagation();
+                  onCategorySelect(product.category!);
+                }}
+                aria-label={`Filter by ${product.category}`}
+              >
                 {product.category}
-              </span>
+              </button>
             )}
           </div>
         </div>
@@ -80,7 +99,6 @@ function ProductTile({ product }: { product: Product }) {
           </div>
         </div>
       </article>
-    </Link>
   );
 }
 
@@ -90,19 +108,23 @@ export default function LogsPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
 
+  const normalizeCategory = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   const categories = useMemo(
-    () => Array.from(new Set(
+    () => Array.from(
       (products ?? [])
-        .map(product => product.category)
-        .filter((value): value is string => Boolean(value)),
-    )).sort(),
+        .map(product => product.category?.trim().replace(/\s+/g, " "))
+        .filter((value): value is string => Boolean(value))
+        .reduce((map, value) => map.set(normalizeCategory(value), map.get(normalizeCategory(value)) ?? value), new Map<string, string>()),
+    )
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
     [products],
   );
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
     return (products ?? []).filter(product => {
-      const matchesCategory = category === "all" || product.category === category;
+      const matchesCategory = category === "all" || (product.category ? normalizeCategory(product.category) === category : false);
       const matchesSearch = !query || [product.name, product.description, product.category]
         .filter(Boolean)
         .some(value => String(value).toLowerCase().includes(query));
@@ -172,7 +194,7 @@ export default function LogsPage() {
               data-testid="filter-product-category"
             >
               <option value="all">All Categories</option>
-              {categories.map(value => <option key={value} value={value}>{value}</option>)}
+               {categories.map(option => <option key={option.key} value={option.key}>{option.label}</option>)}
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
           </div>
@@ -190,7 +212,13 @@ export default function LogsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredProducts.map(product => <ProductTile key={product.id} product={product} />)}
+           {filteredProducts.map(product => (
+             <ProductTile
+               key={product.id}
+               product={product}
+               onCategorySelect={value => setCategory(normalizeCategory(value))}
+             />
+           ))}
         </div>
       )}
     </div>

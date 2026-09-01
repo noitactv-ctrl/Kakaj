@@ -930,7 +930,11 @@ function ProductsSection() {
                 </div>
                 <div className="min-w-0">
                   <p className="inline-block max-w-full truncate border border-primary/40 bg-primary/15 px-2 py-1 text-sm font-bold text-primary">{product.name}</p>
-                  {product.category && <p className="mt-1 truncate text-[11px] text-white/45">{product.category}</p>}
+                  {product.category && (
+                    <span className="mt-1 inline-flex max-w-full truncate rounded bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      {product.category}
+                    </span>
+                  )}
                   <p className="text-xs text-muted-foreground">{product.variants?.length || 0} variant(s)</p>
                 </div>
               </div>
