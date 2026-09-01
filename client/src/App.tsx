@@ -23,6 +23,7 @@ import PlinkoGamePage from "@/pages/PlinkoGamePage";
 import RoutingCatalogPage from "@/pages/RoutingCatalogPage";
 import LogsPage from "@/pages/LogsPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
+import RedeemPage from "@/pages/RedeemPage";
 
 function Router() {
   const { user, isLoading } = useAuth();
@@ -46,6 +47,7 @@ function Router() {
         <Route path="/auth" component={AuthPage} />
         <Route path="/" component={DepositPage} />
         <Route path="/deposit" component={DepositPage} />
+        <Route path="/redeem" component={RedeemPage} />
         <Route path="/shop"><Redirect to="/logs" /></Route>
         <Route path="/products" component={LogsPage} />
         <Route path="/logs" component={LogsPage} />

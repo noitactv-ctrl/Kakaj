@@ -409,23 +409,36 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Code required" });
       }
 
-      // Atomic claim — only succeeds if the code exists and is not yet used
-      // Using a single UPDATE … WHERE is_used = false prevents double-redeem races
-      const claimed = await db
-        .update(redeemCodes)
-        .set({ isUsed: true, usedBy: (req.user as any).id })
-        .where(and(eq(redeemCodes.code, codeStr.trim().toUpperCase()), eq(redeemCodes.isUsed, false)))
-        .returning();
+      const result = await db.transaction(async (tx) => {
+        // Claiming the code, crediting the wallet, and recording the redeem
+        // ledger entry must succeed or fail together.
+        const claimed = await tx
+          .update(redeemCodes)
+          .set({ isUsed: true, usedBy: (req.user as any).id })
+          .where(and(eq(redeemCodes.code, codeStr.trim().toUpperCase()), eq(redeemCodes.isUsed, false)))
+          .returning();
 
-      if (claimed.length === 0) {
-        return res.status(400).json({ message: "Invalid or already used code" });
-      }
+        if (claimed.length === 0) throw new Error("Invalid or already used code");
 
-      const code = claimed[0];
-      const updatedUser = await storage.updateUserBalance((req.user as any).id, code.amount);
-      await storage.createTransaction((req.user as any).id, code.amount, "deposit", `Redeemed code: ${code.code}`);
+        const code = claimed[0];
+        const [updatedUser] = await tx
+          .update(users)
+          .set({ balance: sql`${users.balance} + ${code.amount}` })
+          .where(eq(users.id, (req.user as any).id))
+          .returning({ balance: users.balance });
+        if (!updatedUser) throw new Error("User not found");
 
-      res.json({ newBalance: updatedUser.balance, amountAdded: code.amount });
+        await tx.insert(transactions).values({
+          userId: (req.user as any).id,
+          amount: code.amount,
+          type: "redeem",
+          description: `Redeemed code: ${code.code}`,
+        });
+
+        return { newBalance: updatedUser.balance, amountAdded: code.amount };
+      });
+
+      res.json(result);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }

@@ -15,22 +15,14 @@ type Product = {
 };
 
 function ProductArtwork({ product }: { product: Product }) {
-  const [imageFailed, setImageFailed] = useState(false);
-
-  if (product.image && !imageFailed) {
-    return (
-      <img
-        src={product.image}
-        alt={product.name}
-        className="h-full w-full object-contain p-2"
-        onError={() => setImageFailed(true)}
-      />
-    );
-  }
-
   return (
-    <div className="flex h-full w-full items-center justify-center bg-[#202020] text-[#a0a0a0]">
-      <Package className="h-7 w-7" strokeWidth={1.8} />
+    <div className="flex h-full w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_30%_25%,#3b3b3b_0%,#202020_52%,#111_100%)] px-1.5 text-center">
+      <span
+        className="max-w-full break-words text-[10px] font-black uppercase leading-[1.05] tracking-tight text-[#f4f4f4]"
+        style={{ textShadow: "1px 1px 0 #9d2029, 2px 2px 0 #66131a, 3px 3px 0 #2b080b" }}
+      >
+        {product.name}
+      </span>
     </div>
   );
 }

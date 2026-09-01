@@ -158,8 +158,8 @@ export const orderItems = pgTable("order_items", {
 export const transactions = pgTable("transactions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  amount: integer("amount").notNull(), // + for deposit/win, - for purchase/loss
-  type: text("type").notNull(), // deposit, purchase, refund, win, loss, daily_spin, manual_deposit
+  amount: integer("amount").notNull(), // + for deposit/redeem/win, - for purchase/loss
+  type: text("type").notNull(), // deposit, redeem, purchase, refund, win, loss, daily_spin, manual_deposit
   description: text("description").notNull(),
   paymentMethod: text("payment_method"), // e.g., "Cash", "Card", "Crypto"
   createdAt: timestamp("created_at").defaultNow().notNull(),

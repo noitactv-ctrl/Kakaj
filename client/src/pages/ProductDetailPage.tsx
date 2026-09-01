@@ -7,16 +7,13 @@ import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 
 function DetailArtwork({ image, name }: { image?: string | null; name: string }) {
-  const [failed, setFailed] = useState(false);
-  if (image && !failed) {
-    return <img src={image} alt={name} className="h-full min-h-[290px] w-full bg-[#080a0d] object-contain p-5 contrast-125 transition-transform duration-300 hover:scale-[1.02]" onError={() => setFailed(true)} />;
-  }
   return (
-    <div className="relative flex h-full min-h-[290px] items-center justify-center overflow-hidden bg-[#080a0d]">
-      <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(135deg,transparent_48%,#3b3b3b_49%,transparent_51%),linear-gradient(45deg,transparent_48%,#262626_49%,transparent_51%)] [background-size:26px_26px]" />
-      <div className="relative border-[3px] border-[#ffcf3f] bg-[#171a20] px-5 py-4 text-center shadow-[4px_4px_0_#050505]">
-        <Package className="mx-auto h-12 w-12 text-[#ffcf3f]" strokeWidth={1.25} />
-        <p className="mt-3 max-w-[180px] text-[9px] font-bold leading-relaxed text-white/70">{name}</p>
+    <div className="relative flex h-full min-h-[290px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_30%_25%,#303030_0%,#111_60%,#080808_100%)] px-8 text-center">
+      <div
+        className="max-w-full break-words text-3xl font-black uppercase leading-none tracking-tight text-[#f4f4f4] sm:text-4xl"
+        style={{ textShadow: "2px 2px 0 #b4232d, 4px 4px 0 #74151c, 6px 6px 0 #2d080b" }}
+      >
+        {name}
       </div>
     </div>
   );

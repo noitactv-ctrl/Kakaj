@@ -30,7 +30,7 @@ const adminSections = [
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
   { id: "cashapp",  label: "Payments",   Icon: DollarSign },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
-  { id: "codes",    label: "Coupons",    Icon: Tag },
+  { id: "codes",    label: "Codes",      Icon: Tag },
   { id: "users",    label: "Users",      Icon: Users },
   { id: "support",  label: "Support",    Icon: MessageSquare },
   { id: "integrations", label: "Settings", Icon: Settings },
@@ -1946,6 +1946,32 @@ function UsersSection({ canManageStaff }: { canManageStaff: boolean }) {
 function CodesSection() {
   const { toast } = useToast();
 
+  const [redeemForm, setRedeemForm] = useState({ amount: "", count: "1" });
+  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+
+  const generateRedeemMutation = useMutation({
+    mutationFn: async () => {
+      const amount = Number.parseFloat(redeemForm.amount);
+      const count = Number.parseInt(redeemForm.count, 10);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Enter a reward amount greater than $0.");
+      if (!Number.isInteger(count) || count < 1 || count > 100) throw new Error("Generate between 1 and 100 codes.");
+      const response = await apiRequest("POST", api.admin.generateCodes.path, {
+        amount: Math.round(amount * 100),
+        count,
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.message || "Unable to generate redeem codes");
+      }
+      return api.admin.generateCodes.responses[200].parse(await response.json());
+    },
+    onSuccess: data => {
+      setGeneratedCodes(data.codes);
+      toast({ title: "Redeem codes generated", description: `${data.codes.length} reward code${data.codes.length === 1 ? "" : "s"} created.` });
+    },
+    onError: (error: Error) => toast({ title: "Unable to generate codes", description: error.message, variant: "destructive" }),
+  });
+
   // Discount codes state
   const [dForm, setDForm] = useState({ code: "", type: "percent", value: "", minOrder: "", maxUses: "", expiresAt: "" });
   const { data: discountList = [] } = useQuery<any[]>({ queryKey: ["/api/admin/discount-codes"] });
@@ -1998,7 +2024,64 @@ function CodesSection() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">Coupons</h1>
+      <h1 className="text-2xl font-semibold">Codes</h1>
+
+      <Card className="bg-[#111] border-white/10">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Generate Redeem Codes</CardTitle>
+          <p className="text-xs text-white/45">Reward codes add wallet credit when a customer redeems them. They are not deposits.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <p className="text-xs text-white/45">Reward per code ($)</p>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="10.00"
+                value={redeemForm.amount}
+                onChange={event => setRedeemForm(form => ({ ...form, amount: event.target.value }))}
+                className="h-9 border-white/10 bg-[#111]/5 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-white/45">Number of codes</p>
+              <Input
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                value={redeemForm.count}
+                onChange={event => setRedeemForm(form => ({ ...form, count: event.target.value }))}
+                className="h-9 border-white/10 bg-[#111]/5 text-sm"
+              />
+            </div>
+          </div>
+          <Button className="w-full gap-2" onClick={() => generateRedeemMutation.mutate()} disabled={generateRedeemMutation.isPending}>
+            {generateRedeemMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
+            Generate Redeem Codes
+          </Button>
+          {generatedCodes.length > 0 && (
+            <div className="space-y-2 rounded-lg border border-green-500/20 bg-green-500/5 p-3">
+              <p className="text-xs font-semibold text-green-300">Copy these codes now</p>
+              {generatedCodes.map(code => (
+                <div key={code} className="flex items-center gap-2 rounded bg-black/20 px-2 py-1.5">
+                  <span className="flex-1 font-mono text-xs text-white">{code}</span>
+                  <button
+                    type="button"
+                    className="text-white/50 transition-colors hover:text-white"
+                    onClick={() => navigator.clipboard?.writeText(code)}
+                    aria-label={`Copy ${code}`}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="bg-[#111] border-white/10">
             <CardHeader className="pb-3">
