@@ -45,7 +45,7 @@ function ProductTile({ product, onCategorySelect }: { product: Product; onCatego
             openProduct();
           }
         }}
-        className="group flex h-full min-h-[236px] cursor-pointer flex-col rounded-xl bg-[#171717] p-5 transition-colors hover:bg-[#1a1a1a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ff2933]"
+        className="group flex h-full min-h-[236px] cursor-pointer flex-col overflow-hidden rounded-2xl bg-[#171717] p-5 transition-colors hover:bg-[#1a1a1a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ff2933]"
         data-testid={`card-product-${product.id}`}
       >
         <div className="flex items-start gap-3">
