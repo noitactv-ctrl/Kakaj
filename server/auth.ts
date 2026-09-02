@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
 
-function publicUser(user: User): PublicUser {
+export function publicUser(user: User): PublicUser {
   const { password, loginCode, ...safeUser } = user;
   return { ...safeUser, isOwner: isFounderIdentity(user.email) };
 }
@@ -29,7 +29,9 @@ export async function comparePassword(supplied: string, stored: string) {
   if (!stored || !stored.includes(".")) return false;
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
+  if (hashedBuf.length !== 64 || !salt) return false;
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  if (hashedBuf.length !== suppliedBuf.length) return false;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 

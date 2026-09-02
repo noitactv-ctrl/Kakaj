@@ -622,6 +622,20 @@ export class DatabaseStorage implements IStorage {
 
   async createOrder(userId: number, items: { variantId: number; quantity: number; sellerId?: number }[], cardIds: number[] = [], discountCodeId?: number | null, bulkCardIds: number[] = []): Promise<Order> {
     // ── Step 1: Calculate totals and validate BEFORE touching any stock ──
+    if (!Array.isArray(items) || !Array.isArray(cardIds) || !Array.isArray(bulkCardIds)) {
+      throw new Error("Invalid order items");
+    }
+    if (items.length === 0 && cardIds.length === 0) throw new Error("Order cannot be empty");
+    for (const item of items) {
+      if (!Number.isSafeInteger(item.variantId) || item.variantId <= 0 ||
+          !Number.isSafeInteger(item.quantity) || item.quantity <= 0 || item.quantity > 100) {
+        throw new Error("Item quantities must be whole numbers between 1 and 100");
+      }
+    }
+    if (cardIds.some((id) => !Number.isSafeInteger(id) || id <= 0) ||
+        bulkCardIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+      throw new Error("Invalid card selection");
+    }
     let rawTotal = 0;
     const uniqueCardIds = new Set(cardIds);
     const bulkCardSet = new Set(bulkCardIds);
@@ -784,6 +798,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPendingOrder(userId: number, items: { variantId: number; quantity: number }[], cardIds: number[] = [], discountCodeId?: number | null, bulkCardIds: number[] = []): Promise<Order> {
+    if (!Array.isArray(items) || !Array.isArray(cardIds) || !Array.isArray(bulkCardIds)) {
+      throw new Error("Invalid order items");
+    }
+    if (items.length === 0 && cardIds.length === 0) throw new Error("Order cannot be empty");
+    for (const item of items) {
+      if (!Number.isSafeInteger(item.variantId) || item.variantId <= 0 ||
+          !Number.isSafeInteger(item.quantity) || item.quantity <= 0 || item.quantity > 100) {
+        throw new Error("Item quantities must be whole numbers between 1 and 100");
+      }
+    }
+    if (cardIds.some((id) => !Number.isSafeInteger(id) || id <= 0) ||
+        bulkCardIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+      throw new Error("Invalid card selection");
+    }
     let total = 0;
     const heldItems: { variantId: number; stockItemId: number; price: number; quantity: number }[] = [];
     const cardPurchases: { cardId: number; price: number }[] = [];
@@ -844,6 +872,7 @@ export class DatabaseStorage implements IStorage {
     if (rankDiscountPct > 0 && !isBulkBundle) {
       total = Math.max(0, Math.round(total * (1 - rankDiscountPct / 100)));
     }
+    if (rawTotal < 100 || total < 1) throw new Error("Order total must be at least $1.00");
 
     const publicOrderId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const [order] = await db.insert(orders).values({
@@ -1006,7 +1035,10 @@ export class DatabaseStorage implements IStorage {
       if (!approved) throw new Error("Deposit was already handled");
 
       await tx.update(users)
-        .set({ balance: sql`balance + ${credit.creditCents}` })
+        .set({
+          balance: sql`balance + ${credit.creditCents}`,
+          protectedBalance: sql`protected_balance + ${credit.creditCents}`,
+        })
         .where(eq(users.id, order.userId));
 
       const feeNote = credit.feeCents > 0
@@ -1049,6 +1081,10 @@ export class DatabaseStorage implements IStorage {
     return db.transaction(async (tx) => {
       const [pendingOrder] = await tx.select().from(orders).where(eq(orders.id, orderId));
       if (!pendingOrder || pendingOrder.status !== "pending") throw new Error("Order is not in a payable state");
+      const confirmedPaidAmount = paidAmount ?? pendingOrder.total;
+      if (!Number.isSafeInteger(confirmedPaidAmount) || confirmedPaidAmount < pendingOrder.total) {
+        throw new Error("Paid amount cannot be less than the order total");
+      }
 
       const pendingItems = await tx.select().from(orderItems)
         .where(eq(orderItems.orderId, orderId))
@@ -1087,7 +1123,7 @@ export class DatabaseStorage implements IStorage {
 
       const deliveryContent = serializeDeliveryParts(deliveryParts);
       const [updated] = await tx.update(orders)
-        .set({ status: "delivering", deliveryContent, paidAmount: paidAmount ?? pendingOrder.total })
+        .set({ status: "delivering", deliveryContent, paidAmount: confirmedPaidAmount })
         .where(and(eq(orders.id, orderId), eq(orders.status, "pending")))
         .returning();
       if (!updated) throw new Error("Order is not in a payable state");

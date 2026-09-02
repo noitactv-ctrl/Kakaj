@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
-import { setupAuth, isFounderIdentity } from "./auth";
+import { setupAuth, isFounderIdentity, publicUser } from "./auth";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { createPlisioInvoice, mapPlisioStatus, PlisioInvoiceCreationError, verifyPlisioWebhook } from "./plisio";
@@ -42,6 +42,11 @@ function requireOwner(req: any, res: any): boolean {
   if (isOwner(req)) return true;
   res.status(403).json({ message: "Only the owner can manage admins and workers" });
   return false;
+}
+
+function userWithoutPassword<T extends { password?: unknown }>(user: T) {
+  const { password: _password, ...safeUser } = user;
+  return safeUser;
 }
 
 class PlisioCurrencyMismatchError extends PlisioInvoiceCreationError {
@@ -757,10 +762,11 @@ export async function registerRoutes(
   app.patch("/api/user/email", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     try {
-      const { email } = req.body;
-      if (!email || !email.includes("@")) return res.status(400).json({ message: "Valid email required" });
+      const parsed = z.string().email("Valid email required").safeParse(req.body?.email);
+      if (!parsed.success) return res.status(400).json({ message: "Valid email required" });
+      const email = parsed.data.trim().toLowerCase();
       const user = await storage.updateUser((req.user as any).id, { email });
-      res.json(user);
+      res.json(publicUser(user));
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }
@@ -786,6 +792,9 @@ export async function registerRoutes(
     try {
       const { currentPassword, newPassword } = req.body;
       if (!currentPassword || !newPassword) return res.status(400).json({ message: "Both passwords required" });
+      if (typeof newPassword !== "string" || newPassword.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
       const [currentUser] = await db.select().from(users).where(eq(users.id, (req.user as any).id));
       if (!currentUser) return res.status(404).json({ message: "User not found" });
       const isMatch = await comparePassword(currentPassword, currentUser.password);
@@ -830,7 +839,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Cannot modify the owner account" });
       }
       const user = await storage.banUser(Number(req.params.id));
-      res.json(user);
+      res.json(userWithoutPassword(user));
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }
@@ -847,7 +856,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Cannot modify the owner account" });
       }
       const user = await storage.unbanUser(Number(req.params.id));
-      res.json(user);
+      res.json(userWithoutPassword(user));
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }
@@ -1153,7 +1162,9 @@ export async function registerRoutes(
   app.get("/api/admin/users", async (req, res) => {
     if (!isAdminOrWorker(req)) return res.status(401).json({ message: "Unauthorized" });
     const allUsers = await storage.getAllUsers();
-    res.json(allUsers.filter((u: any) => !isFounderIdentity(u.email || "")));
+    res.json(allUsers
+      .filter((u: any) => !isFounderIdentity(u.email || ""))
+      .map(userWithoutPassword));
   });
 
   // Old Admin Orders (keeping for backward compat)
@@ -1185,8 +1196,15 @@ export async function registerRoutes(
     if (email !== undefined && isFounderIdentity(String(email)) && !isOwner(req)) {
       return res.status(403).json({ message: "Only the owner can assign the owner identity" });
     }
-    const user = await storage.updateUser(targetId, { isBanned, role, email });
-    res.json(user);
+    const parsedEmail = email === undefined
+      ? undefined
+      : z.string().email("Valid email required").safeParse(email);
+    if (parsedEmail && !parsedEmail.success) {
+      return res.status(400).json({ message: "Valid email required" });
+    }
+    const normalizedEmail = parsedEmail?.data.trim().toLowerCase();
+    const user = await storage.updateUser(targetId, { isBanned, role, email: normalizedEmail });
+    res.json(userWithoutPassword(user));
   });
 
   app.post("/api/admin/users/:id/balance", async (req, res) => {
@@ -1198,7 +1216,7 @@ export async function registerRoutes(
       await storage.updateProtectedBalance(Number(req.params.id), req.body.amount);
     }
     await storage.createTransaction(Number(req.params.id), req.body.amount, "admin_adjustment", "Admin balance adjustment");
-    res.json(user);
+    res.json(userWithoutPassword(user));
   });
 
   // Set user balance to an absolute value
@@ -1214,7 +1232,7 @@ export async function registerRoutes(
     await db.update(users).set({ balance: newBalance } as any).where(eq(users.id, userId));
     await storage.createTransaction(userId, delta, "admin_adjustment", `Admin set balance to $${(newBalance / 100).toFixed(2)}`);
     const updated = await storage.getUser(userId);
-    res.json(updated);
+    res.json(updated ? userWithoutPassword(updated) : updated);
   });
 
   // Set user role (promote/demote admin)
@@ -1231,7 +1249,7 @@ export async function registerRoutes(
     if (isFounderIdentity(target.email || "")) return res.status(403).json({ message: "Cannot change the owner account" });
     await db.update(users).set({ role } as any).where(eq(users.id, userId));
     const updated = await storage.getUser(userId);
-    res.json(updated);
+    res.json(updated ? userWithoutPassword(updated) : updated);
   });
 
   // Toggle worker status
@@ -1247,7 +1265,7 @@ export async function registerRoutes(
     if (isFounderIdentity(target.email || "")) return res.status(403).json({ message: "Cannot change the owner account" });
     await db.update(users).set({ isWorker: Boolean(isWorker) } as any).where(eq(users.id, userId));
     const updated = await storage.getUser(userId);
-    res.json(updated);
+    res.json(updated ? userWithoutPassword(updated) : updated);
   });
 
   // Admin: get crypto addresses for a user
@@ -2064,6 +2082,9 @@ export async function registerRoutes(
         : typeof body.psys_cid === "string"
           ? body.psys_cid
           : undefined;
+      if (!callbackCurrency) {
+        return res.status(400).json({ message: "Missing Plisio currency" });
+      }
       const result = await applyPlisioPaymentStatus(
         transactionId,
         mapPlisioStatus(body.status),
@@ -2634,6 +2655,9 @@ export async function registerRoutes(
       const paidAmount = req.body.paidAmount !== undefined
         ? Math.round(Number(req.body.paidAmount) * 100)
         : undefined;
+      if (paidAmount !== undefined && (!Number.isSafeInteger(paidAmount) || paidAmount <= 0)) {
+        return res.status(400).json({ message: "Valid paid amount required" });
+      }
       const order = await storage.fulfillCashappOrder(Number(req.params.id), paidAmount);
       res.json(order);
     } catch (e: any) {
@@ -2673,25 +2697,6 @@ export async function registerRoutes(
   const seedStats = await storage.getDashboardStats();
   if (seedStats.totalUsers === 0) {
     console.log("Seeding database...");
-    const { hashPassword } = await import("./auth");
-    const adminPass = await hashPassword("admin123");
-    await storage.createUser({
-      username: "admin",
-      password: adminPass,
-      email: "admin@store.com",
-      role: "admin",
-      confirmPassword: "admin123"
-    } as any);
-
-    const demoPass = await hashPassword("user123");
-    await storage.createUser({
-      username: "demo",
-      password: demoPass,
-      email: "demo@user.com",
-      role: "user",
-      confirmPassword: "user123"
-    } as any);
-
     // Seed Product
     const prod = await storage.createProduct({
       name: "Netflix Premium (1 Month)",
