@@ -1,25 +1,25 @@
-# TRENT HQ — Digital Marketplace
+# BEASTCC — Digital Marketplace
 
 ## What This Is
 
-A dark-themed digital marketplace for selling digital items (logs, cards, accounts) with stock-based instant delivery. Built with React + Express + PostgreSQL.
+A pixel-styled digital marketplace for selling digital items (logs and cards) with stock-based delivery. Built with React + Express + PostgreSQL.
 
-**Live at:** trenthq.com
+**Customer brand:** BEASTCC
 
 ---
 
 ## Features
 
-- **Shop** — product listings with variants and stock counts
-- **Cart** — add items, choose payment method, checkout
-- **Wallet** — top up balance with redeemable codes, spend on orders
-- **CashApp Payments** — user sends CashApp with a generated note (`snack-XXXX`); admin manually confirms via Paid/Unpaid buttons; stock delivered on confirmation
+- **Logs** — searchable product listings with variants and stock counts
+- **Cart** — add products or cards, then check out from the responsive cart sidebar
+- **Wallet** — top up balance with manual payment methods, crypto invoices, or redeemable codes
+- **Manual payments** — user sends the exact amount with a generated note; admin confirms or marks the payment unpaid
 - **Stock System** — admin pre-loads text items per variant; each purchase pulls one item off the stack
 - **Admin Dashboard** — manage products, variants, stock, orders, users, redeem codes, announcements
 - **Payment Method Toggles** — admin can show/hide Wallet, CashApp, and Crypto per customer
-- **Games** — dice, mines, daily spin (for earning credits)
-- **Profile** — order history with delivery content, balance history
-- **Dark theme** — `#090a0c` base, primary amber/orange, CashApp green `#00D632`
+- **Games** — Plinko
+- **Orders** — order history with exact delivery content and support links
+- **Pixel theme** — dark blue storefront with BEASTCC branding and custom arrow/hand/text cursors
 
 ---
 
@@ -31,7 +31,7 @@ A dark-themed digital marketplace for selling digital items (logs, cards, accoun
 | Backend | Node.js, Express 5, TypeScript |
 | Database | PostgreSQL (Drizzle ORM) |
 | Auth | Passport.js (local strategy), express-session, connect-pg-simple |
-| Payments | CashApp (manual), Bitcoin via Plisio |
+| Payments | Manual deposits and configurable crypto invoices via Plisio |
 
 ---
 
@@ -59,7 +59,8 @@ Set these in the Replit **Secrets** panel:
 | `SETTINGS_ENCRYPTION_KEY` | Required for provider secrets | Dedicated key used to encrypt admin-managed provider secrets |
 | `ADMIN_EMAILS` | Required for bootstrap | Comma-separated email addresses that receive admin access |
 | `OWNER_EMAILS` | Required for owner controls | Comma-separated email addresses allowed to manage admins and workers |
-| `PLISIO_API_KEY` | Required for crypto | Plisio secret key for invoice creation and callback verification |
+| `PLISIO_API_KEY` | Optional fallback | Plisio secret key; can instead be encrypted in Admin → Integrations |
+| `PLISIO_PUBLIC_APP_URL` | Required for crypto | HTTPS public app URL for Plisio callbacks and return links; can instead be set in Admin → Integrations |
 
 ### 3. Admin Account
 
@@ -71,12 +72,13 @@ ADMIN_EMAILS=your@email.com,another@email.com
 
 Register on the site with one of those emails — you'll automatically be granted admin role.
 
-### 4. CashApp Setup (Admin Panel → Integrations)
+### 4. Payment Setup (Admin Panel → Integrations)
 
 1. Go to **Admin → Integrations**
-2. Under **CashApp Settings**, enter your `$CashTag` and click Save
-3. Toggle CashApp ON in the Payment Methods section
-4. Users will now see CashApp as a checkout option
+2. Configure the enabled manual payment handles and descriptions
+3. Configure the Plisio secret and HTTPS public app URL if crypto is needed
+4. Enable the desired payment methods
+5. Users will only see methods that are enabled and fully configured
 
 ### 5. Adding Stock (Admin Panel → Products)
 
@@ -88,20 +90,19 @@ Register on the site with one of those emails — you'll automatically be grante
 ### 6. Creating Redeem Codes (Admin Panel → Codes)
 
 1. Go to **Admin → Codes**
-2. Enter a code and amount in cents
-3. Users can redeem codes on the Profile page to add wallet balance
+2. Enter a reward amount and number of codes
+3. Give the generated one-time codes to users; they redeem them on the Redeem page
 
 ---
 
-## CashApp Order Flow
+## Manual Product Order Flow
 
-1. Customer adds items to cart, selects CashApp, clicks Purchase
-2. A modal shows: generated note (`snack-XXXX`), your $cashtag, exact amount
-3. Customer sends CashApp with the note
-4. Admin sees the order in **Orders** tab with **Paid** (green) and **Unpaid** (red) buttons
-5. **Paid** → stock items are reserved and delivered to the user automatically
-6. **Unpaid** → order marked as unpaid (status: `waiting_payment`)
-7. Orders with CashApp payment are never auto-cancelled (they wait up to 4 hours)
+1. Customer adds products or cards to the cart
+2. Customer selects a configured manual payment method and submits the order
+3. A confirmation panel shows the exact amount, destination, and generated payment note
+4. Admin sees the pending order in **Orders** and confirms payment or marks it unpaid
+5. **Paid** → reserved product stock or selected cards are delivered to the user
+6. **Unpaid** → reserved product stock is released and the order waits for payment
 
 ---
 
@@ -109,7 +110,7 @@ Register on the site with one of those emails — you'll automatically be grante
 
 | Status | Meaning |
 |---|---|
-| `pending` | CashApp order placed, awaiting admin confirmation |
+| `pending` | Manual-payment order placed, awaiting admin confirmation |
 | `waiting_payment` | Admin marked as unpaid |
 | `fulfilled` | Wallet order paid, items assigned |
 | `delivering` | CashApp order confirmed by admin, stock delivered |
@@ -127,9 +128,9 @@ Register on the site with one of those emails — you'll automatically be grante
 | `server/auth.ts` | Authentication setup, admin email list |
 | `server/index.ts` | Server startup, session table auto-creation |
 | `client/src/pages/AdminPage.tsx` | Full admin dashboard |
-| `client/src/pages/CartPage.tsx` | Checkout with CashApp + Wallet |
-| `client/src/pages/ProfilePageFix.tsx` | User profile, orders, balance |
-| `client/src/pages/ShopPage.tsx` | Product listings |
+| `client/src/components/CartSidebar.tsx` | Responsive cart and wallet checkout |
+| `client/src/pages/RedeemPage.tsx` | Reward-code redemption |
+| `client/src/pages/LogsPage.tsx` | Product listings |
 | `client/src/App.tsx` | Routes, global polling |
 
 ---
@@ -168,7 +169,7 @@ npm run build      # Build for production
 - **Orders + OrderItems** — track purchases; orderItems link to stockItems
 - **Transactions** — wallet history (top-ups, purchases, game wins/losses)
 - **Redeem Codes** — one-time codes for wallet top-up
-- **Site Settings** — key/value store for CashApp tag, payment method toggles, announcements
+- **Site Settings** — payment handles, method toggles, fees, minimums, and announcements
 - **Crypto Payments** — Plisio payment tracking; the historical provider-ID column is retained for existing records
 
 ### Build System

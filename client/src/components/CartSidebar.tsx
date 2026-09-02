@@ -69,7 +69,7 @@ export function CartSidebar({ open, onClose }: {
 
   return (
     <aside
-        className={`fixed inset-y-0 right-0 z-40 hidden w-[292px] flex-col border-l-[3px] border-black bg-[#14276b] text-[#fff0c5] shadow-[-5px_0_0_rgba(0,0,0,0.45)] transition-transform duration-200 lg:flex 2xl:w-[320px] ${
+        className={`fixed inset-y-0 right-0 z-40 flex w-[calc(100vw-16px)] max-w-[320px] flex-col border-l-[3px] border-black bg-[#14276b] text-[#fff0c5] shadow-[-5px_0_0_rgba(0,0,0,0.45)] transition-transform duration-200 lg:w-[292px] 2xl:w-[320px] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
         aria-label="Shopping cart"

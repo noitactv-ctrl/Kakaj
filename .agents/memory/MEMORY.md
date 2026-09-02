@@ -19,3 +19,5 @@
 - [Exact stock fulfillment](exact-stock-fulfillment.md) — deliver only each order’s assigned stock; transactional rollback is required if any assignment is unavailable.
 - [Refund-only ticket resolution](refund-only-ticket-resolution.md) — support tickets use refund or resolve actions only; replacement is retired from active workflows.
 - [Site cursor states](site-wide-crosshair-cursor.md) — preserve the three original custom cursor states: arrow, hand, and text.
+- [API log privacy](api-log-privacy.md) — never serialize API response bodies into logs because authenticated responses can contain delivered inventory or account data.
+- [Refund atomicity](refund-atomicity.md) — refunds must claim order state and update wallet, ledger, and inventory in one transaction to prevent duplicate credits or partial cleanup.

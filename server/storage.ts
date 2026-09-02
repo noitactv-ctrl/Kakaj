@@ -7,7 +7,7 @@ import {
   type StockItem, type Order, type OrderItem, type Transaction, type RedeemCode, type Announcement, type InsertAnnouncement, type UploadedImage,
   type Card, type InsertCard, type CardBase, type SellerApplication, type Ach, type InsertAch, type CryptoAddress, type CryptoCurrency
 } from "@shared/schema";
-import { eq, and, sql, desc, asc, lt } from "drizzle-orm";
+import { eq, and, sql, desc, asc, lt, ne } from "drizzle-orm";
 import { pool } from "./db";
 import { calculateDepositCredit } from "@shared/deposit";
 import { assertSafeProductStockContent } from "./stock-safety";
@@ -1279,26 +1279,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async refundOrder(orderId: number): Promise<Order> {
-    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
-    if (!order || order.status === 'refunded') throw new Error("Invalid order or already refunded");
+    return db.transaction(async (tx) => {
+      const [order] = await tx.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) throw new Error("Order not found");
+      if (order.status === "refunded") throw new Error("Order already refunded");
 
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-    for (const item of items) {
-      if (item.itemType === 'product' && item.stockItemId) {
-        await db.update(orderItems).set({ stockItemId: null }).where(eq(orderItems.id, item.id));
-        await db.delete(stockItems).where(eq(stockItems.id, item.stockItemId));
-      }
-      if (item.itemType === 'card' && item.cardId) {
-        await db.update(orderItems).set({ cardId: null }).where(eq(orderItems.id, item.id));
-        await db.delete(cards).where(eq(cards.id, item.cardId));
-      }
-    }
+      // Claim the refund before touching inventory or the wallet so two
+      // concurrent admin requests cannot credit the same order twice.
+      const [refunded] = await tx
+        .update(orders)
+        .set({ status: "refunded" as const })
+        .where(and(eq(orders.id, orderId), ne(orders.status, "refunded")))
+        .returning();
+      if (!refunded) throw new Error("Order already refunded");
 
-    await this.updateUserBalance(order.userId, order.total);
-    await this.createTransaction(order.userId, order.total, "refund", `Refund for order #${order.orderId}`);
-    
-    const [updated] = await db.update(orders).set({ status: 'refunded' as const }).where(eq(orders.id, orderId)).returning();
-    return updated;
+      const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+      for (const item of items) {
+        if (item.itemType === "product" && item.stockItemId) {
+          await tx.update(orderItems).set({ stockItemId: null }).where(eq(orderItems.id, item.id));
+          await tx.delete(stockItems).where(eq(stockItems.id, item.stockItemId));
+        }
+        if (item.itemType === "card" && item.cardId) {
+          await tx.update(orderItems).set({ cardId: null }).where(eq(orderItems.id, item.id));
+          await tx.delete(cards).where(eq(cards.id, item.cardId));
+        }
+      }
+
+      await tx
+        .update(users)
+        .set({ balance: sql`${users.balance} + ${order.total}` })
+        .where(eq(users.id, order.userId));
+      await tx.insert(transactions).values({
+        userId: order.userId,
+        amount: order.total,
+        type: "refund",
+        description: `Refund for order #${order.orderId}`,
+      });
+
+      return refunded;
+    });
   }
 
   async updateOrderDelivery(orderId: number, _deliveryContent: string): Promise<Order> {

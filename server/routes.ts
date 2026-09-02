@@ -967,7 +967,7 @@ export async function registerRoutes(
     const codes = [];
     
     for (let i = 0; i < count; i++) {
-      const randomStr = `${Date.now().toString(36)}${Math.random().toString(36).substring(2, 10)}`.substring(0, 12).toUpperCase();
+      const randomStr = randomUUID().replace(/-/g, "").substring(0, 16).toUpperCase();
       const codeStr = `VOUCH-${randomStr}`;
       await storage.createRedeemCode(codeStr, amount);
       codes.push(codeStr);
