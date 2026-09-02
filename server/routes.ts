@@ -2391,6 +2391,22 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  // ── Admin: product stock safety ───────────────────────────────────────────
+  app.get("/api/admin/settings/stock-safety", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
+    const allowPaymentCardProductStock = await storage.getSetting("allow_payment_card_product_stock", "false") === "true";
+    res.json({ allowPaymentCardProductStock });
+  });
+
+  app.post("/api/admin/settings/stock-safety", async (req, res) => {
+    if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
+    if (typeof req.body.allowPaymentCardProductStock !== "boolean") {
+      return res.status(400).json({ message: "allowPaymentCardProductStock must be true or false" });
+    }
+    await storage.setSetting("allow_payment_card_product_stock", req.body.allowPaymentCardProductStock ? "true" : "false");
+    res.json({ allowPaymentCardProductStock: req.body.allowPaymentCardProductStock });
+  });
+
   // ── Public: min deposits (for deposit page) ────────────────────────────────
   app.get("/api/site-settings/min-deposits", async (_req, res) => {
     const [cashapp, venmo, zelle, chime, crypto] = await Promise.all([

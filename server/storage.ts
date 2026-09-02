@@ -497,7 +497,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addStockItems(variantId: number, content: string, sellerId?: number): Promise<{ added: number; skipped: number }> {
-    content = assertSafeProductStockContent(content);
+    const rejectPaymentCardCredentials = (await this.getSetting("allow_payment_card_product_stock", "false")) !== "true";
+    content = assertSafeProductStockContent(content, { rejectPaymentCardCredentials });
     const items = splitStockContent(content);
     if (items.length === 0) return { added: 0, skipped: 0 };
 
@@ -514,7 +515,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addSingleStockItem(variantId: number, content: string): Promise<StockItem> {
-    content = assertSafeProductStockContent(content);
+    const rejectPaymentCardCredentials = (await this.getSetting("allow_payment_card_product_stock", "false")) !== "true";
+    content = assertSafeProductStockContent(content, { rejectPaymentCardCredentials });
     const existing = await db.select({ id: stockItems.id }).from(stockItems)
       .where(eq(stockItems.content, content)).limit(1);
     if (existing.length > 0) throw new Error("Duplicate: this item already exists in the database");
