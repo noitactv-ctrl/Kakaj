@@ -3621,7 +3621,9 @@ function AdminCardsSection() {
   const [fullItem, setFullItem] = useState("");
   const [price, setPrice] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState<string>("");
-  const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [shuffleSeed, setShuffleSeed] = useState(
+    () => Math.floor(Math.random() * 2147483647) || 1,
+  );
   const [refreshProgress, setRefreshProgress] = useState(0);
 
   const { data: cards, isLoading } = useQuery<any[]>({

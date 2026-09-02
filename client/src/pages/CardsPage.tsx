@@ -124,7 +124,9 @@ export default function CardsPage() {
   const [cartCardIds, setCartCardIds] = useState<Set<number>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
   const [search, setSearch] = useState("");
-  const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [shuffleSeed, setShuffleSeed] = useState(
+    () => Math.floor(Math.random() * 2147483647) || 1,
+  );
   const [refreshProgress, setRefreshProgress] = useState(0);
 
   const { toast } = useToast();
