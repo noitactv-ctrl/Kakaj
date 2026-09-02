@@ -43,6 +43,10 @@ export type CardMetadata = {
   zip: string;
 };
 
+export function normalizeCardNumber(value: string | null | undefined): string {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
 export function isValidCardState(value: string | null | undefined): boolean {
   return usStates.has(String(value ?? "").trim().toUpperCase());
 }

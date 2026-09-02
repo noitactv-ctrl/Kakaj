@@ -27,7 +27,7 @@ import {
   saveApiSetting,
   setApiSettingEnabled,
 } from "./settings";
-import { extractCardMetadata } from "./card-privacy";
+import { extractCardMetadata, normalizeCardNumber } from "./card-privacy";
 
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
@@ -164,10 +164,72 @@ type CardRefreshJob = {
   binsChecked: number;
   totalBins: number;
   cardsUpdated: number;
+  duplicateGroups: number;
+  duplicatesFound: number;
+  duplicatesRemoved: number;
   error?: string;
 };
 
 let cardRefreshJob: CardRefreshJob | null = null;
+
+async function removeSafeUnsoldCardDuplicates(): Promise<{
+  duplicateGroups: number;
+  duplicatesFound: number;
+  duplicatesRemoved: number;
+}> {
+  type DuplicateCardRow = {
+    id: number;
+    card_number: string;
+    is_sold: boolean;
+    created_at: Date;
+    has_order: boolean;
+  };
+  const result = await db.execute(sql`
+    SELECT c.id, c.card_number, c.is_sold, c.created_at,
+           EXISTS (
+             SELECT 1 FROM order_items oi WHERE oi.card_id = c.id
+           ) AS has_order
+    FROM cards c
+    ORDER BY c.created_at ASC, c.id ASC
+  `) as any;
+  const rows = result.rows as DuplicateCardRow[];
+
+  const groups = new Map<string, DuplicateCardRow[]>();
+  for (const row of rows) {
+    const fingerprint = normalizeCardNumber(row.card_number);
+    if (fingerprint.length < 6) continue;
+    const group = groups.get(fingerprint) ?? [];
+    group.push(row);
+    groups.set(fingerprint, group);
+  }
+
+  let duplicateGroups = 0;
+  let duplicatesFound = 0;
+  const removableIds: number[] = [];
+  for (const group of Array.from(groups.values())) {
+    if (group.length < 2) continue;
+    const unsold = group.filter(row => !row.is_sold);
+    if (unsold.length === 0) continue;
+    duplicateGroups += 1;
+
+    const protectedRows = group.filter(row => row.is_sold || row.has_order);
+    const removable = protectedRows.length > 0
+      ? unsold.filter(row => !row.has_order)
+      : unsold.slice(1);
+    duplicatesFound += Math.max(0, group.length - Math.max(1, protectedRows.length));
+    removableIds.push(...removable.map(row => Number(row.id)));
+  }
+
+  let duplicatesRemoved = 0;
+  if (removableIds.length > 0) {
+    const removed = await db.delete(cards)
+      .where(and(inArray(cards.id, removableIds), eq(cards.isSold, false)))
+      .returning({ id: cards.id });
+    duplicatesRemoved = removed.length;
+  }
+
+  return { duplicateGroups, duplicatesFound, duplicatesRemoved };
+}
 
 async function fetchBinMetadata(bin: string): Promise<any> {
   const empty = { bin };
@@ -1731,20 +1793,31 @@ export async function registerRoutes(
         city: postedMetadata.city || null,
         zip: postedMetadata.zip,
       };
-      const card = await storage.createCard({
-        cardNumber,
-        maskedCard: masked,
-        expiry: "",
-        cvv: "",
-        country: extractPostedCardCountry(fullItem) || storedBinData?.countryCode || storedBinData?.country || "Unknown",
-        binData: cardBinData,
-        extras: fullItem,
-        price: priceCents,
-        hrPercent: 80,
-        ...(baseId ? { baseId } : {}),
-      } as any);
-
-      createdCards.push({ ...card, binData: cardBinData, metadata: postedMetadata });
+      try {
+        const card = await storage.createCard({
+          cardNumber,
+          maskedCard: masked,
+          expiry: "",
+          cvv: "",
+          country: extractPostedCardCountry(fullItem) || storedBinData?.countryCode || storedBinData?.country || "Unknown",
+          binData: cardBinData,
+          extras: fullItem,
+          price: priceCents,
+          hrPercent: 80,
+          ...(baseId ? { baseId } : {}),
+        } as any);
+        createdCards.push({ ...card, binData: cardBinData, metadata: postedMetadata });
+      } catch (error: any) {
+        if (/duplicate card stock/i.test(error?.message ?? "")) {
+          skippedCards.push({
+            entry: entryIndex + 1,
+            bin: postedMetadata.bin,
+            reason: "Duplicate card number already exists in inventory or order history",
+          });
+          continue;
+        }
+        throw error;
+      }
     }
 
     if (createdCards.length === 0) {
@@ -1771,6 +1844,7 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
     if (cardRefreshJob?.status === "running") return res.status(202).json(cardRefreshJob);
 
+    const duplicateScan = await removeSafeUnsoldCardDuplicates();
     const { rows } = await db.execute(sql`
       SELECT id, card_number, extras, bin_data
       FROM cards
@@ -1790,6 +1864,7 @@ export async function registerRoutes(
       binsChecked: 0,
       totalBins: bins.length,
       cardsUpdated: 0,
+      ...duplicateScan,
     };
 
     if (bins.length > 0) {
@@ -1861,9 +1936,6 @@ export async function registerRoutes(
       if (!user || user.balance < finalPrice) {
         return res.status(400).json({ message: "Insufficient balance" });
       }
-
-      await storage.updateUserBalance(userId, -finalPrice);
-      await storage.createTransaction(userId, -finalPrice, "purchase", `Purchased card ${card.maskedCard}`);
 
       const updatedCard = await storage.purchaseCard(cardId, userId, finalPrice);
       res.json(updatedCard);

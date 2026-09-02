@@ -97,6 +97,10 @@ app.use((req, res, next) => {
     ON "cards" ("card_number" text_pattern_ops)
     WHERE "is_sold" = false
   `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS "IDX_cards_number_fingerprint"
+    ON "cards" ((regexp_replace("card_number", '\\D', '', 'g')))
+  `);
   await ensureApiSettingsSchema();
   await migrateLegacySecretSettings();
   await removeRetiredApiSettings();

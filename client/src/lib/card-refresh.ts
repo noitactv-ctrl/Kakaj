@@ -7,6 +7,9 @@ export type CardRefreshResult = {
   binsChecked: number;
   totalBins: number;
   cardsUpdated: number;
+  duplicateGroups: number;
+  duplicatesFound: number;
+  duplicatesRemoved: number;
   error?: string;
 };
 

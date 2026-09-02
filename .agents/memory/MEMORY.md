@@ -14,6 +14,7 @@
 - [Cardholder-name minimization](cardholder-name-minimization.md) — validate legacy stock entries without persisting or delivering holder names.
 - [Bulk product stock safety](bulk-product-stock-safety.md) — generic product stock accepts bulk content but must reject payment-card credential data.
 - [Card inventory metadata](card-inventory-metadata.md) — prioritize BIN, type, state, city, and ZIP while excluding holder identity.
+- [Duplicate card prevention](duplicate-card-prevention.md) — normalize card numbers across stock and sales; refresh may remove only safe unsold duplicate rows while preserving order history.
 - [Card stocking workflow](card-stocking-workflow.md) — Use the August 21 card-stocking workflow; do not reintroduce separate metadata fixtures without approval.
 - [Manual deposit settlement](manual-deposit-settlement.md) — manual top-ups require atomic pending-only settlement; item-bearing CashApp orders stay on product fulfillment.
 - [Exact stock fulfillment](exact-stock-fulfillment.md) — deliver only each order’s assigned stock; transactional rollback is required if any assignment is unavailable.

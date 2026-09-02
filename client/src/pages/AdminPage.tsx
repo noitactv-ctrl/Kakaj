@@ -3636,7 +3636,7 @@ function AdminCardsSection() {
       qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
       toast({
         title: "Cards refreshed",
-        description: `${data?.cardsUpdated ?? 0} cards re-tracked and randomized.`,
+        description: `${data?.cardsUpdated ?? 0} cards re-tracked · ${data?.duplicatesRemoved ?? 0} duplicates removed.`,
       });
     },
     onError: (error: Error) => toast({ title: "Refresh failed", description: error.message, variant: "destructive" }),
@@ -3695,7 +3695,7 @@ function AdminCardsSection() {
           onClick={() => refreshMutation.mutate()}
           disabled={refreshMutation.isPending}
           className="flex items-center gap-2 rounded-lg border border-green-400/30 bg-green-500/10 px-3 py-2 text-[10px] font-bold text-green-300 transition-colors hover:bg-green-500/20 disabled:opacity-50"
-          title="Re-track every BIN and randomize the card list"
+          title="Re-track every BIN, remove safe duplicates, and randomize the card list"
           data-testid="btn-admin-refresh-cards"
         >
           {refreshMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
@@ -3706,7 +3706,7 @@ function AdminCardsSection() {
         <div className="relative h-6 overflow-hidden rounded border border-green-400/30 bg-green-950/30" aria-label={`Card refresh ${refreshProgress}% complete`}>
           <div className="h-full bg-green-500/30 transition-[width] duration-300" style={{ width: `${refreshProgress}%` }} />
           <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-green-200">
-            {refreshProgress}% · CHECKING BIN ISSUER AND TYPE
+            {refreshProgress}% · CHECKING BIN DATA AND DUPLICATES
           </span>
         </div>
       )}

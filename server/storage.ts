@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { extractCardMetadata, formatCardDeliveryContent } from "./card-privacy";
+import { extractCardMetadata, formatCardDeliveryContent, normalizeCardNumber } from "./card-privacy";
 import { appendUniqueDeliveryContent, serializeDeliveryParts, type DeliveryParts } from "./delivery-content";
 import { 
   users, productCategories, products, variants, stockItems, orders, orderItems, transactions, redeemCodes, announcements, uploadedImages, cards, cardBases, supportTickets, cryptoPayments, mails, mailReads, siteSettings, discountCodes, sellerApplications, achs, cryptoAddresses, cryptoCurrencies,
@@ -143,6 +143,20 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private async assertCardNumberIsUnique(client: any, cardNumber: string): Promise<void> {
+    const fingerprint = normalizeCardNumber(cardNumber);
+    if (fingerprint.length < 6) throw new Error("Card number must contain a valid BIN");
+
+    const result = await client.execute(sql`
+      SELECT COUNT(*)::int AS count
+      FROM cards
+      WHERE regexp_replace(card_number, '\\D', '', 'g') = ${fingerprint}
+    `);
+    if (Number((result.rows[0] as any)?.count ?? 0) !== 1) {
+      throw new Error("Duplicate card stock detected; refresh card stock before selling");
+    }
+  }
+
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -664,6 +678,7 @@ export class DatabaseStorage implements IStorage {
       const [card] = await db.select().from(cards).where(eq(cards.id, cardId));
       if (!card) throw new Error("Card not found");
       if (card.isSold) throw new Error("Card already sold");
+      await this.assertCardNumberIsUnique(db, card.cardNumber);
       cardMap[cardId] = card;
       const purchasePrice = isBulkBundle ? Math.round(card.price / 2) : card.price;
       rawTotal += purchasePrice;
@@ -706,6 +721,7 @@ export class DatabaseStorage implements IStorage {
 
     // ── Step 2: Reserve stock atomically ──
     const reservedStockItems: { variantId: number, stockItemId: number, price: number, content: string }[] = [];
+    const claimedCards: (typeof cards.$inferSelect)[] = [];
     let discountClaimed = false;
 
     try {
@@ -732,6 +748,15 @@ export class DatabaseStorage implements IStorage {
         if (claimed.length === 0) throw new Error("Discount code is no longer available");
         discountClaimed = true;
       }
+      for (const cardPurchase of cardPurchases) {
+        const originalCard = cardMap[cardPurchase.cardId];
+        const [claimedCard] = await db.update(cards)
+          .set({ isSold: true, userId })
+          .where(and(eq(cards.id, cardPurchase.cardId), eq(cards.isSold, false)))
+          .returning();
+        if (!claimedCard || !originalCard) throw new Error("A card in this order is no longer available");
+        claimedCards.push(originalCard);
+      }
     } catch (err) {
       // Release any stock we already reserved before re-throwing
       for (const res of reservedStockItems) {
@@ -743,6 +768,11 @@ export class DatabaseStorage implements IStorage {
         await db.update(discountCodes)
           .set({ usedCount: sql`GREATEST(${discountCodes.usedCount} - 1, 0)` })
           .where(eq(discountCodes.id, activeDiscount.id));
+      }
+      for (const card of claimedCards) {
+        await db.update(cards)
+          .set({ isSold: false, userId: card.userId })
+          .where(and(eq(cards.id, card.id), eq(cards.isSold, true), eq(cards.userId, userId)));
       }
       throw err;
     }
@@ -790,10 +820,6 @@ export class DatabaseStorage implements IStorage {
         price: cp.price,
         quantity: 1
       });
-      const originalCard = cardMap[cp.cardId];
-      const originalSellerId = originalCard?.userId;
-      await db.update(cards).set({ isSold: true, userId }).where(eq(cards.id, cp.cardId));
-
     }
 
     return order;
@@ -845,6 +871,7 @@ export class DatabaseStorage implements IStorage {
     for (const cardId of cardIds) {
       const [card] = await db.select().from(cards).where(eq(cards.id, cardId));
       if (!card || card.isSold) throw new Error("Card not found or already sold");
+      await this.assertCardNumberIsUnique(db, card.cardNumber);
       const purchasePrice = isBulkBundle ? Math.round(card.price / 2) : card.price;
       total += purchasePrice;
       cardPurchases.push({ cardId, price: purchasePrice });
@@ -962,6 +989,7 @@ export class DatabaseStorage implements IStorage {
         if (item.cardId) {
           const [card] = await tx.select().from(cards).where(eq(cards.id, item.cardId));
           if (!card || card.isSold) throw new Error("A card in this order is no longer available");
+          await this.assertCardNumberIsUnique(tx, card.cardNumber);
           const [claimedCard] = await tx.update(cards)
             .set({ isSold: true, userId: order.userId })
             .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
@@ -1097,6 +1125,7 @@ export class DatabaseStorage implements IStorage {
         if (item.cardId) {
           const [card] = await tx.select().from(cards).where(eq(cards.id, item.cardId));
           if (!card || card.isSold) throw new Error("A card in this order is no longer available");
+          await this.assertCardNumberIsUnique(tx, card.cardNumber);
           const [claimedCard] = await tx.update(cards)
             .set({ isSold: true, userId: pendingOrder.userId })
             .where(and(eq(cards.id, item.cardId), eq(cards.isSold, false)))
@@ -1551,11 +1580,27 @@ export class DatabaseStorage implements IStorage {
       city: metadata.city || null,
       zip: metadata.zip,
     };
-    const [card] = await db.insert(cards).values({
-      ...insertCard,
-      binData,
-    } as typeof cards.$inferInsert).returning();
-    return card;
+    const fingerprint = normalizeCardNumber(insertCard.cardNumber);
+    if (fingerprint.length < 6) throw new Error("Card number must contain a valid BIN");
+
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${fingerprint}))`);
+      const duplicate = await tx.execute(sql`
+        SELECT id
+        FROM cards
+        WHERE regexp_replace(card_number, '\\D', '', 'g') = ${fingerprint}
+        LIMIT 1
+      `);
+      if (duplicate.rows.length > 0) {
+        throw new Error("Duplicate card stock detected; this card is already in inventory or order history");
+      }
+
+      const [card] = await tx.insert(cards).values({
+        ...insertCard,
+        binData,
+      } as typeof cards.$inferInsert).returning();
+      return card;
+    });
   }
 
   async updateCard(id: number, data: Partial<Card>): Promise<Card> {
@@ -1564,39 +1609,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   async purchaseCard(cardId: number, userId: number, finalPrice?: number): Promise<Card> {
-    const [card] = await db.select().from(cards).where(and(eq(cards.id, cardId), eq(cards.isSold, false)));
-    if (!card) throw new Error("Card not found or already sold");
-    
-    const [updated] = await db.update(cards).set({ isSold: true, userId }).where(eq(cards.id, cardId)).returning();
+    return db.transaction(async (tx) => {
+      const [card] = await tx.select().from(cards).where(and(eq(cards.id, cardId), eq(cards.isSold, false)));
+      if (!card) throw new Error("Card not found or already sold");
+      await this.assertCardNumberIsUnique(tx, card.cardNumber);
 
-    const paidTotal = finalPrice ?? card.price;
+      const paidTotal = finalPrice ?? card.price;
+      const [debitedUser] = await tx.update(users)
+        .set({ balance: sql`${users.balance} - ${paidTotal}` })
+        .where(and(eq(users.id, userId), sql`${users.balance} >= ${paidTotal}`))
+        .returning({ id: users.id });
+      if (!debitedUser) throw new Error("Insufficient balance");
 
-    // Compose full card content
-    const deliveryContent = formatCardDeliveryContent(card);
+      const [updated] = await tx.update(cards)
+        .set({ isSold: true, userId })
+        .where(and(eq(cards.id, cardId), eq(cards.isSold, false)))
+        .returning();
+      if (!updated) throw new Error("Card not found or already sold");
 
-    // Create a matching order so it shows in "Orders"
-    const publicOrderId = Math.random().toString(36).substring(2, 15);
-    const [order] = await db.insert(orders).values({
-      userId,
-      orderId: `CARD-${publicOrderId}`,
-      total: paidTotal,
-      paidAmount: paidTotal,
-      status: "fulfilled",
-      deliveryContent,
-      paymentMethod: "wallet",
-    }).returning();
+      await tx.insert(transactions).values({
+        userId,
+        amount: -paidTotal,
+        type: "purchase",
+        description: `Purchased card ${card.maskedCard}`,
+      });
 
-    // Insert order item so the products tab is populated
-    await db.insert(orderItems).values({
-      orderId: order.id,
-      variantId: null,
-      cardId: card.id,
-      itemType: "card",
-      price: card.price,
-      quantity: 1,
+      const publicOrderId = Math.random().toString(36).substring(2, 15);
+      const [order] = await tx.insert(orders).values({
+        userId,
+        orderId: `CARD-${publicOrderId}`,
+        total: paidTotal,
+        paidAmount: paidTotal,
+        status: "fulfilled",
+        deliveryContent: formatCardDeliveryContent(card),
+        paymentMethod: "wallet",
+      }).returning();
+
+      await tx.insert(orderItems).values({
+        orderId: order.id,
+        variantId: null,
+        cardId: card.id,
+        itemType: "card",
+        price: card.price,
+        quantity: 1,
+      });
+
+      return updated;
     });
-
-    return updated;
   }
 
   async getUserCards(userId: number): Promise<Card[]> {
