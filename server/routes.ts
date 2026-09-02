@@ -1737,7 +1737,7 @@ export async function registerRoutes(
       return "";
     }
 
-    // Multiple cards can be pasted at once, separated by a blank line
+    // Multiple cards use the existing blank-line-separated format.
     const entries = rawInput.split(/\n\s*\n/).map((e: string) => e.trim()).filter(Boolean);
     if (entries.length === 0) {
       return res.status(400).json({ message: "Full item is required" });
@@ -1750,7 +1750,7 @@ export async function registerRoutes(
 
     for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
       const fullItem = entries[entryIndex];
-      const cardNumber = findCardNumber(fullItem) || req.body.cardNumber || "";
+      const cardNumber = findCardNumber(fullItem) || String(req.body.cardNumber ?? "");
       if (cardNumber.length < 6) {
         skippedCards.push({
           entry: entryIndex + 1,
@@ -1821,8 +1821,14 @@ export async function registerRoutes(
     }
 
     if (createdCards.length === 0) {
+      const details = skippedCards
+        .slice(0, 3)
+        .map(item => `Entry ${item.entry}: ${item.reason}`)
+        .join(" · ");
       return res.status(422).json({
-        message: "No valid cards were found in the submitted items.",
+        message: details
+          ? `No valid cards were found. ${details}`
+          : "No valid cards were found. Include a card number, state, and ZIP.",
         skipped: skippedCards,
       });
     }

@@ -3720,12 +3720,12 @@ function AdminCardsSection() {
           <textarea
             value={fullItem}
             onChange={e => setFullItem(e.target.value)}
-            placeholder={"4111111111111111|12/25|123|John Doe|123 Main St|City|12345\n\n4222222222222222|12/26|456|Jane Doe|456 Oak Ave|City|54321"}
+             placeholder={"4111111111111111|12/25|123|John Doe|123 Main St|City|CA|12345\n4222222222222222|12/26|456|Jane Doe|456 Oak Ave|City|NY|54321"}
             rows={5}
             className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
             data-testid="input-full-item"
           />
-           <p className="text-[10px] text-white/30">Leave one blank line between cards to add multiple at once. Every card must include a valid state and ZIP.</p>
+            <p className="text-[10px] text-white/30">Separate each card with a blank line. Include a valid two-letter state and ZIP for every card.</p>
            <div className="flex flex-wrap gap-3">
             {cardEntries.length > 1 && (
               <p className="text-[10px] text-white/50 font-mono">{cardEntries.length} cards detected</p>
