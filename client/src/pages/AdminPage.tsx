@@ -2953,7 +2953,7 @@ function ProductStockSafetyCard() {
     onError: (error: Error) => toast({ title: "Unable to update stock safety", description: error.message, variant: "destructive" }),
   });
 
-  const allowPaymentCardProductStock = data?.allowPaymentCardProductStock === true;
+  const protectionEnabled = data?.allowPaymentCardProductStock !== true;
 
   return (
     <div>
@@ -2961,24 +2961,24 @@ function ProductStockSafetyCard() {
       <Card className="bg-[#111] border-amber-500/25" data-testid="card-product-stock-safety">
         <CardContent className="p-4 flex items-start justify-between gap-4">
           <div>
-            <p className="font-bold text-sm text-white">Allow payment-card credentials as product stock</p>
+            <p className="font-bold text-sm text-white">Protect payment-card credentials in product stock</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              {allowPaymentCardProductStock
-                ? "Protection is disabled. Card-number-like content can be imported into generic product stock."
-                : "Protection is enabled. Card-number-like content is rejected from generic product stock."}
+              {protectionEnabled
+                ? "Protection is enabled. Card-number-like content is rejected from generic product stock."
+                : "Protection is disabled. Card-number-like content can be imported into generic product stock."}
             </p>
             <p className="text-[10px] text-amber-300/80 mt-2">
               Only enable this if you intentionally sell this content as generic stock. Card inventory should use the dedicated Cards section.
             </p>
           </div>
           <Switch
-            checked={allowPaymentCardProductStock}
+            checked={protectionEnabled}
             disabled={isLoading || toggleMutation.isPending}
             onCheckedChange={(enabled) => {
-              if (enabled && !window.confirm("Disable payment-card stock protection? This allows card-number-like content in generic product stock.")) return;
-              toggleMutation.mutate(enabled);
+              if (!enabled && !window.confirm("Disable payment-card stock protection? This allows card-number-like content in generic product stock.")) return;
+              toggleMutation.mutate(!enabled);
             }}
-            data-testid="switch-allow-payment-card-product-stock"
+            data-testid="switch-protect-payment-card-product-stock"
           />
         </CardContent>
       </Card>
