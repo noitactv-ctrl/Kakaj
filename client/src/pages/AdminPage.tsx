@@ -2961,11 +2961,11 @@ function ProductStockSafetyCard() {
       <Card className="bg-[#111] border-amber-500/25" data-testid="card-product-stock-safety">
         <CardContent className="p-4 flex items-start justify-between gap-4">
           <div>
-            <p className="font-bold text-sm text-white">Protect payment-card credentials in product stock</p>
+            <p className="font-bold text-sm text-white">Protect payment-card credentials and BIN metadata</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               {protectionEnabled
-                ? "Protection is enabled. Card-number-like content is rejected from generic product stock."
-                : "Protection is disabled. Card-number-like content can be imported into generic product stock."}
+                ? "Protection is enabled. Card-number-like product stock is rejected, and cards without complete BIN metadata are skipped."
+                : "Protection is disabled. Card-number-like product stock is allowed, and cards can be added without complete BIN metadata."}
             </p>
             <p className="text-[10px] text-amber-300/80 mt-2">
               Only enable this if you intentionally sell this content as generic stock. Card inventory should use the dedicated Cards section.

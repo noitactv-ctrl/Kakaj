@@ -1521,6 +1521,7 @@ export async function registerRoutes(
 
   app.get("/api/cards", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    const allowPaymentCardProductStock = await storage.getSetting("allow_payment_card_product_stock", "false") === "true";
     const baseId = req.query.baseId ? Number(req.query.baseId) : null;
     const baseFilter = baseId ? sql`AND c.base_id = ${baseId}` : sql``;
     const { rows } = await db.execute(sql`
@@ -1548,7 +1549,9 @@ export async function registerRoutes(
       }
     });
 
-    const visibleRows = rows.filter((r: any) => hasCompleteBinMetadata(r.bin_data));
+    const visibleRows = allowPaymentCardProductStock
+      ? rows
+      : rows.filter((r: any) => hasCompleteBinMetadata(r.bin_data));
     res.json(visibleRows.map((r: any) => ({
       id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
       expiry: r.expiry, cvv: r.cvv, country: r.country, extras: r.extras,
@@ -1589,6 +1592,7 @@ export async function registerRoutes(
 
     const baseId = req.body.baseId ? Number(req.body.baseId) : undefined;
     const priceCents = Math.round(parseFloat(req.body.price || "0") * 100);
+    const allowPaymentCardProductStock = await storage.getSetting("allow_payment_card_product_stock", "false") === "true";
     const createdCards: any[] = [];
     const skippedCards: Array<{ entry: number; bin: string; reason: string }> = [];
 
@@ -1618,7 +1622,7 @@ export async function registerRoutes(
         } catch {}
       }
 
-      if (!hasCompleteBinMetadata(storedBinData)) {
+      if (!allowPaymentCardProductStock && !hasCompleteBinMetadata(storedBinData)) {
         skippedCards.push({
           entry: entryIndex + 1,
           bin: cardNumber.substring(0, 6),
@@ -1632,7 +1636,7 @@ export async function registerRoutes(
         maskedCard: masked,
         expiry: "",
         cvv: "",
-        country: storedBinData.country,
+        country: storedBinData?.country || "Unknown",
         binData: storedBinData,
         extras: fullItem,
         price: priceCents,
