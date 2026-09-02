@@ -78,8 +78,7 @@ function hasBilling(extras: string): boolean {
 
 function formatType(binData: any): string {
   if (!binData) return "";
-  const t = binData.type?.toUpperCase();
-  return t || "";
+  return String(binData.type ?? "").trim().toUpperCase().replace(/[_-]+/g, " ");
 }
 
 function formatBrand(binData: any): string {
@@ -117,7 +116,7 @@ function InCartIcon() {
 
 export default function CardsPage() {
   const [selectedBase, setSelectedBase] = useState<number | null>(null);
-  const [selectedType, setSelectedType] = useState<"DEBIT" | "CREDIT" | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
   const [cartCardIds, setCartCardIds] = useState<Set<number>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
   const [search, setSearch] = useState("");
@@ -187,6 +186,23 @@ export default function CardsPage() {
     },
     onError: (error: Error) => toast({ title: "REFRESH FAILED", description: error.message, variant: "destructive" }),
   });
+
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>();
+    (cards ?? []).forEach((card: any) => {
+      const type = String(card.metadata?.type || formatType(card.binData)).trim().toUpperCase();
+      if (type) types.add(type);
+    });
+    const preferredOrder = ["CREDIT", "DEBIT", "PREPAID"];
+    return Array.from(types).sort((a, b) => {
+      const aIndex = preferredOrder.indexOf(a);
+      const bIndex = preferredOrder.indexOf(b);
+      if (aIndex !== -1 || bIndex !== -1) {
+        return (aIndex === -1 ? preferredOrder.length : aIndex) - (bIndex === -1 ? preferredOrder.length : bIndex);
+      }
+      return a.localeCompare(b);
+    });
+  }, [cards]);
 
   const filteredCards = useMemo(() => {
     if (!cards) return [];
@@ -285,11 +301,19 @@ export default function CardsPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {(["DEBIT", "CREDIT"] as const).map(type => (
+          <button
+            onClick={() => setSelectedType(null)}
+            className={`pixel-button px-3 py-2 text-[8px] ${selectedType === null ? "!bg-[#ee292b] !text-white" : ""}`}
+            data-testid="btn-filter-all-card-types"
+          >
+            ALL TYPES
+          </button>
+          {availableTypes.map(type => (
             <button
               key={type}
               onClick={() => setSelectedType(current => current === type ? null : type)}
               className={`pixel-button px-3 py-2 text-[8px] ${selectedType === type ? "!bg-[#ee292b] !text-white" : ""}`}
+              data-testid={`btn-filter-card-type-${type.toLowerCase().replace(/\s+/g, "-")}`}
             >
               {type}
             </button>
