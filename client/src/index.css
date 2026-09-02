@@ -166,16 +166,3 @@
   }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  /* Restore the original plain crosshair across every storefront element. */
-  .pixel-shell,
-  .pixel-shell * {
-    cursor: crosshair !important;
-  }
-
-  /* Keep log-card hover on the same cursor even when utility classes change. */
-  .pixel-shell .store-log-card,
-  .pixel-shell .store-log-card * {
-    cursor: crosshair !important;
-  }
-}
