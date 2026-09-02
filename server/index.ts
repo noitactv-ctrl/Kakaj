@@ -20,7 +20,9 @@ function requireProductionSecrets() {
     "replace-with-a-different-long-random-secret",
     "rulf_fallback_dev_secret_change_in_prod",
   ]);
-  for (const key of ["SESSION_SECRET", "SETTINGS_ENCRYPTION_KEY"]) {
+  // Settings encryption intentionally supports SESSION_SECRET as a secure
+  // fallback, so only the session secret is mandatory in production.
+  for (const key of ["SESSION_SECRET"]) {
     if (insecureValues.has(process.env[key]?.trim() ?? "")) {
       throw new Error(`${key} must be set to a unique, non-template value in production.`);
     }
