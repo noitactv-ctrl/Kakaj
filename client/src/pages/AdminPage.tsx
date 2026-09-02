@@ -3673,9 +3673,15 @@ function AdminCardsSection() {
       setFullItem(""); setPrice(""); setSelectedBaseId("");
       const count = data?.count ?? 1;
       const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
+      const duplicateCount = Number(data?.duplicateCount ?? 0);
+      const invalidCount = Math.max(0, skipped - duplicateCount);
+      const details = [
+        duplicateCount > 0 ? `(${duplicateCount}) cards duplicated` : "",
+        invalidCount > 0 ? `(${invalidCount}) invalid cards skipped` : "",
+      ].filter(Boolean).join(" · ");
       toast({
         title: count > 1 ? `${count} cards added` : "Card added",
-        description: skipped > 0 ? `${skipped} invalid card entr${skipped === 1 ? "y was" : "ies were"} skipped.` : undefined,
+        description: details || undefined,
       });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),

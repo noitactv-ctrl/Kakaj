@@ -1825,23 +1825,31 @@ export async function registerRoutes(
         .slice(0, 3)
         .map(item => `Entry ${item.entry}: ${item.reason}`)
         .join(" · ");
+      const duplicateCount = skippedCards.filter(item => /duplicate card stock/i.test(item.reason)).length;
       return res.status(422).json({
         message: details
           ? `No valid cards were found. ${details}`
           : "No valid cards were found. Include a card number, state, and ZIP.",
         skipped: skippedCards,
+        duplicateCount,
       });
     }
 
     if (createdCards.length === 1) {
       res.status(201).json(skippedCards.length > 0
-        ? { ...createdCards[0], skipped: skippedCards }
+        ? {
+          ...createdCards[0],
+          skipped: skippedCards,
+          duplicateCount: skippedCards.filter(item => /duplicate card stock/i.test(item.reason)).length,
+        }
         : createdCards[0]);
     } else {
+      const duplicateCount = skippedCards.filter(item => /duplicate card stock/i.test(item.reason)).length;
       res.status(201).json({
         cards: createdCards,
         count: createdCards.length,
         skipped: skippedCards,
+        duplicateCount,
       });
     }
   });
