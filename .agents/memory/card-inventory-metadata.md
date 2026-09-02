@@ -3,14 +3,8 @@ name: Card inventory metadata
 description: The operational metadata prioritized for card inventory tracking and display.
 ---
 
-Card inventory should prioritize BIN, type, state, city, and ZIP as its operational metadata. Cardholder names must remain excluded from persisted, listed, and delivered details.
+Every valid card inventory item should track its six-digit BIN. Country, state, and ZIP supplied with the posted item remain the source of location details; provider enrichment is optional.
 
-**Why:** These fields support stock categorization and filtering without retaining a holder identity.
+**Why:** BIN tracking supports stock categorization without blocking valid inventory when a public lookup provider lacks complete issuer metadata.
 
-**How to apply:** Keep metadata derived server-side and surface it in both Admin stock views and the card catalog. Do not reintroduce raw holder names to metadata, preview, or delivery output.
-
-Cards lacking complete public BIN metadata (issuer, brand, type, country name, and two-letter country code) must not be created or displayed.
-
-**Why:** Placeholder catalog rows misrepresent inventory when the BIN provider cannot identify the card.
-
-**How to apply:** Validate normalized BIN data before inserting, store it atomically with the card, and apply the same completeness rule to customer listings, admin base views, and stock counts.
+**How to apply:** Never reject or hide a valid card solely because provider metadata is incomplete. A manual refresh should force BIN rechecks and reshuffle the visible inventory once per click.

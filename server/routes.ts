@@ -179,20 +179,6 @@ function lookupBin(bin: string): Promise<any> {
   return new Promise(resolve => { binQueue.push({ bin, resolve }); processBinQueue(); });
 }
 
-function hasCompleteBinMetadata(data: any): boolean {
-  const normalize = (value: unknown) => typeof value === "string" ? value.trim() : "";
-  const issuer = normalize(data?.bank);
-  const brand = normalize(data?.scheme) || normalize(data?.brand);
-  const type = normalize(data?.type);
-  const country = normalize(data?.country);
-  const countryCode = normalize(data?.countryCode);
-  return issuer.length > 0
-    && brand.length > 0
-    && type.length > 0
-    && country.length > 0
-    && /^[A-Za-z]{2}$/.test(countryCode);
-}
-
 function findPaymentCardNumber(value: string): string {
   const tokens = value.split(/[|\t:;,\s]+/).map(token => token.trim()).filter(Boolean);
   for (const token of tokens) {
@@ -201,6 +187,18 @@ function findPaymentCardNumber(value: string): string {
   }
   const noGaps = value.replace(/[\s-]/g, "");
   return noGaps.match(/[3456]\d{12,18}/)?.[0] ?? "";
+}
+
+const postedCountryCodes = new Set(
+  "US CA GB AU DE FR IT ES NL BR MX IN JP CN SG PH VN NG ZA AE NZ IE PL SE NO DK FI CH AT BE PT TR UA RO CZ HK KR TW TH MY ID PK BD RU".split(" "),
+);
+
+function extractPostedCardCountry(value: string): string {
+  const labeled = value.match(/\b(?:country|country\s*code)\s*[:=]\s*([A-Za-z]{2})\b/i)?.[1];
+  if (labeled) return labeled.toUpperCase();
+
+  const tokens = value.split(/[|\t:;,\s]+/).map(token => token.trim().toUpperCase()).filter(Boolean);
+  return tokens.find(token => postedCountryCodes.has(token)) ?? "";
 }
 
 function hasAccountAndRoutingDetails(value: string): boolean {
@@ -1521,9 +1519,11 @@ export async function registerRoutes(
 
   app.get("/api/cards", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
-    const allowPaymentCardProductStock = await storage.getSetting("allow_payment_card_product_stock", "false") === "true";
     const baseId = req.query.baseId ? Number(req.query.baseId) : null;
     const baseFilter = baseId ? sql`AND c.base_id = ${baseId}` : sql``;
+    const orderBy = req.query.shuffle === "1" || req.query.shuffle === "true"
+      ? sql`RANDOM()`
+      : sql`c.created_at DESC`;
     const { rows } = await db.execute(sql`
       SELECT c.id, c.card_number, c.masked_card, c.expiry, c.cvv, c.country, c.extras,
              c.price, c.hr_percent, c.is_sold, c.user_id, c.created_at, c.bin_data,
@@ -1531,7 +1531,7 @@ export async function registerRoutes(
       FROM cards c
       LEFT JOIN card_bases cb ON cb.id = c.base_id
       WHERE c.is_sold = false ${baseFilter}
-      ORDER BY c.created_at DESC
+      ORDER BY ${orderBy}
     `) as any;
 
     // For cards missing bin_data in DB, kick off background lookups + save results
@@ -1542,17 +1542,12 @@ export async function registerRoutes(
       if (bin.length === 6 && !seenBins.has(bin)) {
         seenBins.add(bin);
         lookupBin(bin).then(async (data) => {
-          if (hasCompleteBinMetadata(data)) {
-            await db.execute(sql`UPDATE cards SET bin_data = ${JSON.stringify(data)}::jsonb WHERE card_number LIKE ${bin + '%'} AND bin_data IS NULL`);
-          }
+          await db.execute(sql`UPDATE cards SET bin_data = ${JSON.stringify(data?.bin ? data : { bin })}::jsonb WHERE card_number LIKE ${bin + '%'} AND bin_data IS NULL`);
         }).catch(() => {});
       }
     });
 
-    const visibleRows = allowPaymentCardProductStock
-      ? rows
-      : rows.filter((r: any) => hasCompleteBinMetadata(r.bin_data));
-    res.json(visibleRows.map((r: any) => ({
+    res.json(rows.map((r: any) => ({
       id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
       expiry: r.expiry, cvv: r.cvv, country: r.country, extras: r.extras,
       price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
@@ -1592,7 +1587,6 @@ export async function registerRoutes(
 
     const baseId = req.body.baseId ? Number(req.body.baseId) : undefined;
     const priceCents = Math.round(parseFloat(req.body.price || "0") * 100);
-    const allowPaymentCardProductStock = await storage.getSetting("allow_payment_card_product_stock", "false") === "true";
     const createdCards: any[] = [];
     const skippedCards: Array<{ entry: number; bin: string; reason: string }> = [];
 
@@ -1622,22 +1616,13 @@ export async function registerRoutes(
         } catch {}
       }
 
-      if (!allowPaymentCardProductStock && !hasCompleteBinMetadata(storedBinData)) {
-        skippedCards.push({
-          entry: entryIndex + 1,
-          bin: cardNumber.substring(0, 6),
-          reason: "Complete BIN metadata was not found; card was not added",
-        });
-        continue;
-      }
-
       const card = await storage.createCard({
         cardNumber,
         maskedCard: masked,
         expiry: "",
         cvv: "",
-        country: storedBinData?.country || "Unknown",
-        binData: storedBinData,
+        country: extractPostedCardCountry(fullItem) || storedBinData?.countryCode || storedBinData?.country || "Unknown",
+        binData: storedBinData?.bin ? storedBinData : { bin: cardNumber.substring(0, 6) },
         extras: fullItem,
         price: priceCents,
         hrPercent: 80,
@@ -1649,7 +1634,7 @@ export async function registerRoutes(
 
     if (createdCards.length === 0) {
       return res.status(422).json({
-        message: "No cards were added because complete BIN metadata could not be found.",
+        message: "No valid cards were found in the submitted items.",
         skipped: skippedCards,
       });
     }
@@ -1665,6 +1650,37 @@ export async function registerRoutes(
         skipped: skippedCards,
       });
     }
+  });
+
+  app.post("/api/cards/refresh", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+
+    const { rows } = await db.execute(sql`
+      SELECT card_number
+      FROM cards
+      WHERE is_sold = false
+    `) as any;
+    const bins = Array.from(new Set(
+      rows
+        .map((row: any) => (row.card_number ?? "").replace(/\D/g, "").substring(0, 6))
+        .filter((bin: string) => bin.length === 6),
+    )) as string[];
+
+    let updatedCards = 0;
+    for (const bin of bins) {
+      binCache.delete(bin);
+      const data = await lookupBin(bin);
+      const trackedBin = data?.bin ? data : { bin };
+      const result = await db.execute(sql`
+        UPDATE cards
+        SET bin_data = ${JSON.stringify(trackedBin)}::jsonb
+        WHERE is_sold = false AND card_number LIKE ${bin + "%"}
+        RETURNING id
+      `) as any;
+      updatedCards += result.rows.length;
+    }
+
+    res.json({ binsChecked: bins.length, cardsUpdated: updatedCards });
   });
 
   app.post("/api/cards/:id/purchase", async (req, res) => {

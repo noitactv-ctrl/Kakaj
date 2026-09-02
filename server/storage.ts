@@ -1624,14 +1624,7 @@ export class DatabaseStorage implements IStorage {
   async getCardsByBase(baseId: number): Promise<Card[]> {
     return db.select().from(cards).where(and(
       eq(cards.baseId, baseId),
-      eq(cards.isSold, false),
-      sql`
-        NULLIF(BTRIM(${cards.binData}->>'bank'), '') IS NOT NULL
-        AND COALESCE(NULLIF(BTRIM(${cards.binData}->>'scheme'), ''), NULLIF(BTRIM(${cards.binData}->>'brand'), '')) IS NOT NULL
-        AND NULLIF(BTRIM(${cards.binData}->>'type'), '') IS NOT NULL
-        AND NULLIF(BTRIM(${cards.binData}->>'country'), '') IS NOT NULL
-        AND BTRIM(${cards.binData}->>'countryCode') ~ '^[A-Za-z]{2}$'
-      `
+      eq(cards.isSold, false)
     )).orderBy(desc(cards.createdAt));
   }
 

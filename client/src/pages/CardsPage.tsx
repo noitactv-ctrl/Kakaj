@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, Loader2, Search } from "lucide-react";
+import { ShoppingCart, Loader2, Search, RefreshCw } from "lucide-react";
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -24,8 +24,24 @@ function countryName(code: string): string {
   }
 }
 
+function cardCountryCode(card: any): string {
+  const postedCountry = String(card?.country ?? "").trim().toUpperCase();
+  if (/^[A-Z]{2}$/.test(postedCountry)) return postedCountry;
+  const lookupCountry = String(card?.binData?.countryCode ?? "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(lookupCountry) ? lookupCountry : "";
+}
+
+function cardCountryLabel(card: any): string {
+  const code = cardCountryCode(card);
+  return countryName(code) || String(card?.country ?? "").trim() || String(card?.binData?.country ?? "").trim();
+}
+
 function extractBin(cardNumber: string): string {
   return (cardNumber ?? "").replace(/\D/g, "").substring(0, 6);
+}
+
+function cardShuffleRank(cardId: number, seed: number): number {
+  return ((Number(cardId) * 9301) + (seed * 49297)) % 233280;
 }
 
 function extractZip(extras: string): string {
@@ -105,6 +121,7 @@ export default function CardsPage() {
   const [cartCardIds, setCartCardIds] = useState<Set<number>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
   const [search, setSearch] = useState("");
+  const [shuffleSeed, setShuffleSeed] = useState(0);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -139,7 +156,10 @@ export default function CardsPage() {
   const { data: cards, isLoading } = useQuery<any[]>({
     queryKey: ["/api/cards", selectedBase],
     queryFn: async () => {
-      const url = selectedBase ? `/api/cards?baseId=${selectedBase}` : "/api/cards";
+      const params = new URLSearchParams();
+      if (selectedBase) params.set("baseId", String(selectedBase));
+      const query = params.toString();
+      const url = query ? `/api/cards?${query}` : "/api/cards";
       const res = await fetch(url, { credentials: "include" });
       return res.json();
     },
@@ -147,10 +167,31 @@ export default function CardsPage() {
     refetchOnWindowFocus: true,
   });
 
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/cards/refresh");
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.message || "Unable to refresh cards");
+      }
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      setShuffleSeed(seed => seed + 1);
+      queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/card-bases"] });
+      toast({
+        title: "CARDS REFRESHED",
+        description: `${data?.cardsUpdated ?? 0} cards re-tracked and randomized.`,
+      });
+    },
+    onError: (error: Error) => toast({ title: "REFRESH FAILED", description: error.message, variant: "destructive" }),
+  });
+
   const filteredCards = useMemo(() => {
     if (!cards) return [];
     const term = search.trim().toLowerCase();
-    return cards.filter((card: any) => {
+    const filtered = cards.filter((card: any) => {
       const metadata = card.metadata ?? {};
       if (selectedType && (metadata.type || formatType(card.binData)) !== selectedType) return false;
       if (!term) return true;
@@ -160,11 +201,15 @@ export default function CardsPage() {
         metadata.type || formatType(card.binData),
         formatBank(card.binData),
         card.baseName,
+        card.country,
         metadata.state || extractState(card.extras ?? ""),
         metadata.zip || extractZip(card.extras ?? ""),
       ].filter(Boolean).some(value => String(value).toLowerCase().includes(term));
     });
-  }, [cards, selectedType, search]);
+    return shuffleSeed > 0
+      ? [...filtered].sort((a: any, b: any) => cardShuffleRank(a.id, shuffleSeed) - cardShuffleRank(b.id, shuffleSeed))
+      : filtered;
+  }, [cards, selectedType, search, shuffleSeed]);
 
   const cartCards = useMemo(() => (cards ?? []).filter((c: any) => cartCardIds.has(c.id)), [cards, cartCardIds]);
   const toggleCart = (card: any) => {
@@ -257,6 +302,16 @@ export default function CardsPage() {
               {base.name}
             </button>
           ))}
+          <button
+            onClick={() => refreshMutation.mutate()}
+            disabled={refreshMutation.isPending}
+            className="pixel-button ml-auto flex items-center gap-2 px-3 py-2 text-[8px] !bg-[#43b94e] !text-white disabled:opacity-50"
+            title="Re-track every BIN and randomize the card list"
+            data-testid="btn-refresh-cards"
+          >
+            {refreshMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            REFRESH CARDS
+          </button>
         </div>
         <div className="border-t-2 border-black/60 pt-3">
           {!bulkMode ? (
@@ -361,8 +416,9 @@ function CardTableRow({
 }) {
   const bin = extractBin(card.cardNumber);
   const zip = extractZip(card.extras ?? "");
-  const flag = countryFlag(card.binData?.countryCode ?? "");
-  const ccCountry = countryName(card.binData?.countryCode ?? "");
+  const countryCode = cardCountryCode(card);
+  const flag = countryFlag(countryCode);
+  const ccCountry = cardCountryLabel(card);
   const brand = formatBrand(card.binData);
   const cardType = formatType(card.binData);
   const bank = formatBank(card.binData);

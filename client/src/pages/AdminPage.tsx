@@ -11,14 +11,14 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
- import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, Code2, KeyRound, Landmark, Gift } from "lucide-react";
+ import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, Code2, KeyRound, Landmark, Gift, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { useLocation } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CryptoCoinIcon, type CryptoCurrencyOption } from "@/components/CryptoCoinSelector";
@@ -2961,14 +2961,14 @@ function ProductStockSafetyCard() {
       <Card className="bg-[#111] border-amber-500/25" data-testid="card-product-stock-safety">
         <CardContent className="p-4 flex items-start justify-between gap-4">
           <div>
-            <p className="font-bold text-sm text-white">Protect payment-card credentials and BIN metadata</p>
+            <p className="font-bold text-sm text-white">Protect payment-card credentials in product stock</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               {protectionEnabled
-                ? "Protection is enabled. Card-number-like product stock is rejected, and cards without complete BIN metadata are skipped."
-                : "Protection is disabled. Card-number-like product stock is allowed, and cards can be added without complete BIN metadata."}
+                ? "Protection is enabled. Card-number-like content is rejected from generic product stock."
+                : "Protection is disabled. Card-number-like content can be imported into generic product stock."}
             </p>
             <p className="text-[10px] text-amber-300/80 mt-2">
-              Only enable this if you intentionally sell this content as generic stock. Card inventory should use the dedicated Cards section.
+              Dedicated card inventory always tracks the BIN separately. Only disable this if you intentionally sell card-like content as generic stock.
             </p>
           </div>
           <Switch
@@ -3597,9 +3597,47 @@ function AdminCardsSection() {
   const [fullItem, setFullItem] = useState("");
   const [price, setPrice] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState<string>("");
+  const [shuffleSeed, setShuffleSeed] = useState(0);
 
-  const { data: cards, isLoading } = useQuery<any[]>({ queryKey: ["/api/cards"] });
+  const { data: cards, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/cards", "admin"],
+    queryFn: async () => {
+      const res = await fetch("/api/cards", { credentials: "include" });
+      if (!res.ok) throw new Error("Unable to load cards");
+      return res.json();
+    },
+  });
   const { data: bases } = useQuery<any[]>({ queryKey: ["/api/card-bases"] });
+
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/cards/refresh");
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Unable to refresh cards");
+      }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      setShuffleSeed(seed => seed + 1);
+      qc.invalidateQueries({ queryKey: ["/api/cards"] });
+      qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
+      toast({
+        title: "Cards refreshed",
+        description: `${data?.cardsUpdated ?? 0} cards re-tracked and randomized.`,
+      });
+    },
+    onError: (error: Error) => toast({ title: "Refresh failed", description: error.message, variant: "destructive" }),
+  });
+
+  const orderedCards = useMemo(
+    () => shuffleSeed > 0
+      ? [...(cards ?? [])].sort((a: any, b: any) =>
+          (((Number(a.id) * 9301) + (shuffleSeed * 49297)) % 233280)
+          - (((Number(b.id) * 9301) + (shuffleSeed * 49297)) % 233280))
+      : (cards ?? []),
+    [cards, shuffleSeed],
+  );
 
   // Auto-extract BIN + ZIP preview from first card entry
   const cardEntries = fullItem.split(/\n\s*\n/).map(e => e.trim()).filter(Boolean);
@@ -3624,7 +3662,7 @@ function AdminCardsSection() {
       const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
       toast({
         title: count > 1 ? `${count} cards added` : "Card added",
-        description: skipped > 0 ? `${skipped} card${skipped === 1 ? "" : "s"} skipped because complete BIN metadata was unavailable.` : undefined,
+        description: skipped > 0 ? `${skipped} invalid card entr${skipped === 1 ? "y was" : "ies were"} skipped.` : undefined,
       });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -3638,7 +3676,19 @@ function AdminCardsSection() {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-base font-bold text-white">Cards</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-bold text-white">Cards</h2>
+        <button
+          onClick={() => refreshMutation.mutate()}
+          disabled={refreshMutation.isPending}
+          className="flex items-center gap-2 rounded-lg border border-green-400/30 bg-green-500/10 px-3 py-2 text-[10px] font-bold text-green-300 transition-colors hover:bg-green-500/20 disabled:opacity-50"
+          title="Re-track every BIN and randomize the card list"
+          data-testid="btn-admin-refresh-cards"
+        >
+          {refreshMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          REFRESH
+        </button>
+      </div>
 
       {/* Add Card form */}
       <div className="bg-[#111] border border-white/10 rounded-xl p-4 space-y-3">
@@ -3728,9 +3778,10 @@ function AdminCardsSection() {
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
           ) : (
-            (cards ?? []).map((card: any) => {
+            orderedCards.map((card: any) => {
               const cBin = (card.cardNumber || "").replace(/\D/g, "").substring(0, 6);
-              const zip = extractZipPreview(card.extras ?? "");
+                      const zip = extractZipPreview(card.extras ?? "");
+                      const country = String(card.country ?? "").trim();
               return (
                 <div key={card.id} className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between">
                   <div className="space-y-0.5 min-w-0 flex-1">
@@ -3738,6 +3789,7 @@ function AdminCardsSection() {
                       {card.baseName && <span className="text-[10px] font-mono font-bold text-primary/70">{card.baseName}</span>}
                       <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{cBin}</span>
                       {zip && <span className="text-[10px] text-white/40 font-mono">ZIP {zip}</span>}
+                      {country && <span className="text-[10px] text-white/40 font-mono">{country}</span>}
                     </div>
                     <p className="text-[10px] text-white/40 font-mono">{card.hrPercent ?? 80}% HR</p>
                     {card.extras && <p className="text-[9px] text-white/30 truncate font-mono">{card.extras.substring(0, 55)}...</p>}
