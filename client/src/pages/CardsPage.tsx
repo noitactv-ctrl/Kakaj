@@ -42,7 +42,10 @@ function extractBin(cardNumber: string): string {
 }
 
 function cardShuffleRank(cardId: number, seed: number): number {
-  return ((Number(cardId) * 9301) + (seed * 49297)) % 233280;
+  let value = (Number(cardId) ^ seed) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+  return (value ^ (value >>> 16)) >>> 0;
 }
 
 function extractZip(extras: string): string {

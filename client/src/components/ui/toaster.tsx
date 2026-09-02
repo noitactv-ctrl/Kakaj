@@ -8,6 +8,13 @@ import {
 } from "@/components/ui/toast"
 import { CheckCircle2, AlertCircle } from "lucide-react"
 
+function compactErrorMessage(description: React.ReactNode): React.ReactNode {
+  if (typeof description !== "string" || description.length <= 96) return description;
+  const firstSentence = description.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
+  const message = firstSentence && firstSentence.length <= 96 ? firstSentence : description;
+  return message.length <= 96 ? message : `${message.slice(0, 93).trimEnd()}...`;
+}
+
 export function Toaster() {
   const { toasts } = useToast()
 
@@ -26,7 +33,11 @@ export function Toaster() {
               </div>
               <div className="flex-1 min-w-0">
                 {title && <ToastTitle>{title}</ToastTitle>}
-                {description && <ToastDescription>{description}</ToastDescription>}
+                {description && (
+                  <ToastDescription>
+                    {isError ? compactErrorMessage(description) : description}
+                  </ToastDescription>
+                )}
               </div>
             </div>
             {action}

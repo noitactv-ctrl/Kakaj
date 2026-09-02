@@ -37,6 +37,13 @@ const adminSections = [
   { id: "integrations", label: "Settings", Icon: Settings },
 ];
 
+function cardShuffleRank(cardId: number, seed: number): number {
+  let value = (Number(cardId) ^ seed) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
+  return (value ^ (value >>> 16)) >>> 0;
+}
+
 export default function AdminPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -3645,8 +3652,7 @@ function AdminCardsSection() {
   const orderedCards = useMemo(
     () => shuffleSeed > 0
       ? [...(cards ?? [])].sort((a: any, b: any) =>
-          (((Number(a.id) * 9301) + (shuffleSeed * 49297)) % 233280)
-          - (((Number(b.id) * 9301) + (shuffleSeed * 49297)) % 233280))
+          cardShuffleRank(a.id, shuffleSeed) - cardShuffleRank(b.id, shuffleSeed))
       : (cards ?? []),
     [cards, shuffleSeed],
   );
