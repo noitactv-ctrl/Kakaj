@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ShoppingCart, Loader2, Search, RefreshCw } from "lucide-react";
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
+import { refreshCardBins } from "@/lib/card-refresh";
 
 function countryFlag(code: string): string {
   if (!code || code.length !== 2) return "";
@@ -121,6 +122,7 @@ export default function CardsPage() {
   const [bulkMode, setBulkMode] = useState(false);
   const [search, setSearch] = useState("");
   const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [refreshProgress, setRefreshProgress] = useState(0);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -167,14 +169,8 @@ export default function CardsPage() {
   });
 
   const refreshMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/cards/refresh");
-      if (!response.ok) {
-        const error = await response.json().catch(() => null);
-        throw new Error(error?.message || "Unable to refresh cards");
-      }
-      return response.json();
-    },
+    mutationFn: () => refreshCardBins(setRefreshProgress),
+    onMutate: () => setRefreshProgress(0),
     onSuccess: (data: any) => {
       setShuffleSeed(seed => seed + 1);
       queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
@@ -334,9 +330,17 @@ export default function CardsPage() {
             data-testid="btn-refresh-cards"
           >
             {refreshMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            REFRESH CARDS
+            {refreshMutation.isPending ? `REFRESHING ${refreshProgress}%` : "REFRESH CARDS"}
           </button>
         </div>
+        {refreshMutation.isPending && (
+          <div className="relative h-5 overflow-hidden border-2 border-black bg-[#081438]" aria-label={`Card refresh ${refreshProgress}% complete`}>
+            <div className="h-full bg-[#43b94e] transition-[width] duration-300" style={{ width: `${refreshProgress}%` }} />
+            <span className="absolute inset-0 flex items-center justify-center pixel-text text-[7px] text-white">
+              {refreshProgress}% · CHECKING BIN ISSUER AND TYPE
+            </span>
+          </div>
+        )}
         <div className="border-t-2 border-black/60 pt-3">
           {!bulkMode ? (
             <button

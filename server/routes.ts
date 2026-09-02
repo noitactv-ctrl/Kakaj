@@ -145,28 +145,78 @@ async function getCryptoReadiness() {
   };
 }
 
-// BIN lookup cache + throttle queue (binlist.net = ~10 req/min free tier)
+// BIN lookup cache + throttle queue. HandyAPI is primary; BinList fills any gaps.
 const binCache = new Map<string, any>();
 const binQueue: Array<{ bin: string; resolve: (v: any) => void }> = [];
 let binQueueRunning = false;
+
+type CardRefreshJob = {
+  id: string;
+  status: "running" | "complete" | "failed";
+  percent: number;
+  binsChecked: number;
+  totalBins: number;
+  cardsUpdated: number;
+  error?: string;
+};
+
+let cardRefreshJob: CardRefreshJob | null = null;
+
+async function fetchBinMetadata(bin: string): Promise<any> {
+  const empty = { bin };
+  let primary: any = empty;
+
+  try {
+    const response = await fetch(`https://data.handyapi.com/bin/${bin}`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) {
+      const data = await response.json() as any;
+      if (String(data.Status ?? "").toUpperCase() === "SUCCESS") {
+        primary = {
+          bin,
+          bank: data.Issuer ?? null,
+          scheme: data.Scheme ?? null,
+          type: data.Type ?? null,
+          brand: data.CardTier ?? null,
+          country: data.Country?.Name ?? null,
+          countryCode: data.Country?.A2 ?? null,
+        };
+      }
+    }
+  } catch {}
+
+  if (primary.bank && primary.type) return primary;
+
+  try {
+    const response = await fetch(`https://lookup.binlist.net/${bin}`, {
+      headers: { "Accept-Version": "3", Accept: "application/json" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return primary;
+    const data = await response.json() as any;
+    return {
+      bin,
+      bank: primary.bank ?? data.bank?.name ?? null,
+      scheme: primary.scheme ?? data.scheme ?? null,
+      type: primary.type ?? data.type ?? null,
+      brand: primary.brand ?? data.brand ?? null,
+      country: primary.country ?? data.country?.name ?? null,
+      countryCode: primary.countryCode ?? data.country?.alpha2 ?? null,
+    };
+  } catch {
+    return primary;
+  }
+}
+
 function processBinQueue() {
   if (binQueueRunning || binQueue.length === 0) return;
   binQueueRunning = true;
   const { bin, resolve } = binQueue.shift()!;
-  fetch(`https://lookup.binlist.net/${bin}`, { headers: { "Accept-Version": "3" } })
-    .then(async r => {
-      if (!r.ok) { resolve({ bin }); return; }
-      const data = await r.json() as any;
-      const result = {
-        bin,
-        bank: data.bank?.name ?? null,
-        scheme: data.scheme ?? null,
-        type: data.type ?? null,
-        brand: data.brand ?? null,
-        country: data.country?.name ?? null,
-        countryCode: data.country?.alpha2 ?? null,
-      };
-      binCache.set(bin, result);
+  fetchBinMetadata(bin)
+    .then(result => {
+      if (result.bank || result.type) binCache.set(bin, result);
       resolve(result);
     })
     .catch(() => resolve({ bin }))
@@ -1654,6 +1704,7 @@ export async function registerRoutes(
 
   app.post("/api/cards/refresh", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    if (cardRefreshJob?.status === "running") return res.status(202).json(cardRefreshJob);
 
     const { rows } = await db.execute(sql`
       SELECT card_number
@@ -1666,21 +1717,56 @@ export async function registerRoutes(
         .filter((bin: string) => bin.length === 6),
     )) as string[];
 
-    let updatedCards = 0;
-    for (const bin of bins) {
-      binCache.delete(bin);
-      const data = await lookupBin(bin);
-      const trackedBin = data?.bin ? data : { bin };
-      const result = await db.execute(sql`
-        UPDATE cards
-        SET bin_data = ${JSON.stringify(trackedBin)}::jsonb
-        WHERE is_sold = false AND card_number LIKE ${bin + "%"}
-        RETURNING id
-      `) as any;
-      updatedCards += result.rows.length;
+    const jobId = randomUUID();
+    cardRefreshJob = {
+      id: jobId,
+      status: bins.length === 0 ? "complete" : "running",
+      percent: bins.length === 0 ? 100 : 0,
+      binsChecked: 0,
+      totalBins: bins.length,
+      cardsUpdated: 0,
+    };
+
+    if (bins.length > 0) {
+      void (async () => {
+        try {
+          for (let index = 0; index < bins.length; index++) {
+            const bin = bins[index];
+            binCache.delete(bin);
+            const data = await lookupBin(bin);
+            const trackedBin = data?.bin ? data : { bin };
+            const result = await db.execute(sql`
+              UPDATE cards
+              SET bin_data = ${JSON.stringify(trackedBin)}::jsonb
+              WHERE is_sold = false AND card_number LIKE ${bin + "%"}
+              RETURNING id
+            `) as any;
+
+            if (!cardRefreshJob || cardRefreshJob.id !== jobId) return;
+            cardRefreshJob.binsChecked = index + 1;
+            cardRefreshJob.cardsUpdated += result.rows.length;
+            cardRefreshJob.percent = Math.round(((index + 1) / bins.length) * 100);
+          }
+          if (cardRefreshJob?.id === jobId) cardRefreshJob.status = "complete";
+        } catch (error: any) {
+          if (cardRefreshJob?.id === jobId) {
+            cardRefreshJob.status = "failed";
+            cardRefreshJob.error = error?.message || "Card refresh failed";
+          }
+        }
+      })();
     }
 
-    res.json({ binsChecked: bins.length, cardsUpdated: updatedCards });
+    res.status(bins.length === 0 ? 200 : 202).json(cardRefreshJob);
+  });
+
+  app.get("/api/cards/refresh/status", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    const jobId = typeof req.query.jobId === "string" ? req.query.jobId : "";
+    if (!cardRefreshJob || cardRefreshJob.id !== jobId) {
+      return res.status(404).json({ message: "Refresh job not found" });
+    }
+    res.json(cardRefreshJob);
   });
 
   app.post("/api/cards/:id/purchase", async (req, res) => {

@@ -22,6 +22,7 @@ import { useState, useEffect, useMemo } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CryptoCoinIcon, type CryptoCurrencyOption } from "@/components/CryptoCoinSelector";
+import { refreshCardBins } from "@/lib/card-refresh";
 
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
@@ -3598,6 +3599,7 @@ function AdminCardsSection() {
   const [price, setPrice] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState<string>("");
   const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [refreshProgress, setRefreshProgress] = useState(0);
 
   const { data: cards, isLoading } = useQuery<any[]>({
     queryKey: ["/api/cards", "admin"],
@@ -3610,14 +3612,8 @@ function AdminCardsSection() {
   const { data: bases } = useQuery<any[]>({ queryKey: ["/api/card-bases"] });
 
   const refreshMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/cards/refresh");
-      if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        throw new Error(error?.message || "Unable to refresh cards");
-      }
-      return res.json();
-    },
+    mutationFn: () => refreshCardBins(setRefreshProgress),
+    onMutate: () => setRefreshProgress(0),
     onSuccess: (data: any) => {
       setShuffleSeed(seed => seed + 1);
       qc.invalidateQueries({ queryKey: ["/api/cards"] });
@@ -3686,9 +3682,17 @@ function AdminCardsSection() {
           data-testid="btn-admin-refresh-cards"
         >
           {refreshMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          REFRESH
+          {refreshMutation.isPending ? `${refreshProgress}%` : "REFRESH"}
         </button>
       </div>
+      {refreshMutation.isPending && (
+        <div className="relative h-6 overflow-hidden rounded border border-green-400/30 bg-green-950/30" aria-label={`Card refresh ${refreshProgress}% complete`}>
+          <div className="h-full bg-green-500/30 transition-[width] duration-300" style={{ width: `${refreshProgress}%` }} />
+          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-green-200">
+            {refreshProgress}% · CHECKING BIN ISSUER AND TYPE
+          </span>
+        </div>
+      )}
 
       {/* Add Card form */}
       <div className="bg-[#111] border border-white/10 rounded-xl p-4 space-y-3">
@@ -4141,12 +4145,6 @@ function SupportSection() {
   const [adminMessage, setAdminMessage] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [showExactPurchaseTime, setShowExactPurchaseTime] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 60000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   const { data: tickets, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/support"],
@@ -4182,16 +4180,17 @@ function SupportSection() {
   const closed = (tickets ?? []).filter((t: any) => t.status !== "open");
   const displayed = showHistory ? closed : open;
 
-  const formatElapsedSincePurchase = (purchaseAt: string | null | undefined) => {
+  const formatTicketDelay = (purchaseAt: string | null | undefined, ticketAt: string | null | undefined) => {
     if (!purchaseAt) return "Purchase time unavailable";
-    const elapsed = Math.max(0, now - new Date(purchaseAt).getTime());
+    if (!ticketAt) return "Ticket time unavailable";
+    const elapsed = Math.max(0, new Date(ticketAt).getTime() - new Date(purchaseAt).getTime());
     const minutes = Math.floor(elapsed / 60000);
-    if (minutes < 1) return "Just purchased";
-    if (minutes < 60) return `${minutes}m since purchase`;
+    if (minutes < 1) return "Ticket made under 1m after purchase";
+    if (minutes < 60) return `Ticket made ${minutes}m after purchase`;
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ${minutes % 60}m since purchase`;
+    if (hours < 24) return `Ticket made ${hours}h ${minutes % 60}m after purchase`;
     const days = Math.floor(hours / 24);
-    return `${days}d ${hours % 24}h since purchase`;
+    return `Ticket made ${days}d ${hours % 24}h after purchase`;
   };
 
   return (
@@ -4244,12 +4243,14 @@ function SupportSection() {
                   <button
                     type="button"
                     className="inline-flex items-center rounded-md bg-[#17337d] px-2 py-1 text-[10px] font-mono text-[#ffe177] transition-colors hover:bg-[#2555c5]"
-                    title={ticket.purchaseAt ? `Purchased ${new Date(ticket.purchaseAt).toLocaleString("en-US")}` : "Purchase time unavailable"}
+                    title={ticket.purchaseAt
+                      ? `Purchased ${new Date(ticket.purchaseAt).toLocaleString("en-US")} · Ticket made ${new Date(ticket.createdAt).toLocaleString("en-US")}`
+                      : "Purchase time unavailable"}
                     onClick={() => setShowExactPurchaseTime(current => current === ticket.id ? null : ticket.id)}
                   >
                     {showExactPurchaseTime === ticket.id && ticket.purchaseAt
-                      ? `Purchased ${new Date(ticket.purchaseAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-                      : formatElapsedSincePurchase(ticket.purchaseAt)}
+                      ? `${new Date(ticket.purchaseAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} → ${new Date(ticket.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                      : formatTicketDelay(ticket.purchaseAt, ticket.createdAt)}
                   </button>
                 </div>
                 {ticket.user?.username && (

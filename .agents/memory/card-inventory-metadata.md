@@ -8,3 +8,7 @@ Every valid card inventory item should track its six-digit BIN. Country, state, 
 **Why:** BIN tracking supports stock categorization without blocking valid inventory when a public lookup provider lacks complete issuer metadata.
 
 **How to apply:** Never reject or hide a valid card solely because provider metadata is incomplete. Normalize provider type values for display, generate filters from the loaded inventory, and make manual refresh force BIN rechecks and reshuffle once per click.
+
+Use HandyAPI as the primary keyless BIN source and BinList as fallback. Refresh runs as a tracked background job so the UI can report actual percentage completion.
+
+**Why:** HandyAPI returned issuer and funding type for BINs that were incomplete in the previous single-provider flow; fallback coverage and visible progress make bulk rechecks more dependable.
