@@ -48,6 +48,7 @@ export const api = {
       input: z.object({
         email: z.string().email(),
         password: z.string().min(1),
+        captcha: z.string().min(1),
       }),
       responses: {
         200: z.custom<PublicUser>(),

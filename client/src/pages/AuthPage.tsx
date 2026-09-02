@@ -4,57 +4,19 @@ import { Redirect } from "wouter";
 import { Loader2, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-/* ── SVG Captcha ──────────────────────────────────────────── */
-const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-function randomChar() { return CHARS[Math.floor(Math.random() * CHARS.length)]; }
-function randomInt(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function generateCaptchaCode(len = 5) { return Array.from({ length: len }, randomChar).join(""); }
-
-function CaptchaImage({ code, tick, width = 200, height = 52 }: { code: string; tick: number; width?: number; height?: number }) {
-  const chars = code.split("");
-  const cellW = width / chars.length;
-  const noises = Array.from({ length: 6 }, (_, i) => ({
-    x1: randomInt(0, width), y1: randomInt(0, height),
-    x2: randomInt(0, width), y2: randomInt(0, height),
-    key: i,
-  }));
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ userSelect: "none", display: "block" }}>
-      <rect width={width} height={height} fill="#f8f8f6" rx="4" />
-      {noises.map(n => (
-        <line key={n.key} x1={n.x1} y1={n.y1} x2={n.x2} y2={n.y2}
-          stroke={`hsl(${randomInt(20,50)},60%,50%)`} strokeWidth="1.2" opacity="0.5" />
-      ))}
-      {chars.map((ch, i) => {
-        const x = cellW * i + cellW / 2 + randomInt(-3, 3);
-        const y = height / 2 + randomInt(-4, 4);
-        const rotate = randomInt(-22, 22);
-        const size = randomInt(20, 28);
-        const color = `hsl(${randomInt(20, 45)},80%,${randomInt(25, 45)}%)`;
-        return (
-          <text key={i} x={x} y={y} dominantBaseline="middle" textAnchor="middle"
-            fontSize={size} fill={color} fontWeight="bold" fontFamily="Georgia, serif"
-            transform={`rotate(${rotate},${x},${y})`} style={{ letterSpacing: 2 }}
-          >{ch}</text>
-        );
-      })}
-      {Array.from({ length: 40 }, (_, i) => (
-        <circle key={i} cx={randomInt(0, width)} cy={randomInt(0, height)}
-          r={randomInt(1, 2)} fill={`hsl(${randomInt(0, 360)},40%,50%)`} opacity="0.35" />
-      ))}
-    </svg>
-  );
-}
-
 function useCaptcha() {
-  const [code, setCode] = useState(() => generateCaptchaCode());
-  const [tick, setTick] = useState(0);
-  const refresh = useCallback(() => setCode(generateCaptchaCode()), []);
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 200);
-    return () => clearInterval(id);
+  const [image, setImage] = useState("");
+  const refresh = useCallback(async () => {
+    const response = await fetch(`/api/captcha?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error("Unable to load CAPTCHA");
+    const data = await response.json() as { image?: string };
+    if (!data.image) throw new Error("Unable to load CAPTCHA");
+    setImage(data.image);
   }, []);
-  return { code, tick, refresh };
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  return { image, refresh };
 }
 
 /* ── Shared components ──────────────────────────────────────── */
@@ -120,18 +82,17 @@ function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [captchaInput, setCaptchaInput] = useState("");
-  const { code: captchaCode, tick: captchaTick, refresh: refreshCaptcha } = useCaptcha();
+  const { image: captchaImage, refresh: refreshCaptcha } = useCaptcha();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) return;
-    if (captchaInput.trim().toLowerCase() !== captchaCode.toLowerCase()) {
-      toast({ title: "Verification failed", description: "Code doesn't match — try again", variant: "destructive" });
-      refreshCaptcha();
+    try {
+      await login({ email: email.trim().toLowerCase(), password, captcha: captchaInput });
+    } catch {
+      await refreshCaptcha();
       setCaptchaInput("");
-      return;
     }
-    try { await login({ email: email.trim().toLowerCase(), password }); } catch {}
   };
 
   return (
@@ -153,7 +114,11 @@ function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <div className="rounded overflow-hidden border border-gray-200">
-                <CaptchaImage code={captchaCode} tick={captchaTick} width={120} height={44} />
+                {captchaImage ? (
+                  <img src={captchaImage} alt="CAPTCHA challenge" width={120} height={44} className="block" />
+                ) : (
+                  <div className="w-[120px] h-[44px] bg-[#f8f8f6]" aria-label="Loading CAPTCHA" />
+                )}
               </div>
               <input
                 type="text"
@@ -167,13 +132,13 @@ function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
               />
             </div>
           </div>
-          <button type="button" onClick={() => { refreshCaptcha(); setCaptchaInput(""); }}
+          <button type="button" onClick={() => { void refreshCaptcha(); setCaptchaInput(""); }}
             className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0" data-testid="btn-refresh-captcha">
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
 
-        <BlueButton disabled={isLoggingIn || !email.trim() || !password || !captchaInput.trim()} data-testid="btn-login">
+        <BlueButton disabled={isLoggingIn || !email.trim() || !password || !captchaInput.trim() || !captchaImage} data-testid="btn-login">
           {isLoggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : "Login"}
         </BlueButton>
       </form>

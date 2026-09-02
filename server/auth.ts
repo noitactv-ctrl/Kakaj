@@ -3,7 +3,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
 import rateLimit from "express-rate-limit";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { scrypt, randomBytes, randomInt, createHash, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User, userIps, users } from "@shared/schema";
@@ -13,6 +13,42 @@ import { pool, db } from "./db";
 import { eq } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
+const CAPTCHA_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+
+declare module "express-session" {
+  interface SessionData {
+    captcha?: {
+      answerHash: string;
+      expiresAt: number;
+    };
+  }
+}
+
+function generateCaptchaCode(length = 5): string {
+  return Array.from({ length }, () => CAPTCHA_CHARS[randomInt(CAPTCHA_CHARS.length)]).join("");
+}
+
+function captchaHash(value: string): Buffer {
+  return createHash("sha256").update(value.trim().toLowerCase()).digest();
+}
+
+function generateCaptchaSvg(code: string): string {
+  const lines = Array.from({ length: 6 }, () => {
+    const x1 = randomInt(0, 120);
+    const y1 = randomInt(0, 52);
+    const x2 = randomInt(0, 120);
+    const y2 = randomInt(0, 52);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#9b6c4b" stroke-width="1.2" opacity=".5"/>`;
+  }).join("");
+  const chars = code.split("").map((char, index) => {
+    const x = index * 24 + 12 + randomInt(-2, 3);
+    const y = 26 + randomInt(-4, 5);
+    const rotate = randomInt(-22, 23);
+    const size = randomInt(20, 29);
+    return `<text x="${x}" y="${y}" dominant-baseline="middle" text-anchor="middle" font-size="${size}" fill="#5f3826" font-weight="bold" font-family="Georgia,serif" transform="rotate(${rotate},${x},${y})">${char}</text>`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="44" viewBox="0 0 120 52"><rect width="120" height="52" fill="#f8f8f6" rx="4"/>${lines}${chars}</svg>`;
+}
 
 export function publicUser(user: User): PublicUser {
   const { password, loginCode, ...safeUser } = user;
@@ -122,12 +158,33 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Login — email + password
+  app.get("/api/captcha", (req, res) => {
+    const code = generateCaptchaCode();
+    req.session.captcha = {
+      answerHash: captchaHash(code).toString("hex"),
+      expiresAt: Date.now() + 5 * 60 * 1000,
+    };
+    const image = `data:image/svg+xml;base64,${Buffer.from(generateCaptchaSvg(code)).toString("base64")}`;
+    res.set("Cache-Control", "no-store");
+    res.json({ image });
+  });
+
+  // Login — email + password + one-time CAPTCHA
   app.post("/api/login", loginLimiter, async (req, res, next) => {
     try {
-      const { email, password } = req.body;
+      const { email, password, captcha } = req.body;
       if (!email || typeof email !== "string") return res.status(400).json({ message: "Email required" });
       if (!password || typeof password !== "string") return res.status(400).json({ message: "Password required" });
+      const challenge = req.session.captcha;
+      delete req.session.captcha;
+      if (typeof captcha !== "string" || !challenge || challenge.expiresAt < Date.now()) {
+        return res.status(400).json({ message: "CAPTCHA expired. Please refresh it." });
+      }
+      const expected = Buffer.from(challenge.answerHash, "hex");
+      const supplied = captchaHash(captcha);
+      if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) {
+        return res.status(400).json({ message: "Incorrect CAPTCHA" });
+      }
 
       const [user] = await db.select().from(users).where(eq(users.email, email.trim().toLowerCase()));
       if (!user) return res.status(401).json({ message: "Invalid email or password" });
