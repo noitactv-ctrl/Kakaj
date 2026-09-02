@@ -40,13 +40,6 @@ function extractBin(cardNumber: string): string {
   return (cardNumber ?? "").replace(/\D/g, "").substring(0, 6);
 }
 
-function cardShuffleRank(cardId: number, seed: number): number {
-  let value = (Number(cardId) ^ seed) >>> 0;
-  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
-  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
-  return (value ^ (value >>> 16)) >>> 0;
-}
-
 function extractZip(extras: string): string {
   if (!extras) return "";
   const tokens = extras.split(/[|\t:;,\s]+/).map(t => t.trim()).filter(Boolean);
@@ -123,9 +116,6 @@ export default function CardsPage() {
   const [cartCardIds, setCartCardIds] = useState<Set<number>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
   const [search, setSearch] = useState("");
-  const [shuffleSeed, setShuffleSeed] = useState(
-    () => Math.floor(Math.random() * 2147483647) || 1,
-  );
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -206,10 +196,8 @@ export default function CardsPage() {
         metadata.zip || extractZip(card.extras ?? ""),
       ].filter(Boolean).some(value => String(value).toLowerCase().includes(term));
     });
-    return shuffleSeed > 0
-      ? [...filtered].sort((a: any, b: any) => cardShuffleRank(a.id, shuffleSeed) - cardShuffleRank(b.id, shuffleSeed))
-      : filtered;
-  }, [cards, selectedType, search, shuffleSeed]);
+    return filtered;
+  }, [cards, selectedType, search]);
 
   const cartCards = useMemo(() => (cards ?? []).filter((c: any) => cartCardIds.has(c.id)), [cards, cartCardIds]);
   const toggleCart = (card: any) => {

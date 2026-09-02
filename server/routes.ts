@@ -166,7 +166,6 @@ type CardRefreshJob = {
   totalBins: number;
   cardsUpdated: number;
   nonCardsFlagged: number;
-  shuffleSeed: number;
   duplicateGroups: number;
   duplicatesFound: number;
   duplicatesRemoved: number;
@@ -1937,7 +1936,6 @@ export async function registerRoutes(
       totalBins: bins.length,
       cardsUpdated: 0,
       nonCardsFlagged: 0,
-      shuffleSeed: randomInt(1, 2147483647),
       ...duplicateScan,
     };
 

@@ -37,13 +37,6 @@ const adminSections = [
   { id: "integrations", label: "Settings", Icon: Settings },
 ];
 
-function cardShuffleRank(cardId: number, seed: number): number {
-  let value = (Number(cardId) ^ seed) >>> 0;
-  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
-  value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
-  return (value ^ (value >>> 16)) >>> 0;
-}
-
 export default function AdminPage() {
   const { user, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -3621,9 +3614,6 @@ function AdminCardsSection() {
   const [fullItem, setFullItem] = useState("");
   const [price, setPrice] = useState("");
   const [selectedBaseId, setSelectedBaseId] = useState<string>("");
-  const [shuffleSeed, setShuffleSeed] = useState(
-    () => Math.floor(Math.random() * 2147483647) || 1,
-  );
   const [refreshProgress, setRefreshProgress] = useState(0);
 
   const { data: cards, isLoading } = useQuery<any[]>({
@@ -3640,7 +3630,6 @@ function AdminCardsSection() {
     mutationFn: () => refreshCardBins(setRefreshProgress),
     onMutate: () => setRefreshProgress(0),
     onSuccess: (data: any) => {
-      setShuffleSeed(data?.shuffleSeed ?? (Date.now() % 2147483647));
       qc.invalidateQueries({ queryKey: ["/api/cards"] });
       qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
       toast({
@@ -3651,13 +3640,7 @@ function AdminCardsSection() {
     onError: (error: Error) => toast({ title: "Refresh failed", description: error.message, variant: "destructive" }),
   });
 
-  const orderedCards = useMemo(
-    () => shuffleSeed > 0
-      ? [...(cards ?? [])].sort((a: any, b: any) =>
-          cardShuffleRank(a.id, shuffleSeed) - cardShuffleRank(b.id, shuffleSeed))
-      : (cards ?? []),
-    [cards, shuffleSeed],
-  );
+  const orderedCards = cards ?? [];
 
   // Auto-extract BIN + ZIP preview from first card entry
   const cardEntries = fullItem.split(/\n\s*\n/).map(e => e.trim()).filter(Boolean);
@@ -3711,7 +3694,7 @@ function AdminCardsSection() {
           onClick={() => refreshMutation.mutate()}
           disabled={refreshMutation.isPending}
           className="flex items-center gap-2 rounded-lg border border-green-400/30 bg-green-500/10 px-3 py-2 text-[10px] font-bold text-green-300 transition-colors hover:bg-green-500/20 disabled:opacity-50"
-          title="Re-track every BIN, remove safe duplicates, and randomize the card list"
+          title="Re-track every BIN and remove safe duplicates"
           data-testid="btn-admin-refresh-cards"
         >
           {refreshMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
