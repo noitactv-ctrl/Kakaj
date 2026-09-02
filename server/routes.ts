@@ -172,6 +172,56 @@ type CardRefreshJob = {
 
 let cardRefreshJob: CardRefreshJob | null = null;
 
+function firstBinText(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function normalizeBinMetadata(bin: string, ...sources: any[]): any {
+  const issuer = firstBinText(...sources.flatMap(source => [
+    source?.bank,
+    source?.bank?.name,
+    source?.issuer,
+    source?.Issuer,
+  ]));
+  const explicitType = firstBinText(...sources.flatMap(source => [
+    source?.type,
+    source?.Type,
+    source?.cardType,
+  ]));
+  const prepaid = sources.some(source => source?.prepaid === true);
+
+  return {
+    bin,
+    bank: issuer,
+    scheme: firstBinText(...sources.flatMap(source => [source?.scheme, source?.Scheme, source?.network])),
+    type: explicitType ?? (prepaid ? "PREPAID" : null),
+    brand: firstBinText(...sources.flatMap(source => [source?.brand, source?.CardTier, source?.cardTier])),
+    country: firstBinText(...sources.flatMap(source => [source?.country, source?.country?.name, source?.Country?.Name])),
+    countryCode: firstBinText(...sources.flatMap(source => [
+      source?.countryCode,
+      source?.country?.alpha2,
+      source?.Country?.A2,
+    ])),
+  };
+}
+
+async function fetchBinJson(url: string, headers: Record<string, string>): Promise<any | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers,
+        signal: AbortSignal.timeout(10000),
+      });
+      if (response.ok) return await response.json();
+    } catch {}
+    if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  return null;
+}
+
 async function removeSafeUnsoldCardDuplicates(): Promise<{
   duplicateGroups: number;
   duplicatesFound: number;
@@ -232,51 +282,21 @@ async function removeSafeUnsoldCardDuplicates(): Promise<{
 }
 
 async function fetchBinMetadata(bin: string): Promise<any> {
-  const empty = { bin };
-  let primary: any = empty;
-
-  try {
-    const response = await fetch(`https://data.handyapi.com/bin/${bin}`, {
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (response.ok) {
-      const data = await response.json() as any;
-      if (String(data.Status ?? "").toUpperCase() === "SUCCESS") {
-        primary = {
-          bin,
-          bank: data.Issuer ?? null,
-          scheme: data.Scheme ?? null,
-          type: data.Type ?? null,
-          brand: data.CardTier ?? null,
-          country: data.Country?.Name ?? null,
-          countryCode: data.Country?.A2 ?? null,
-        };
-      }
-    }
-  } catch {}
+  const handyData = await fetchBinJson(
+    `https://data.handyapi.com/bin/${bin}`,
+    { Accept: "application/json" },
+  );
+  const primary = String(handyData?.Status ?? "").toUpperCase() === "SUCCESS"
+    ? normalizeBinMetadata(bin, handyData)
+    : normalizeBinMetadata(bin);
 
   if (primary.bank && primary.type) return primary;
 
-  try {
-    const response = await fetch(`https://lookup.binlist.net/${bin}`, {
-      headers: { "Accept-Version": "3", Accept: "application/json" },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!response.ok) return primary;
-    const data = await response.json() as any;
-    return {
-      bin,
-      bank: primary.bank ?? data.bank?.name ?? null,
-      scheme: primary.scheme ?? data.scheme ?? null,
-      type: primary.type ?? data.type ?? null,
-      brand: primary.brand ?? data.brand ?? null,
-      country: primary.country ?? data.country?.name ?? null,
-      countryCode: primary.countryCode ?? data.country?.alpha2 ?? null,
-    };
-  } catch {
-    return primary;
-  }
+  const binlistData = await fetchBinJson(
+    `https://lookup.binlist.net/${bin}`,
+    { "Accept-Version": "3", Accept: "application/json" },
+  );
+  return normalizeBinMetadata(bin, primary, binlistData);
 }
 
 function processBinQueue() {
@@ -287,7 +307,7 @@ function processBinQueue() {
     .then(result => {
       binCache.set(bin, {
         data: result,
-        expiresAt: Date.now() + (result.bank || result.type ? BIN_CACHE_TTL_MS : BIN_MISS_TTL_MS),
+        expiresAt: Date.now() + (result.bank && result.type ? BIN_CACHE_TTL_MS : BIN_MISS_TTL_MS),
       });
       resolve(result);
     })
@@ -1680,7 +1700,8 @@ export async function registerRoutes(
     // For cards with incomplete provider data, kick off one shared lookup per BIN.
     const needsLookup = rows.filter((r: any) => {
       const digits = (r.card_number ?? "").replace(/\D/g, "");
-      return digits.length >= 6 && (!r.bin_data?.bank || !r.bin_data?.type);
+      const normalized = normalizeBinMetadata(digits.substring(0, 6), r.bin_data);
+      return digits.length >= 6 && (!normalized.bank || !normalized.type);
     });
     const seenBins = new Set<string>();
     needsLookup.forEach((r: any) => {
@@ -1698,21 +1719,28 @@ export async function registerRoutes(
                 'zip', NULLIF(bin_data->>'zip', '')
               )
             )
-            WHERE card_number LIKE ${bin + '%'} AND is_sold = false
+            WHERE LEFT(regexp_replace(card_number, '\\D', '', 'g'), 6) = ${bin}
+              AND is_sold = false
           `);
         }).catch(() => {});
       }
     });
 
-    res.json(rows.map((r: any) => ({
-      id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
-      expiry: r.expiry, cvv: r.cvv, country: r.country, extras: r.extras,
-      price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
-      userId: r.user_id, createdAt: r.created_at,
-      binData: r.bin_data ?? null,
-      metadata: extractCardMetadata(r.extras, r.card_number, r.bin_data),
-      baseId: r.base_id ?? null, baseName: r.base_name ?? null,
-    })));
+    res.json(rows.map((r: any) => {
+      const normalizedBinData = normalizeBinMetadata(
+        normalizeCardNumber(r.card_number).substring(0, 6),
+        r.bin_data,
+      );
+      return {
+        id: r.id, cardNumber: r.card_number, maskedCard: r.masked_card,
+        expiry: r.expiry, cvv: r.cvv, country: r.country, extras: r.extras,
+        price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
+        userId: r.user_id, createdAt: r.created_at,
+        binData: normalizedBinData,
+        metadata: extractCardMetadata(r.extras, r.card_number, normalizedBinData),
+        baseId: r.base_id ?? null, baseName: r.base_name ?? null,
+      };
+    }));
   });
 
   app.post("/api/cards", async (req, res) => {
@@ -1899,7 +1927,8 @@ export async function registerRoutes(
                   'zip', NULLIF(bin_data->>'zip', '')
                 )
               )
-              WHERE is_sold = false AND card_number LIKE ${bin + "%"}
+              WHERE is_sold = false
+                AND LEFT(regexp_replace(card_number, '\\D', '', 'g'), 6) = ${bin}
               RETURNING id
             `) as any;
 
