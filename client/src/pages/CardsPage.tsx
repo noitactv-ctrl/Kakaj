@@ -1,10 +1,9 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, Loader2, Search, RefreshCw } from "lucide-react";
+import { ShoppingCart, Loader2, Search } from "lucide-react";
 import { useCart } from "@/hooks/use-cart";
 import { apiRequest } from "@/lib/queryClient";
-import { refreshCardBins } from "@/lib/card-refresh";
 
 function countryFlag(code: string): string {
   if (!code || code.length !== 2) return "";
@@ -127,7 +126,6 @@ export default function CardsPage() {
   const [shuffleSeed, setShuffleSeed] = useState(
     () => Math.floor(Math.random() * 2147483647) || 1,
   );
-  const [refreshProgress, setRefreshProgress] = useState(0);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -171,21 +169,6 @@ export default function CardsPage() {
     },
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
-  });
-
-  const refreshMutation = useMutation({
-    mutationFn: () => refreshCardBins(setRefreshProgress),
-    onMutate: () => setRefreshProgress(0),
-    onSuccess: (data: any) => {
-      setShuffleSeed(data?.shuffleSeed ?? (Date.now() % 2147483647));
-      queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/card-bases"] });
-      toast({
-        title: "CARDS REFRESHED",
-        description: `${data?.cardsUpdated ?? 0} cards re-tracked · ${data?.duplicatesRemoved ?? 0} duplicates removed · ${data?.nonCardsFlagged ?? 0} flagged NON.`,
-      });
-    },
-    onError: (error: Error) => toast({ title: "REFRESH FAILED", description: error.message, variant: "destructive" }),
   });
 
   const availableTypes = useMemo(() => {
@@ -327,25 +310,7 @@ export default function CardsPage() {
               {base.name}
             </button>
           ))}
-          <button
-            onClick={() => refreshMutation.mutate()}
-            disabled={refreshMutation.isPending}
-            className="pixel-button ml-auto flex items-center gap-2 px-3 py-2 text-[8px] !bg-[#43b94e] !text-white disabled:opacity-50"
-            title="Re-track every BIN, remove safe duplicates, and randomize the card list"
-            data-testid="btn-refresh-cards"
-          >
-            {refreshMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            {refreshMutation.isPending ? `REFRESHING ${refreshProgress}%` : "REFRESH CARDS"}
-          </button>
         </div>
-        {refreshMutation.isPending && (
-          <div className="relative h-5 overflow-hidden border-2 border-black bg-[#081438]" aria-label={`Card refresh ${refreshProgress}% complete`}>
-            <div className="h-full bg-[#43b94e] transition-[width] duration-300" style={{ width: `${refreshProgress}%` }} />
-            <span className="absolute inset-0 flex items-center justify-center pixel-text text-[7px] text-white">
-              {refreshProgress}% · CHECKING BIN DATA AND DUPLICATES
-            </span>
-          </div>
-        )}
         <div className="border-t-2 border-black/60 pt-3">
           {!bulkMode ? (
             <button
