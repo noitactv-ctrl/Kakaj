@@ -443,15 +443,15 @@ function CardTableRow({
   isBuying: boolean;
 }) {
   const bin = extractBin(card.cardNumber);
-  const zip = extractZip(card.extras ?? "");
+  const metadata = card.metadata ?? {};
+  const zip = metadata.zip || extractZip(card.extras ?? "");
   const countryCode = cardCountryCode(card);
   const flag = countryFlag(countryCode);
   const ccCountry = cardCountryLabel(card);
   const brand = formatBrand(card.binData);
   const cardType = formatType(card.binData);
   const bank = formatBank(card.binData);
-  const state = extractState(card.extras ?? "");
-  const metadata = card.metadata ?? {};
+  const state = metadata.state || extractState(card.extras ?? "");
 
   return (
     <tr

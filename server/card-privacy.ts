@@ -43,6 +43,14 @@ export type CardMetadata = {
   zip: string;
 };
 
+export function isValidCardState(value: string | null | undefined): boolean {
+  return usStates.has(String(value ?? "").trim().toUpperCase());
+}
+
+export function isValidCardZip(value: string | null | undefined): boolean {
+  return isValidZip(String(value ?? ""));
+}
+
 export function extractCardMetadata(
   extras: string | null | undefined,
   cardNumber: string | null | undefined,
@@ -58,11 +66,15 @@ export function extractCardMetadata(
   const fields = raw.split(/[|\t]/).map(field => field.trim());
   const stateFromLabel = (binData?.state || labeledValue(raw, "state|region")).trim().toUpperCase();
   const stateIndex = fields.findIndex(field => usStates.has(field.toUpperCase()));
+  const looseState = raw
+    .split(/[|\t,;\n]/)
+    .map(field => field.trim().toUpperCase())
+    .find(field => usStates.has(field));
   const state = usStates.has(stateFromLabel)
     ? stateFromLabel
     : stateIndex >= 0
       ? fields[stateIndex].toUpperCase()
-      : "";
+      : looseState ?? "";
 
   let city = binData?.city?.trim() || labeledValue(raw, "city");
   if (!isCityCandidate(city)) {
@@ -87,9 +99,12 @@ export function extractCardMetadata(
   }
 
   const labeledZip = binData?.zip?.trim() || labeledValue(raw, "zip|postal(?:\\s+code)?");
+  const looseZip = raw.match(/(?:^|[\s|,;])(\d{5})(?:-\d{4})?(?=$|[\s|,;])/g)
+    ?.map(value => value.match(/(\d{5})/)?.[1] ?? "")
+    .find(isValidZip) ?? "";
   const zip = isValidZip(labeledZip)
     ? labeledZip.match(/^(\d{5})/)?.[1] ?? ""
-    : fields.find(isValidZip)?.match(/^(\d{5})/)?.[1] ?? "";
+    : fields.find(isValidZip)?.match(/^(\d{5})/)?.[1] ?? looseZip;
 
   const bin = (cardNumber ?? "").replace(/\D/g, "").substring(0, 6) || binData?.bin || "";
   const type = (

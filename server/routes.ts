@@ -27,6 +27,7 @@ import {
   saveApiSetting,
   setApiSettingEnabled,
 } from "./settings";
+import { extractCardMetadata } from "./card-privacy";
 
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
@@ -146,7 +147,13 @@ async function getCryptoReadiness() {
 }
 
 // BIN lookup cache + throttle queue. HandyAPI is primary; BinList fills any gaps.
-const binCache = new Map<string, any>();
+// Cache misses briefly too, otherwise an unavailable provider can be hammered by
+// every storefront poll. In-flight requests are shared across all callers.
+const BIN_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const BIN_MISS_TTL_MS = 5 * 60 * 1000;
+const BIN_REQUEST_DELAY_MS = 700;
+const binCache = new Map<string, { data: any; expiresAt: number }>();
+const binInFlight = new Map<string, Promise<any>>();
 const binQueue: Array<{ bin: string; resolve: (v: any) => void }> = [];
 let binQueueRunning = false;
 
@@ -216,17 +223,38 @@ function processBinQueue() {
   const { bin, resolve } = binQueue.shift()!;
   fetchBinMetadata(bin)
     .then(result => {
-      if (result.bank || result.type) binCache.set(bin, result);
+      binCache.set(bin, {
+        data: result,
+        expiresAt: Date.now() + (result.bank || result.type ? BIN_CACHE_TTL_MS : BIN_MISS_TTL_MS),
+      });
       resolve(result);
     })
     .catch(() => resolve({ bin }))
     .finally(() => {
-      setTimeout(() => { binQueueRunning = false; processBinQueue(); }, 700);
+      setTimeout(() => { binQueueRunning = false; processBinQueue(); }, BIN_REQUEST_DELAY_MS);
     });
 }
 function lookupBin(bin: string): Promise<any> {
-  if (binCache.has(bin)) return Promise.resolve(binCache.get(bin));
-  return new Promise(resolve => { binQueue.push({ bin, resolve }); processBinQueue(); });
+  const normalizedBin = bin.replace(/\D/g, "").substring(0, 6);
+  if (normalizedBin.length !== 6) return Promise.resolve({ bin: normalizedBin });
+
+  const cached = binCache.get(normalizedBin);
+  if (cached) {
+    if (cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
+    binCache.delete(normalizedBin);
+  }
+
+  const existing = binInFlight.get(normalizedBin);
+  if (existing) return existing;
+
+  const request = new Promise(resolve => {
+    binQueue.push({ bin: normalizedBin, resolve });
+    processBinQueue();
+  }).finally(() => {
+    binInFlight.delete(normalizedBin);
+  });
+  binInFlight.set(normalizedBin, request);
+  return request;
 }
 
 function findPaymentCardNumber(value: string): string {
@@ -1564,7 +1592,10 @@ export async function registerRoutes(
   app.get("/api/admin/card-bases/:id/cards", async (req, res) => {
     if (!req.isAuthenticated() || (req.user as any).role !== "admin") return res.status(401).json({ message: "Unauthorized" });
     const cards = await storage.getCardsByBase(Number(req.params.id));
-    res.json(cards);
+    res.json(cards.map((card: any) => ({
+      ...card,
+      metadata: extractCardMetadata(card.extras, card.cardNumber, card.binData),
+    })));
   });
 
   app.get("/api/cards", async (req, res) => {
@@ -1584,15 +1615,29 @@ export async function registerRoutes(
       ORDER BY ${orderBy}
     `) as any;
 
-    // For cards missing bin_data in DB, kick off background lookups + save results
-    const needsLookup = rows.filter((r: any) => !r.bin_data && (r.card_number ?? "").replace(/\D/g, "").length >= 6);
+    // For cards with incomplete provider data, kick off one shared lookup per BIN.
+    const needsLookup = rows.filter((r: any) => {
+      const digits = (r.card_number ?? "").replace(/\D/g, "");
+      return digits.length >= 6 && (!r.bin_data?.bank || !r.bin_data?.type);
+    });
     const seenBins = new Set<string>();
     needsLookup.forEach((r: any) => {
       const bin = (r.card_number ?? "").replace(/\D/g, "").substring(0, 6);
       if (bin.length === 6 && !seenBins.has(bin)) {
         seenBins.add(bin);
         lookupBin(bin).then(async (data) => {
-          await db.execute(sql`UPDATE cards SET bin_data = ${JSON.stringify(data?.bin ? data : { bin })}::jsonb WHERE card_number LIKE ${bin + '%'} AND bin_data IS NULL`);
+          await db.execute(sql`
+            UPDATE cards
+            SET bin_data = (
+              ${JSON.stringify(data?.bin ? data : { bin })}::jsonb
+              || jsonb_build_object(
+                'state', NULLIF(bin_data->>'state', ''),
+                'city', NULLIF(bin_data->>'city', ''),
+                'zip', NULLIF(bin_data->>'zip', '')
+              )
+            )
+            WHERE card_number LIKE ${bin + '%'} AND is_sold = false
+          `);
         }).catch(() => {});
       }
     });
@@ -1603,6 +1648,7 @@ export async function registerRoutes(
       price: r.price, hrPercent: r.hr_percent ?? 80, isSold: r.is_sold,
       userId: r.user_id, createdAt: r.created_at,
       binData: r.bin_data ?? null,
+      metadata: extractCardMetadata(r.extras, r.card_number, r.bin_data),
       baseId: r.base_id ?? null, baseName: r.base_name ?? null,
     })));
   });
@@ -1651,6 +1697,18 @@ export async function registerRoutes(
         });
         continue;
       }
+      const postedMetadata = extractCardMetadata(fullItem, cardNumber);
+      const missingLocation: string[] = [];
+      if (!postedMetadata.state) missingLocation.push("a valid two-letter state");
+      if (!postedMetadata.zip) missingLocation.push("a valid 5-digit ZIP");
+      if (missingLocation.length > 0) {
+        skippedCards.push({
+          entry: entryIndex + 1,
+          bin: postedMetadata.bin,
+          reason: `Missing ${missingLocation.join(" and ")}`,
+        });
+        continue;
+      }
       const masked = cardNumber.length >= 4
         ? cardNumber.substring(0, 6) + "*".repeat(Math.max(0, cardNumber.length - 10)) + cardNumber.slice(-4)
         : cardNumber;
@@ -1666,20 +1724,27 @@ export async function registerRoutes(
         } catch {}
       }
 
+      const cardBinData = {
+        ...(storedBinData ?? {}),
+        bin: postedMetadata.bin,
+        state: postedMetadata.state,
+        city: postedMetadata.city || null,
+        zip: postedMetadata.zip,
+      };
       const card = await storage.createCard({
         cardNumber,
         maskedCard: masked,
         expiry: "",
         cvv: "",
         country: extractPostedCardCountry(fullItem) || storedBinData?.countryCode || storedBinData?.country || "Unknown",
-        binData: storedBinData?.bin ? storedBinData : { bin: cardNumber.substring(0, 6) },
+        binData: cardBinData,
         extras: fullItem,
         price: priceCents,
         hrPercent: 80,
         ...(baseId ? { baseId } : {}),
       } as any);
 
-      createdCards.push({ ...card, binData: storedBinData });
+      createdCards.push({ ...card, binData: cardBinData, metadata: postedMetadata });
     }
 
     if (createdCards.length === 0) {
@@ -1707,7 +1772,7 @@ export async function registerRoutes(
     if (cardRefreshJob?.status === "running") return res.status(202).json(cardRefreshJob);
 
     const { rows } = await db.execute(sql`
-      SELECT card_number
+      SELECT id, card_number, extras, bin_data
       FROM cards
       WHERE is_sold = false
     `) as any;
@@ -1737,7 +1802,14 @@ export async function registerRoutes(
             const trackedBin = data?.bin ? data : { bin };
             const result = await db.execute(sql`
               UPDATE cards
-              SET bin_data = ${JSON.stringify(trackedBin)}::jsonb
+              SET bin_data = (
+                ${JSON.stringify(trackedBin)}::jsonb
+                || jsonb_build_object(
+                  'state', NULLIF(bin_data->>'state', ''),
+                  'city', NULLIF(bin_data->>'city', ''),
+                  'zip', NULLIF(bin_data->>'zip', '')
+                )
+              )
               WHERE is_sold = false AND card_number LIKE ${bin + "%"}
               RETURNING id
             `) as any;

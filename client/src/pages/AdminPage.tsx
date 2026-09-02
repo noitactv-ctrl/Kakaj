@@ -3384,6 +3384,22 @@ function extractZipPreview(line: string): string {
   return "";
 }
 
+const CARD_STATES = new Set([
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY",
+  "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
+  "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
+]);
+
+function extractStatePreview(line: string): string {
+  if (!line) return "";
+  const labeled = line.match(/\b(?:state|region)\s*[:=]\s*([A-Za-z]{2})\b/i)?.[1]?.toUpperCase();
+  if (labeled && CARD_STATES.has(labeled)) return labeled;
+  return line
+    .split(/[|\t,;\n\s]+/)
+    .map(value => value.trim().toUpperCase())
+    .find(value => CARD_STATES.has(value)) || "";
+}
+
 function AdminBasesTab() {
   const { toast } = useToast();
   const qc = queryClient;
@@ -3638,6 +3654,7 @@ function AdminCardsSection() {
   // Auto-extract BIN + ZIP preview from first card entry
   const cardEntries = fullItem.split(/\n\s*\n/).map(e => e.trim()).filter(Boolean);
   const previewBin = findCardNumberPreview(cardEntries[0] || "").substring(0, 6);
+  const previewState = extractStatePreview(cardEntries[0] || "");
   const previewZip = extractZipPreview(cardEntries[0] || "");
 
   const addMutation = useMutation({
@@ -3708,17 +3725,20 @@ function AdminCardsSection() {
             className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
             data-testid="input-full-item"
           />
-          <p className="text-[10px] text-white/30">Leave one blank line between cards to add multiple at once.</p>
-          <div className="flex gap-3">
+           <p className="text-[10px] text-white/30">Leave one blank line between cards to add multiple at once. Every card must include a valid state and ZIP.</p>
+           <div className="flex flex-wrap gap-3">
             {cardEntries.length > 1 && (
               <p className="text-[10px] text-white/50 font-mono">{cardEntries.length} cards detected</p>
             )}
             {previewBin.length === 6 && (
               <p className="text-[10px] text-primary/60 font-mono">BIN: {previewBin}</p>
             )}
-            {previewZip && (
-              <p className="text-[10px] text-green-400/60 font-mono">ZIP: {previewZip}</p>
-            )}
+             <p className={`text-[10px] font-mono ${previewState ? "text-green-400/60" : "text-red-400/80"}`}>
+               STATE: {previewState || "REQUIRED"}
+             </p>
+             <p className={`text-[10px] font-mono ${previewZip ? "text-green-400/60" : "text-red-400/80"}`}>
+               ZIP: {previewZip || "REQUIRED"}
+             </p>
           </div>
         </div>
 
@@ -3784,14 +3804,17 @@ function AdminCardsSection() {
           ) : (
             orderedCards.map((card: any) => {
               const cBin = (card.cardNumber || "").replace(/\D/g, "").substring(0, 6);
-                      const zip = extractZipPreview(card.extras ?? "");
+                       const metadata = card.metadata ?? {};
+                       const zip = metadata.zip || extractZipPreview(card.extras ?? "");
+                       const state = metadata.state || extractStatePreview(card.extras ?? "");
                       const country = String(card.country ?? "").trim();
               return (
                 <div key={card.id} className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between">
                   <div className="space-y-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       {card.baseName && <span className="text-[10px] font-mono font-bold text-primary/70">{card.baseName}</span>}
-                      <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{cBin}</span>
+                       <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{metadata.bin || cBin}</span>
+                       {state && <span className="text-[10px] text-white/40 font-mono">STATE {state}</span>}
                       {zip && <span className="text-[10px] text-white/40 font-mono">ZIP {zip}</span>}
                       {country && <span className="text-[10px] text-white/40 font-mono">{country}</span>}
                     </div>

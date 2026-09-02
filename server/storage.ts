@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { formatCardDeliveryContent } from "./card-privacy";
+import { extractCardMetadata, formatCardDeliveryContent } from "./card-privacy";
 import { appendUniqueDeliveryContent, serializeDeliveryParts, type DeliveryParts } from "./delivery-content";
 import { 
   users, productCategories, products, variants, stockItems, orders, orderItems, transactions, redeemCodes, announcements, uploadedImages, cards, cardBases, supportTickets, cryptoPayments, mails, mailReads, siteSettings, discountCodes, sellerApplications, achs, cryptoAddresses, cryptoCurrencies,
@@ -1530,7 +1530,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCard(insertCard: InsertCard): Promise<Card> {
-    const [card] = await db.insert(cards).values(insertCard as typeof cards.$inferInsert).returning();
+    const inputBinData = insertCard.binData
+      && typeof insertCard.binData === "object"
+      && !Array.isArray(insertCard.binData)
+      ? insertCard.binData as Record<string, any>
+      : null;
+    const metadata = extractCardMetadata(insertCard.extras, insertCard.cardNumber, inputBinData);
+    if (!metadata.state || !metadata.zip) {
+      const missing = [
+        !metadata.state ? "a valid two-letter state" : "",
+        !metadata.zip ? "a valid 5-digit ZIP" : "",
+      ].filter(Boolean).join(" and ");
+      throw new Error(`Card stock requires ${missing}`);
+    }
+
+    const binData = {
+      ...(inputBinData ?? {}),
+      bin: metadata.bin,
+      state: metadata.state,
+      city: metadata.city || null,
+      zip: metadata.zip,
+    };
+    const [card] = await db.insert(cards).values({
+      ...insertCard,
+      binData,
+    } as typeof cards.$inferInsert).returning();
     return card;
   }
 
@@ -1585,15 +1609,8 @@ export class DatabaseStorage implements IStorage {
 
   async getCardBasesWithCount(): Promise<(CardBase & { count: number })[]> {
     const result = await db.execute(sql`
-      SELECT cb.id, cb.name, cb.created_at,
-             COUNT(c.id) FILTER (
-               WHERE c.is_sold = false
-                 AND NULLIF(BTRIM(c.bin_data->>'bank'), '') IS NOT NULL
-                 AND COALESCE(NULLIF(BTRIM(c.bin_data->>'scheme'), ''), NULLIF(BTRIM(c.bin_data->>'brand'), '')) IS NOT NULL
-                 AND NULLIF(BTRIM(c.bin_data->>'type'), '') IS NOT NULL
-                 AND NULLIF(BTRIM(c.bin_data->>'country'), '') IS NOT NULL
-                 AND BTRIM(c.bin_data->>'countryCode') ~ '^[A-Za-z]{2}$'
-             ) as count
+       SELECT cb.id, cb.name, cb.created_at,
+              COUNT(c.id) FILTER (WHERE c.is_sold = false) as count
       FROM card_bases cb
       LEFT JOIN cards c ON c.base_id = cb.id
       GROUP BY cb.id, cb.name, cb.created_at

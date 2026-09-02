@@ -92,6 +92,11 @@ app.use((req, res, next) => {
     ) WITH (OIDS=FALSE)
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS "IDX_cards_available_bin_prefix"
+    ON "cards" ("card_number" text_pattern_ops)
+    WHERE "is_sold" = false
+  `);
   await ensureApiSettingsSchema();
   await migrateLegacySecretSettings();
   await removeRetiredApiSettings();
