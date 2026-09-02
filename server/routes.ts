@@ -152,10 +152,11 @@ async function getCryptoReadiness() {
 const BIN_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const BIN_MISS_TTL_MS = 5 * 60 * 1000;
 const BIN_REQUEST_DELAY_MS = 700;
+const BIN_MAX_CONCURRENCY = 3;
 const binCache = new Map<string, { data: any; expiresAt: number }>();
 const binInFlight = new Map<string, Promise<any>>();
 const binQueue: Array<{ bin: string; resolve: (v: any) => void }> = [];
-let binQueueRunning = false;
+let binQueueActive = 0;
 
 type CardRefreshJob = {
   id: string;
@@ -164,6 +165,8 @@ type CardRefreshJob = {
   binsChecked: number;
   totalBins: number;
   cardsUpdated: number;
+  nonCardsFlagged: number;
+  shuffleSeed: number;
   duplicateGroups: number;
   duplicatesFound: number;
   duplicatesRemoved: number;
@@ -195,6 +198,7 @@ function normalizeBinMetadata(bin: string, ...sources: any[]): any {
 
   return {
     bin,
+    lookupStatus: firstBinText(...sources.flatMap(source => [source?.lookupStatus, source?.lookup_status])),
     bank: issuer,
     scheme: firstBinText(...sources.flatMap(source => [source?.scheme, source?.Scheme, source?.network])),
     type: explicitType ?? (prepaid ? "PREPAID" : null),
@@ -209,16 +213,13 @@ function normalizeBinMetadata(bin: string, ...sources: any[]): any {
 }
 
 async function fetchBinJson(url: string, headers: Record<string, string>): Promise<any | null> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const response = await fetch(url, {
-        headers,
-        signal: AbortSignal.timeout(10000),
-      });
-      if (response.ok) return await response.json();
-    } catch {}
-    if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 250));
-  }
+  try {
+    const response = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.ok) return await response.json();
+  } catch {}
   return null;
 }
 
@@ -282,39 +283,48 @@ async function removeSafeUnsoldCardDuplicates(): Promise<{
 }
 
 async function fetchBinMetadata(bin: string): Promise<any> {
-  const handyData = await fetchBinJson(
-    `https://data.handyapi.com/bin/${bin}`,
-    { Accept: "application/json" },
-  );
-  const primary = String(handyData?.Status ?? "").toUpperCase() === "SUCCESS"
-    ? normalizeBinMetadata(bin, handyData)
-    : normalizeBinMetadata(bin);
+  let lastResult = normalizeBinMetadata(bin);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const handyData = await fetchBinJson(
+      `https://data.handyapi.com/bin/${bin}`,
+      { Accept: "application/json" },
+    );
+    const primary = String(handyData?.Status ?? "").toUpperCase() === "SUCCESS"
+      ? normalizeBinMetadata(bin, handyData)
+      : normalizeBinMetadata(bin);
+    if (primary.bank && primary.type) return { ...primary, lookupStatus: "valid" };
 
-  if (primary.bank && primary.type) return primary;
-
-  const binlistData = await fetchBinJson(
-    `https://lookup.binlist.net/${bin}`,
-    { "Accept-Version": "3", Accept: "application/json" },
-  );
-  return normalizeBinMetadata(bin, primary, binlistData);
+    const binlistData = await fetchBinJson(
+      `https://lookup.binlist.net/${bin}`,
+      { "Accept-Version": "3", Accept: "application/json" },
+    );
+    lastResult = normalizeBinMetadata(bin, primary, binlistData);
+    if (lastResult.bank && lastResult.type) return { ...lastResult, lookupStatus: "valid" };
+    if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  return { ...lastResult, lookupStatus: "non" };
 }
 
 function processBinQueue() {
-  if (binQueueRunning || binQueue.length === 0) return;
-  binQueueRunning = true;
-  const { bin, resolve } = binQueue.shift()!;
-  fetchBinMetadata(bin)
-    .then(result => {
-      binCache.set(bin, {
-        data: result,
-        expiresAt: Date.now() + (result.bank && result.type ? BIN_CACHE_TTL_MS : BIN_MISS_TTL_MS),
+  while (binQueueActive < BIN_MAX_CONCURRENCY && binQueue.length > 0) {
+    binQueueActive += 1;
+    const { bin, resolve } = binQueue.shift()!;
+    fetchBinMetadata(bin)
+      .then(result => {
+        binCache.set(bin, {
+          data: result,
+          expiresAt: Date.now() + (result.bank && result.type ? BIN_CACHE_TTL_MS : BIN_MISS_TTL_MS),
+        });
+        resolve(result);
+      })
+      .catch(() => resolve({ bin, lookupStatus: "non" }))
+      .finally(() => {
+        setTimeout(() => {
+          binQueueActive -= 1;
+          processBinQueue();
+        }, BIN_REQUEST_DELAY_MS);
       });
-      resolve(result);
-    })
-    .catch(() => resolve({ bin }))
-    .finally(() => {
-      setTimeout(() => { binQueueRunning = false; processBinQueue(); }, BIN_REQUEST_DELAY_MS);
-    });
+  }
 }
 function lookupBin(bin: string): Promise<any> {
   const normalizedBin = bin.replace(/\D/g, "").substring(0, 6);
@@ -1709,10 +1719,12 @@ export async function registerRoutes(
       if (bin.length === 6 && !seenBins.has(bin)) {
         seenBins.add(bin);
         lookupBin(bin).then(async (data) => {
+          const trackedBin = data?.bin ? data : { bin, lookupStatus: "non" };
+          const completeLookup = Boolean(trackedBin.bank && trackedBin.type);
           await db.execute(sql`
             UPDATE cards
             SET bin_data = (
-              ${JSON.stringify(data?.bin ? data : { bin })}::jsonb
+              ${JSON.stringify(trackedBin)}::jsonb
               || jsonb_build_object(
                 'state', NULLIF(bin_data->>'state', ''),
                 'city', NULLIF(bin_data->>'city', ''),
@@ -1721,12 +1733,26 @@ export async function registerRoutes(
             )
             WHERE LEFT(regexp_replace(card_number, '\\D', '', 'g'), 6) = ${bin}
               AND is_sold = false
+              ${completeLookup
+                ? sql``
+                : sql`AND (COALESCE(bin_data->>'bank', '') = '' OR COALESCE(bin_data->>'type', '') = '')`}
           `);
         }).catch(() => {});
       }
     });
 
-    res.json(rows.map((r: any) => {
+    const includeNon = (req.user as any).role === "admin";
+    const displayRows = includeNon
+      ? rows
+      : rows.filter((r: any) => {
+        const normalized = normalizeBinMetadata(
+          normalizeCardNumber(r.card_number).substring(0, 6),
+          r.bin_data,
+        );
+        return normalized.lookupStatus !== "non" && Boolean(normalized.bank && normalized.type);
+      });
+
+    res.json(displayRows.map((r: any) => {
       const normalizedBinData = normalizeBinMetadata(
         normalizeCardNumber(r.card_number).substring(0, 6),
         r.bin_data,
@@ -1775,6 +1801,7 @@ export async function registerRoutes(
     const priceCents = Math.round(parseFloat(req.body.price || "0") * 100);
     const createdCards: any[] = [];
     const skippedCards: Array<{ entry: number; bin: string; reason: string }> = [];
+    let nonCardsFlagged = 0;
 
     for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
       const fullItem = entries[entryIndex];
@@ -1835,6 +1862,7 @@ export async function registerRoutes(
           ...(baseId ? { baseId } : {}),
         } as any);
         createdCards.push({ ...card, binData: cardBinData, metadata: postedMetadata });
+        if (cardBinData.lookupStatus === "non") nonCardsFlagged += 1;
       } catch (error: any) {
         if (/duplicate card stock/i.test(error?.message ?? "")) {
           skippedCards.push({
@@ -1869,8 +1897,9 @@ export async function registerRoutes(
           ...createdCards[0],
           skipped: skippedCards,
           duplicateCount: skippedCards.filter(item => /duplicate card stock/i.test(item.reason)).length,
+          nonCardsFlagged,
         }
-        : createdCards[0]);
+        : { ...createdCards[0], nonCardsFlagged });
     } else {
       const duplicateCount = skippedCards.filter(item => /duplicate card stock/i.test(item.reason)).length;
       res.status(201).json({
@@ -1878,6 +1907,7 @@ export async function registerRoutes(
         count: createdCards.length,
         skipped: skippedCards,
         duplicateCount,
+        nonCardsFlagged,
       });
     }
   });
@@ -1906,6 +1936,8 @@ export async function registerRoutes(
       binsChecked: 0,
       totalBins: bins.length,
       cardsUpdated: 0,
+      nonCardsFlagged: 0,
+      shuffleSeed: randomInt(1, 2147483647),
       ...duplicateScan,
     };
 
@@ -1916,7 +1948,8 @@ export async function registerRoutes(
             const bin = bins[index];
             binCache.delete(bin);
             const data = await lookupBin(bin);
-            const trackedBin = data?.bin ? data : { bin };
+            const trackedBin = data?.bin ? data : { bin, lookupStatus: "non" };
+            const completeLookup = Boolean(trackedBin.bank && trackedBin.type);
             const result = await db.execute(sql`
               UPDATE cards
               SET bin_data = (
@@ -1929,12 +1962,16 @@ export async function registerRoutes(
               )
               WHERE is_sold = false
                 AND LEFT(regexp_replace(card_number, '\\D', '', 'g'), 6) = ${bin}
+                ${completeLookup
+                  ? sql``
+                  : sql`AND (COALESCE(bin_data->>'bank', '') = '' OR COALESCE(bin_data->>'type', '') = '')`}
               RETURNING id
             `) as any;
 
             if (!cardRefreshJob || cardRefreshJob.id !== jobId) return;
             cardRefreshJob.binsChecked = index + 1;
             cardRefreshJob.cardsUpdated += result.rows.length;
+            if (!completeLookup) cardRefreshJob.nonCardsFlagged += result.rows.length;
             cardRefreshJob.percent = Math.round(((index + 1) / bins.length) * 100);
           }
           if (cardRefreshJob?.id === jobId) cardRefreshJob.status = "complete";

@@ -7,6 +7,8 @@ export type CardRefreshResult = {
   binsChecked: number;
   totalBins: number;
   cardsUpdated: number;
+  nonCardsFlagged: number;
+  shuffleSeed: number;
   duplicateGroups: number;
   duplicatesFound: number;
   duplicatesRemoved: number;

@@ -231,6 +231,7 @@ export const cards = pgTable("cards", {
   userId: integer("user_id").references(() => users.id),
   binData: jsonb("bin_data").$type<{
     bin: string;
+    lookupStatus?: "valid" | "non" | null;
     bank: string | null;
     scheme: string | null;
     type: string | null;

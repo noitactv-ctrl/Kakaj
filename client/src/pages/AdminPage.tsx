@@ -3631,12 +3631,12 @@ function AdminCardsSection() {
     mutationFn: () => refreshCardBins(setRefreshProgress),
     onMutate: () => setRefreshProgress(0),
     onSuccess: (data: any) => {
-      setShuffleSeed(seed => seed + 1);
+      setShuffleSeed(data?.shuffleSeed ?? (Date.now() % 2147483647));
       qc.invalidateQueries({ queryKey: ["/api/cards"] });
       qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
       toast({
         title: "Cards refreshed",
-        description: `${data?.cardsUpdated ?? 0} cards re-tracked · ${data?.duplicatesRemoved ?? 0} duplicates removed.`,
+        description: `${data?.cardsUpdated ?? 0} cards re-tracked · ${data?.duplicatesRemoved ?? 0} duplicates removed · ${data?.nonCardsFlagged ?? 0} flagged NON.`,
       });
     },
     onError: (error: Error) => toast({ title: "Refresh failed", description: error.message, variant: "destructive" }),
@@ -3674,10 +3674,12 @@ function AdminCardsSection() {
       const count = data?.count ?? 1;
       const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
       const duplicateCount = Number(data?.duplicateCount ?? 0);
+      const nonCardsFlagged = Number(data?.nonCardsFlagged ?? 0);
       const invalidCount = Math.max(0, skipped - duplicateCount);
       const details = [
         duplicateCount > 0 ? `(${duplicateCount}) cards duplicated` : "",
         invalidCount > 0 ? `(${invalidCount}) invalid cards skipped` : "",
+        nonCardsFlagged > 0 ? `(${nonCardsFlagged}) cards flagged NON` : "",
       ].filter(Boolean).join(" · ");
       toast({
         title: count > 1 ? `${count} cards added` : "Card added",
@@ -3814,12 +3816,19 @@ function AdminCardsSection() {
                        const zip = metadata.zip || extractZipPreview(card.extras ?? "");
                        const state = metadata.state || extractStatePreview(card.extras ?? "");
                       const country = String(card.country ?? "").trim();
+                       const issuer = String(card.binData?.bank ?? card.binData?.Issuer ?? "").trim();
+                       const type = String(card.binData?.type ?? card.binData?.Type ?? "").trim().toUpperCase();
               return (
                 <div key={card.id} className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 flex items-center justify-between">
                   <div className="space-y-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       {card.baseName && <span className="text-[10px] font-mono font-bold text-primary/70">{card.baseName}</span>}
+                       {card.binData?.lookupStatus === "non" && (
+                         <span className="text-[10px] font-mono font-bold text-red-400">NON</span>
+                       )}
                        <span className="text-[10px] font-mono bg-[#111]/5 border border-white/10 px-1.5 py-0.5 rounded text-white/45">{metadata.bin || cBin}</span>
+                       {type && <span className="text-[10px] text-white/50 font-mono">{type}</span>}
+                       {issuer && <span className="text-[10px] text-white/50 truncate max-w-48">{issuer}</span>}
                        {state && <span className="text-[10px] text-white/40 font-mono">STATE {state}</span>}
                       {zip && <span className="text-[10px] text-white/40 font-mono">ZIP {zip}</span>}
                       {country && <span className="text-[10px] text-white/40 font-mono">{country}</span>}

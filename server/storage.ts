@@ -143,6 +143,15 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private assertCardBinIsSellable(card: Card): void {
+    const binData = card.binData as Record<string, any> | null;
+    const issuer = binData?.bank || binData?.Issuer || binData?.issuer;
+    const type = binData?.type || binData?.Type || binData?.cardType;
+    if (binData?.lookupStatus === "non" || !issuer || !type) {
+      throw new Error("Card BIN is flagged NON because issuer and type could not be verified");
+    }
+  }
+
   private async assertCardNumberIsUnique(client: any, cardNumber: string): Promise<void> {
     const fingerprint = normalizeCardNumber(cardNumber);
     if (fingerprint.length < 6) throw new Error("Card number must contain a valid BIN");
@@ -678,6 +687,7 @@ export class DatabaseStorage implements IStorage {
       const [card] = await db.select().from(cards).where(eq(cards.id, cardId));
       if (!card) throw new Error("Card not found");
       if (card.isSold) throw new Error("Card already sold");
+      this.assertCardBinIsSellable(card);
       await this.assertCardNumberIsUnique(db, card.cardNumber);
       cardMap[cardId] = card;
       const purchasePrice = isBulkBundle ? Math.round(card.price / 2) : card.price;
@@ -871,6 +881,7 @@ export class DatabaseStorage implements IStorage {
     for (const cardId of cardIds) {
       const [card] = await db.select().from(cards).where(eq(cards.id, cardId));
       if (!card || card.isSold) throw new Error("Card not found or already sold");
+      this.assertCardBinIsSellable(card);
       await this.assertCardNumberIsUnique(db, card.cardNumber);
       const purchasePrice = isBulkBundle ? Math.round(card.price / 2) : card.price;
       total += purchasePrice;
@@ -989,6 +1000,7 @@ export class DatabaseStorage implements IStorage {
         if (item.cardId) {
           const [card] = await tx.select().from(cards).where(eq(cards.id, item.cardId));
           if (!card || card.isSold) throw new Error("A card in this order is no longer available");
+          this.assertCardBinIsSellable(card);
           await this.assertCardNumberIsUnique(tx, card.cardNumber);
           const [claimedCard] = await tx.update(cards)
             .set({ isSold: true, userId: order.userId })
@@ -1125,6 +1137,7 @@ export class DatabaseStorage implements IStorage {
         if (item.cardId) {
           const [card] = await tx.select().from(cards).where(eq(cards.id, item.cardId));
           if (!card || card.isSold) throw new Error("A card in this order is no longer available");
+          this.assertCardBinIsSellable(card);
           await this.assertCardNumberIsUnique(tx, card.cardNumber);
           const [claimedCard] = await tx.update(cards)
             .set({ isSold: true, userId: pendingOrder.userId })
@@ -1612,6 +1625,7 @@ export class DatabaseStorage implements IStorage {
     return db.transaction(async (tx) => {
       const [card] = await tx.select().from(cards).where(and(eq(cards.id, cardId), eq(cards.isSold, false)));
       if (!card) throw new Error("Card not found or already sold");
+      this.assertCardBinIsSellable(card);
       await this.assertCardNumberIsUnique(tx, card.cardNumber);
 
       const paidTotal = finalPrice ?? card.price;

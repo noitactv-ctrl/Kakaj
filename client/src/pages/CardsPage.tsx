@@ -172,12 +172,12 @@ export default function CardsPage() {
     mutationFn: () => refreshCardBins(setRefreshProgress),
     onMutate: () => setRefreshProgress(0),
     onSuccess: (data: any) => {
-      setShuffleSeed(seed => seed + 1);
+      setShuffleSeed(data?.shuffleSeed ?? (Date.now() % 2147483647));
       queryClient.invalidateQueries({ queryKey: ["/api/cards"] });
       queryClient.invalidateQueries({ queryKey: ["/api/card-bases"] });
       toast({
         title: "CARDS REFRESHED",
-        description: `${data?.cardsUpdated ?? 0} cards re-tracked · ${data?.duplicatesRemoved ?? 0} duplicates removed.`,
+        description: `${data?.cardsUpdated ?? 0} cards re-tracked · ${data?.duplicatesRemoved ?? 0} duplicates removed · ${data?.nonCardsFlagged ?? 0} flagged NON.`,
       });
     },
     onError: (error: Error) => toast({ title: "REFRESH FAILED", description: error.message, variant: "destructive" }),
