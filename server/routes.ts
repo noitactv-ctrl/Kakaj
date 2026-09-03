@@ -448,7 +448,11 @@ export async function registerRoutes(
       if (!(await getTelegramPublicStatus()).enabled) {
         return res.status(404).json({ message: "The rewards bot is currently offline" });
       }
-      const token = await getTelegramLinkToken((req.user as any).id);
+      let token = await getTelegramLinkToken((req.user as any).id);
+      if (!token) {
+        await createTelegramLinkToken((req.user as any).id);
+        token = await getTelegramLinkToken((req.user as any).id);
+      }
       res.json(token ? { token: token.token, createdAt: token.createdAt } : { token: null });
     } catch (error) {
       next(error);
@@ -1317,13 +1321,25 @@ export async function registerRoutes(
   app.patch("/api/admin/credit-bot", async (req, res, next) => {
     try {
       if (!requireOwner(req, res)) return;
-      const updates: { enabled?: boolean; channelId?: string; token?: string; rewardCents?: number } = {};
+      const updates: { enabled?: boolean; channelId?: string; channelLink?: string; botName?: string; token?: string; rewardCents?: number } = {};
       if (req.body.enabled !== undefined) updates.enabled = Boolean(req.body.enabled);
       if (req.body.channelId !== undefined) {
         if (typeof req.body.channelId !== "string" || req.body.channelId.trim().length > 120) {
           return res.status(400).json({ message: "Channel ID is invalid" });
         }
         updates.channelId = req.body.channelId.trim();
+      }
+      if (req.body.channelLink !== undefined) {
+        if (typeof req.body.channelLink !== "string" || req.body.channelLink.trim().length > 500) {
+          return res.status(400).json({ message: "Channel link is invalid" });
+        }
+        updates.channelLink = req.body.channelLink.trim();
+      }
+      if (req.body.botName !== undefined) {
+        if (typeof req.body.botName !== "string" || req.body.botName.trim().length > 100) {
+          return res.status(400).json({ message: "Bot name is invalid" });
+        }
+        updates.botName = req.body.botName.trim();
       }
       if (req.body.token !== undefined && req.body.token !== "") {
         if (typeof req.body.token !== "string" || req.body.token.trim().length > 256) {

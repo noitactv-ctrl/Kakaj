@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict z3zpvzI93QahSkxRlxzevx9yAriqYgfYIj5sMJwlGJxuEwQgsxGhuUbZe9dtBeV
+\restrict 9bYvKkxfWiXRJqPEZGqzMjsNZmdQZwzgXCuIg0WTOCBTD4ns3BRQpWM6awjxVVb
 
 -- Dumped from database version 16.10
 -- Dumped by pg_dump version 16.10
@@ -1138,7 +1138,9 @@ CREATE TABLE public.users (
     telegram_referred_by integer,
     telegram_referral_bonus_paid boolean DEFAULT false,
     telegram_name_active boolean DEFAULT false NOT NULL,
-    telegram_name_signature text DEFAULT ''::text NOT NULL
+    telegram_name_signature text DEFAULT ''::text NOT NULL,
+    telegram_channel_member boolean DEFAULT false NOT NULL,
+    telegram_name_eligible boolean DEFAULT false NOT NULL
 );
 
 
@@ -1661,10 +1663,11 @@ NUEC99v-kmkHaJyy8mCxVU4Bs-KE-5LR	{"cookie":{"originalMaxAge":2592000000,"expires
 yDPwwKEtH3it3vWXi9SiVrVcOmEBxZLC	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-10-01T00:26:46.549Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"passport":{"user":7}}	2026-10-02 19:32:28
 TySGGh6HaDILitjmfqdsbFmf32iHTzmV	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-10-02T20:01:22.208Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"}}	2026-10-02 20:01:23
 9vus1PoI_3HFHUCOQQSpxTVPVENmS7T-	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-10-02T20:01:31.955Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"}}	2026-10-02 20:01:32
+PDbmzvTSaDKKz--X_3OzGegQKyT1feWY	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-10-03T17:33:38.940Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"passport":{"user":7}}	2026-10-03 19:40:52
 yY46iFNNho7uH46_uOVuliq5PTZ3QHTm	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-09-21T02:18:59.932Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"passport":{"user":7}}	2026-09-22 19:17:32
 arKUZdWR7KMTUOQzLKQtChinO4mVthnE	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-09-21T04:12:36.147Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"passport":{"user":7}}	2026-09-21 05:57:25
 YKo1QCUsElE0ceIQwbixYeV05U695gH7	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-09-23T18:10:09.382Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"passport":{"user":7}}	2026-10-01 00:00:59
-PDbmzvTSaDKKz--X_3OzGegQKyT1feWY	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-10-03T17:33:38.940Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"passport":{"user":7}}	2026-10-03 19:10:38
+VTkVJHr1aHAi0X6m1ua86ntMcstTKD6Y	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-10-03T19:40:00.886Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"captcha":{"answerHash":"6ee5bf35f1a1acb5411045f6f8570fb8d756b69f0427d78e4b30a23ca57de3ba","expiresAt":1788464700886}}	2026-10-03 19:40:02
 -dnQuC17sSL9G_YOVNsmM_7W5kF1-lll	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-09-23T14:27:28.145Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"passport":{"user":7}}	2026-09-23 15:33:20
 LExQAQtj8ml31EX2n2NM_ABC3ACZgU50	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-09-15T03:24:36.900Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"passport":{"user":31}}	2026-09-15 03:31:25
 BsVxQy3cdFXrW4dDEWdOgrXqGzvM8iMa	{"cookie":{"originalMaxAge":2592000000,"expires":"2026-10-02T21:16:23.364Z","secure":false,"httpOnly":true,"path":"/","sameSite":"lax"},"captcha":{"answerHash":"94df72a98c795929c8626f8c1de5fb49e5d47a035f66e466a1ef567850319ad3","expiresAt":1788384083364}}	2026-10-02 21:16:24
@@ -1704,7 +1707,7 @@ chime_description	instant	f	t	text	\N	2026-08-24 16:16:04.898
 cashapp_description	instant	f	t	text	\N	2026-08-24 16:16:18.433
 credit_bot_telegram_token	enc:v1:qDgUdb-5nRMgIgEp:VVICqDPdsohvEsgEcq58Tg:e-9IB1H7tGYjvieF9JzMuYeB3sh0suSAnv7a70W1cWdmJcYkbCl1LqVlE772LQ	t	t	secret	Credit Bot Telegram Token	2026-09-03 18:54:49.355049
 credit_bot_channel_id		f	t	text	Credit Bot Main Channel ID	2026-09-03 18:54:49.362643
-credit_bot_enabled	true	f	t	text	Credit Bot Enabled	2026-09-03 18:57:02.511
+credit_bot_enabled	true	f	t	text	Credit Bot Enabled	2026-09-03 19:26:49.79
 \.
 
 
@@ -1732,7 +1735,6 @@ COPY public.support_tickets (id, user_id, order_id, subject, description, image_
 --
 
 COPY public.telegram_link_tokens (id, token, user_id, created_at) FROM stdin;
-5	2677619354928919	7	2026-09-03 18:57:23.967024
 \.
 
 
@@ -5732,20 +5734,20 @@ COPY public.user_ips (id, user_id, ip, logged_at) FROM stdin;
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.users (id, username, password, email, telegram_username, role, is_banned, balance, protected_balance, last_daily_spin, created_at, is_seller, seller_balance, total_seller_earned, login_code, seller_type, seller_display_name, telegram_id, telegram_connected, referral_code, is_worker, telegram_chat_id, last_telegram_name_reward, telegram_referred_by, telegram_referral_bonus_paid, telegram_name_active, telegram_name_signature) FROM stdin;
-18	noitactv	5ff50f85afbd6f8d657cb3f0fe07fcf9d3e7e997eeb76013645da0d5850042cbd69b92b47fda544ee841271bdece63cc2cc99b9abbfc974241faad008c529e2c.62950648414c3c945f23285630f0b3a0	noitactv@gmail.com	vehicuh	admin	f	25	0	\N	2026-07-16 19:41:44.238622	f	0	0		bronze		\N	f	\N	f	8770123112	2026-08-16 21:01:40.954013	\N	f	f	
-5	anon_9c8037a950		anon_9c8037a950@acctplug.fo		admin	f	0	0	\N	2026-06-04 04:38:25.462895	f	0	0	WF87883E9KVB	bronze		\N	f	\N	f	\N	\N	\N	f	f	
-8	anon-7ae62b56	e18e862e0fccbca7e3861cf72de99f0a8d6d20c92d23f8fdaaf5ab74a025ff8914377a956355da60ace0f78baa740f11538f700b6340958ff71dd36bdd5cae08.927ae0f4f995144cf59698f097bc35e9	ashhtentv@gmail.com		user	f	0	0	\N	2026-06-23 18:55:07.384372	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f	
-9	anon-b94fd1ec	afd224b8bae381d1498e3e64bf34d36799dd1478d9f2bc84851473cb86c9ed16ad0a6cdc413941d5094d82a2fb0e7ac38dd8fada411cfd752941e52d8931e57f.475f172efff0c273d1f4ae56f11e4775	agenttest@test.com		user	f	0	0	\N	2026-07-08 16:36:33.61545	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f	
-1	admin	ce6bb8cbb02a0c68f1b26a8362a9afccdae1a4fe421cb8ce4dc65273d870400937122c363af128c4510a04cb741b710bc31b7f45bb8ee2af154788d72dfbc676.676faed1237ae612f4c5d3d7136b3fa8	admin@store.com		admin	f	0	0	\N	2026-04-18 15:30:50.926034	f	0	0	ZQWWXU7NF7K4	bronze		\N	f	C823BC69	f	\N	\N	\N	f	f	
-2	demo	be40442ba685f1dc0670678c57b8dbe8738bbd7a40f143744c8d2b0b7d4ba5faa709c069cda03fed984b891296053adaa4401c94bf0ea74f343b5c7af547eedc.dd9e50d2f853b696eda02746a2dee38d	demo@user.com		user	f	0	0	\N	2026-04-18 15:30:50.97721	f	0	0	AL3ZPCFS2QEJ	bronze		\N	f	10F9468E	f	\N	\N	\N	f	f	
-3	Test	8844f4b4b275f2b52aa05c07a34d1c1db6ae113bf1c7dae95b8f7722017d0a4a0c8192d796e45052916c73dd8e372f98ef952718f84e01c93cdb7a1324f9b82f.37823707ace6f1d454277b9a2a892450	Lifeanime886@gmail.com	Test	admin	f	0	0	\N	2026-05-01 01:11:50.062547	t	0	0	EEMVGYV24RUB	bronze		\N	f	123C80C9	f	\N	\N	\N	f	f	
-4	Lifeanime8864393f4		lifeanime886@gmail.com		admin	f	0	0	\N	2026-05-02 15:01:37.2584	t	0	0	R5N5MH2FSK4P	bronze		\N	f	25EDD550	f	\N	\N	\N	f	f	
-6	anon_9be1d90039		anon_9be1d90039@gmail.com		user	f	0	0	\N	2026-06-04 05:14:47.626397	f	0	0	RMN6944TVGL5	bronze		\N	f	\N	f	\N	\N	\N	f	f	
-31	anon-d1874081	ea12975f3343621c7c17de759068d1607900051135c09dbb457d2234eb39169c97160ac8b0d4cd46043ebb1e8fffafe85d2a51f21354efed3dc9822467c8ba0c.8f7083bc4ec1b8698e7a477b097d7c76	bobfreak199@gmail.com		user	f	0	0	\N	2026-08-16 03:24:36.84066	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f	
-13	anon-8a0c1095	9db7e113c95a32fa89699716c1eab58d4d63ee070c37ef6a93143c96d9da54e48f37d7d7b3f352a4e47e429b4b14cab103cbc540c667eb187070bea535c1345a.3237f46d4f4191fad30b83da8ef3c3a8	testuser_dep@example.com		user	f	0	0	\N	2026-07-08 17:23:54.568698	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f	
-14	anon-0acac48b	7157a4a0b740758cb4eb088dbacf511dc2554c99c92c913decee926cc55a43fa347933178a3e28080fcc330cefd14212cdf501106cb4b2b87ad21b14ede740a0.2c62189d74a8fda2e548eb8ce63841ba	noitactv@icloud.com		user	f	0	0	\N	2026-07-16 18:47:28.370192	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f	
-7	anon-a396dd12	f40abe1a5e7b5ce147edc37b832bbd4a4505d3715112bac2fe66846cd5f7062c03d9f8393df393edea1199b5ac7807eee5290c0fbbccff095b711ad341bbaa73.a21ee2a5e9c03cbe3ecbb778ff1d240b	borelandomario8@gmail.com		admin	f	450	0	\N	2026-06-23 14:24:52.66251	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f	
+COPY public.users (id, username, password, email, telegram_username, role, is_banned, balance, protected_balance, last_daily_spin, created_at, is_seller, seller_balance, total_seller_earned, login_code, seller_type, seller_display_name, telegram_id, telegram_connected, referral_code, is_worker, telegram_chat_id, last_telegram_name_reward, telegram_referred_by, telegram_referral_bonus_paid, telegram_name_active, telegram_name_signature, telegram_channel_member, telegram_name_eligible) FROM stdin;
+18	noitactv	5ff50f85afbd6f8d657cb3f0fe07fcf9d3e7e997eeb76013645da0d5850042cbd69b92b47fda544ee841271bdece63cc2cc99b9abbfc974241faad008c529e2c.62950648414c3c945f23285630f0b3a0	noitactv@gmail.com	vehicuh	admin	f	25	0	\N	2026-07-16 19:41:44.238622	f	0	0		bronze		\N	f	\N	f	8770123112	2026-08-16 21:01:40.954013	\N	f	f		f	f
+5	anon_9c8037a950		anon_9c8037a950@acctplug.fo		admin	f	0	0	\N	2026-06-04 04:38:25.462895	f	0	0	WF87883E9KVB	bronze		\N	f	\N	f	\N	\N	\N	f	f		f	f
+8	anon-7ae62b56	e18e862e0fccbca7e3861cf72de99f0a8d6d20c92d23f8fdaaf5ab74a025ff8914377a956355da60ace0f78baa740f11538f700b6340958ff71dd36bdd5cae08.927ae0f4f995144cf59698f097bc35e9	ashhtentv@gmail.com		user	f	0	0	\N	2026-06-23 18:55:07.384372	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f		f	f
+9	anon-b94fd1ec	afd224b8bae381d1498e3e64bf34d36799dd1478d9f2bc84851473cb86c9ed16ad0a6cdc413941d5094d82a2fb0e7ac38dd8fada411cfd752941e52d8931e57f.475f172efff0c273d1f4ae56f11e4775	agenttest@test.com		user	f	0	0	\N	2026-07-08 16:36:33.61545	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f		f	f
+1	admin	ce6bb8cbb02a0c68f1b26a8362a9afccdae1a4fe421cb8ce4dc65273d870400937122c363af128c4510a04cb741b710bc31b7f45bb8ee2af154788d72dfbc676.676faed1237ae612f4c5d3d7136b3fa8	admin@store.com		admin	f	0	0	\N	2026-04-18 15:30:50.926034	f	0	0	ZQWWXU7NF7K4	bronze		\N	f	C823BC69	f	\N	\N	\N	f	f		f	f
+2	demo	be40442ba685f1dc0670678c57b8dbe8738bbd7a40f143744c8d2b0b7d4ba5faa709c069cda03fed984b891296053adaa4401c94bf0ea74f343b5c7af547eedc.dd9e50d2f853b696eda02746a2dee38d	demo@user.com		user	f	0	0	\N	2026-04-18 15:30:50.97721	f	0	0	AL3ZPCFS2QEJ	bronze		\N	f	10F9468E	f	\N	\N	\N	f	f		f	f
+3	Test	8844f4b4b275f2b52aa05c07a34d1c1db6ae113bf1c7dae95b8f7722017d0a4a0c8192d796e45052916c73dd8e372f98ef952718f84e01c93cdb7a1324f9b82f.37823707ace6f1d454277b9a2a892450	Lifeanime886@gmail.com	Test	admin	f	0	0	\N	2026-05-01 01:11:50.062547	t	0	0	EEMVGYV24RUB	bronze		\N	f	123C80C9	f	\N	\N	\N	f	f		f	f
+4	Lifeanime8864393f4		lifeanime886@gmail.com		admin	f	0	0	\N	2026-05-02 15:01:37.2584	t	0	0	R5N5MH2FSK4P	bronze		\N	f	25EDD550	f	\N	\N	\N	f	f		f	f
+6	anon_9be1d90039		anon_9be1d90039@gmail.com		user	f	0	0	\N	2026-06-04 05:14:47.626397	f	0	0	RMN6944TVGL5	bronze		\N	f	\N	f	\N	\N	\N	f	f		f	f
+31	anon-d1874081	ea12975f3343621c7c17de759068d1607900051135c09dbb457d2234eb39169c97160ac8b0d4cd46043ebb1e8fffafe85d2a51f21354efed3dc9822467c8ba0c.8f7083bc4ec1b8698e7a477b097d7c76	bobfreak199@gmail.com		user	f	0	0	\N	2026-08-16 03:24:36.84066	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f		f	f
+13	anon-8a0c1095	9db7e113c95a32fa89699716c1eab58d4d63ee070c37ef6a93143c96d9da54e48f37d7d7b3f352a4e47e429b4b14cab103cbc540c667eb187070bea535c1345a.3237f46d4f4191fad30b83da8ef3c3a8	testuser_dep@example.com		user	f	0	0	\N	2026-07-08 17:23:54.568698	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f		f	f
+14	anon-0acac48b	7157a4a0b740758cb4eb088dbacf511dc2554c99c92c913decee926cc55a43fa347933178a3e28080fcc330cefd14212cdf501106cb4b2b87ad21b14ede740a0.2c62189d74a8fda2e548eb8ce63841ba	noitactv@icloud.com		user	f	0	0	\N	2026-07-16 18:47:28.370192	f	0	0		bronze		\N	f	\N	f	\N	\N	\N	f	f		f	f
+7	anon-a396dd12	f40abe1a5e7b5ce147edc37b832bbd4a4505d3715112bac2fe66846cd5f7062c03d9f8393df393edea1199b5ac7807eee5290c0fbbccff095b711ad341bbaa73.a21ee2a5e9c03cbe3ecbb778ff1d240b	borelandomario8@gmail.com	uhqcvv	admin	f	450	0	\N	2026-06-23 14:24:52.66251	f	0	0		bronze		\N	f	\N	f	8941437945	\N	\N	f	f	uhqcvv|uhqcvv|beastcc.xyz	f	f
 \.
 
 
@@ -5819,7 +5821,7 @@ SELECT pg_catalog.setval('public.crypto_addresses_id_seq', 1, false);
 -- Name: crypto_currencies_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.crypto_currencies_id_seq', 841, true);
+SELECT pg_catalog.setval('public.crypto_currencies_id_seq', 847, true);
 
 
 --
@@ -6587,5 +6589,5 @@ ALTER TABLE ONLY public.verifications
 -- PostgreSQL database dump complete
 --
 
-\unrestrict z3zpvzI93QahSkxRlxzevx9yAriqYgfYIj5sMJwlGJxuEwQgsxGhuUbZe9dtBeV
+\unrestrict 9bYvKkxfWiXRJqPEZGqzMjsNZmdQZwzgXCuIg0WTOCBTD4ns3BRQpWM6awjxVVb
 

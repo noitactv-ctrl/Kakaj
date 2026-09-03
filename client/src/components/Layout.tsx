@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Coins, Crown, Gamepad2, Menu, ShoppingCart,
-  Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck, Package, Gift, Link2,
+  Ticket, CreditCard, ReceiptText, LogOut, ShieldCheck, Package, Gift,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/hooks/use-cart";
@@ -23,7 +23,6 @@ const navigation: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/deposit", label: "Topup", icon: Coins },
       { href: "/redeem", label: "Redeem", icon: Gift },
-      { href: "/link", label: "Link Bot", icon: Link2 },
       { href: "/orders", label: "Orders", icon: ReceiptText },
       { href: "/ranks", label: "Rank", icon: Crown },
     ],

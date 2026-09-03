@@ -6,6 +6,8 @@ import { telegramLinkTokens, transactions, users, siteSettings, type User } from
 
 const TOKEN_SETTING = "credit_bot_telegram_token";
 const CHANNEL_SETTING = "credit_bot_channel_id";
+const CHANNEL_LINK_SETTING = "credit_bot_channel_link";
+const BOT_NAME_SETTING = "credit_bot_name";
 const ENABLED_SETTING = "credit_bot_enabled";
 const REWARD_AMOUNT_SETTING = "credit_bot_reward_cents";
 const DEFAULT_REWARD_CENTS = 25;
@@ -30,6 +32,8 @@ type TelegramMember = {
 type TelegramConfig = {
   token: string;
   channelId: string;
+  channelLink: string;
+  botName: string;
   enabled: boolean;
   rewardCents: number;
 };
@@ -63,6 +67,8 @@ async function getTelegramConfig(): Promise<TelegramConfig> {
   return {
     token: storedToken || process.env.TELEGRAM_BOT_TOKEN?.trim() || "",
     channelId: (await readSetting(CHANNEL_SETTING)) || process.env.Telegram_group_id?.trim() || "",
+    channelLink: await readSetting(CHANNEL_LINK_SETTING),
+    botName: await readSetting(BOT_NAME_SETTING),
     enabled: storedEnabled !== "false",
     rewardCents: Number.isInteger(storedReward) && storedReward > 0 && storedReward <= 100000
       ? storedReward
@@ -72,7 +78,13 @@ async function getTelegramConfig(): Promise<TelegramConfig> {
 
 export async function getTelegramPublicStatus() {
   const config = await getTelegramConfig();
-  return { enabled: config.enabled };
+  return {
+    enabled: config.enabled,
+    configured: Boolean(config.token),
+    channelLink: config.channelLink,
+    botName: config.botName,
+    botUrl: getTelegramBotUrl(config.botName),
+  };
 }
 
 export async function getTelegramBotStatus() {
@@ -86,6 +98,9 @@ export async function getTelegramBotStatus() {
     configured: Boolean(config.token),
     channelConfigured: Boolean(config.channelId),
     channelId: config.channelId,
+    channelLink: config.channelLink,
+    botName: config.botName,
+    botUrl: getTelegramBotUrl(config.botName),
     linkedUsers: Number(linked?.count ?? 0),
     rewardCents: config.rewardCents,
     rewardIntervalHours: 24,
@@ -132,6 +147,8 @@ export async function getTelegramBotUsers() {
 export async function saveTelegramBotConfig(updates: {
   enabled?: boolean;
   channelId?: string;
+  channelLink?: string;
+  botName?: string;
   token?: string;
   rewardCents?: number;
 }) {
@@ -157,6 +174,30 @@ export async function saveTelegramBotConfig(updates: {
     }).onConflictDoUpdate({
       target: siteSettings.key,
       set: { value: updates.channelId.trim(), updatedAt: new Date() },
+    });
+  }
+  if (updates.channelLink !== undefined) {
+    await db.insert(siteSettings).values({
+      key: CHANNEL_LINK_SETTING,
+      value: updates.channelLink.trim(),
+      isSecret: false,
+      kind: "text",
+      label: "Credit Bot Main Channel Link",
+    }).onConflictDoUpdate({
+      target: siteSettings.key,
+      set: { value: updates.channelLink.trim(), updatedAt: new Date() },
+    });
+  }
+  if (updates.botName !== undefined) {
+    await db.insert(siteSettings).values({
+      key: BOT_NAME_SETTING,
+      value: updates.botName.trim(),
+      isSecret: false,
+      kind: "text",
+      label: "Credit Bot Name",
+    }).onConflictDoUpdate({
+      target: siteSettings.key,
+      set: { value: updates.botName.trim(), updatedAt: new Date() },
     });
   }
   if (updates.enabled !== undefined) {
@@ -233,6 +274,13 @@ function formatRemaining(ms: number): string {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return hours > 0 ? `${hours}h ${remainder}m` : `${minutes}m`;
+}
+
+function getTelegramBotUrl(botName: string): string {
+  const value = botName.trim();
+  if (!value) return "";
+  if (/^https?:\/\/t\.me\//i.test(value)) return value;
+  return `https://t.me/${value.replace(/^@/, "")}`;
 }
 
 async function findLinkedUser(chatId: string): Promise<User | undefined> {
@@ -342,32 +390,41 @@ async function synchronizeUser(
   linkedUser: User,
   telegramUser: TelegramUser,
   config: TelegramConfig,
+  memberOverride?: TelegramMember,
 ): Promise<{ rewarded: boolean; reset: boolean; member: boolean; nameEligible: boolean; error?: string }> {
   const signature = profileSignature(telegramUser);
-  if (linkedUser.telegramNameSignature !== signature) {
-    await db.update(users).set({
-      telegramUsername: telegramUser.username ?? "",
-      telegramNameSignature: signature,
-      lastTelegramNameReward: null,
-    }).where(eq(users.id, linkedUser.id));
-    return { rewarded: false, reset: true, member: false, nameEligible: hasBrandName(telegramUser) };
-  }
+  const reset = linkedUser.telegramNameSignature !== signature;
+  const nameEligible = hasBrandName(telegramUser);
 
   if (!config.channelId) {
-    return { rewarded: false, reset: false, member: false, nameEligible: hasBrandName(telegramUser), error: "The main channel is not configured yet." };
+    if (reset || linkedUser.telegramNameEligible !== nameEligible) {
+      await db.update(users).set({
+        telegramUsername: telegramUser.username ?? "",
+        telegramNameSignature: signature,
+        telegramNameEligible: nameEligible,
+        lastTelegramNameReward: reset ? null : linkedUser.lastTelegramNameReward,
+      }).where(eq(users.id, linkedUser.id));
+    }
+    return { rewarded: false, reset, member: false, nameEligible, error: "The main channel is not configured yet." };
   }
 
   let member: TelegramMember;
   try {
-    member = await getChannelMember(config.channelId, telegramUser.id, config.token);
+    member = memberOverride ?? await getChannelMember(config.channelId, telegramUser.id, config.token);
   } catch (error: any) {
-    return { rewarded: false, reset: false, member: false, nameEligible: hasBrandName(telegramUser), error: "I could not verify the main channel right now. Please try again later." };
+    return { rewarded: false, reset, member: linkedUser.telegramChannelMember, nameEligible, error: "I could not verify the main channel right now. Please try again later." };
   }
 
   const joined = isChannelMember(member);
-  const nameEligible = hasBrandName(telegramUser);
-  if (!joined || !nameEligible || !config.enabled) {
-    return { rewarded: false, reset: false, member: joined, nameEligible };
+  await db.update(users).set({
+    telegramUsername: telegramUser.username ?? "",
+    telegramNameSignature: signature,
+    telegramChannelMember: joined,
+    telegramNameEligible: nameEligible,
+    ...(reset ? { lastTelegramNameReward: null } : {}),
+  }).where(eq(users.id, linkedUser.id));
+  if (!joined || !nameEligible || !config.enabled || reset) {
+    return { rewarded: false, reset, member: joined, nameEligible };
   }
 
   const rewarded = await applyRewardIfDue(linkedUser.id, signature, config.rewardCents);
@@ -383,9 +440,10 @@ async function statusMessage(user: User, telegramUser: TelegramUser, config: Tel
     result?.reset
       ? "Your Telegram name changed, so your 24-hour reward timer has restarted."
       : "Your rewards status:",
-    `• ${nameEligible ? "Name rule passed" : `Add ${BRAND_NAME} to your first or last name`}`,
-    `• ${member ? "Main channel joined" : "Join the main channel"}`,
+    `• ${nameEligible ? "Name rule passed" : "Your name changed, please change it back to keep earning."}`,
+    `• ${member ? "Main channel joined" : "You left main channel, please rejoin to keep earning."}`,
   ];
+  if (!member && config.channelLink) lines.push(`Rejoin here: ${config.channelLink}`);
   if (result?.rewarded) {
     lines.push(`✅ ${formatCredit(config.rewardCents)} store credit was added.`);
   } else if (nameEligible && member && user.lastTelegramNameReward) {
@@ -422,7 +480,7 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
   if (command === "/link") {
     await sendTelegramMessage(chatId, linked
       ? "Your Telegram is already linked. Use /relink 1234567890123456 to link a different account."
-      : "Open beastcc.xyz/link, generate your 16-digit account number, copy it, and send that number here.", config.token);
+      : "Open beastcc.xyz/link. Your 16-digit account number is created automatically; copy it and send that number here.", config.token);
     return;
   }
   if (command === "/relink") {
@@ -436,7 +494,8 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
       await sendTelegramMessage(chatId, "That 16-digit account number is invalid, expired, or already used. Generate a new one at beastcc.xyz/link.", config.token);
       return;
     }
-    await sendTelegramMessage(chatId, `✅ Your beastcc.xyz account was relinked.\n\n${await statusMessage(claimed, from, config)}`, config.token);
+    const result = await synchronizeUser(claimed, from, config);
+    await sendTelegramMessage(chatId, `✅ Your beastcc.xyz account was relinked.\n\n${await statusMessage(claimed, from, config, result)}`, config.token);
     return;
   }
   if (command === "/status" && linked) {
@@ -451,7 +510,8 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
        await sendTelegramMessage(chatId, "That 16-digit account number is invalid, expired, or already used. Generate a new one at beastcc.xyz/link.", config.token);
       return;
     }
-     await sendTelegramMessage(chatId, `✅ Your beastcc.xyz account is linked.\n\n${await statusMessage(claimed, from, config)}`, config.token);
+      const result = await synchronizeUser(claimed, from, config);
+      await sendTelegramMessage(chatId, `✅ Your beastcc.xyz account is linked.\n\n${await statusMessage(claimed, from, config, result)}`, config.token);
     return;
   }
 
@@ -491,9 +551,13 @@ async function syncAllLinkedUsers(): Promise<void> {
       const member = await getChannelMember(config.channelId, Number(linked.telegramChatId), config.token);
       const telegramUser = member.user;
       if (!telegramUser) continue;
-      const result = await synchronizeUser(linked, telegramUser, config);
+      const result = await synchronizeUser(linked, telegramUser, config, member);
+      const leftChannel = linked.telegramChannelMember && !result.member;
+      const nameChanged = linked.telegramNameEligible && !result.nameEligible;
       if (result.rewarded) {
          await sendTelegramMessage(linked.telegramChatId, `✅ ${formatCredit(config.rewardCents)} store credit was added for repping beastcc.xyz.`, config.token);
+      } else if (result.reset || leftChannel || nameChanged) {
+        await sendTelegramMessage(linked.telegramChatId, await statusMessage(linked, telegramUser, config, result), config.token);
       }
     } catch {
       // A single user's membership check must not stop the reward sweep.

@@ -30,11 +30,11 @@ For an existing-data restore, use a separate PostgreSQL database/volume and impo
 docker compose up -d db
 # Wait until the database is healthy, then import:
 psql "$DATABASE_URL" < database/development-database.sql
-# Start the application after the import:
+# Start the application after the import without running the blank-database migration:
 docker compose up -d --build --no-deps app
 ```
 
-If the `migrate` service is required for a fresh database, run it once with `docker compose run --rm migrate` before starting `app`. Do not overwrite a restored database with a blank database volume.
+For a fresh database, `docker compose up -d --build` runs the migration service automatically.
 
 ## Node.js option
 
@@ -52,4 +52,4 @@ Use a process manager such as systemd or PM2 and configure the reverse proxy for
 
 ## Telegram Credit Bot
 
-Set a new `TELEGRAM_BOT_TOKEN` and `Telegram_group_id` on the VPS if needed, or configure the token in the owner-only Credit Bot panel. The bot daily reward, one-time 16-digit linking numbers, and `/relink 16-digit-number` flow are stored in the database settings.
+Set a new `TELEGRAM_BOT_TOKEN` and `Telegram_group_id` on the VPS if needed, or configure the token in the owner-only Credit Bot panel. Configure the main channel ID, channel link, and bot username there. The bot daily reward, automatic one-time 16-digit linking numbers, `/relink 16-digit-number`, and membership/name tracking are stored in the database.

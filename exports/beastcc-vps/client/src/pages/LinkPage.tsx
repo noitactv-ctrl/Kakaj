@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Link2, Loader2, RefreshCw, Send } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { Check, Copy, Link2, Loader2, Send, ExternalLink } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 type LinkTokenResponse = {
@@ -10,31 +9,26 @@ type LinkTokenResponse = {
   createdAt?: string;
 };
 
+type CreditBotPublicStatus = {
+  enabled: boolean;
+  configured: boolean;
+  botName: string;
+  botUrl: string;
+};
+
 export default function LinkPage() {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-  const { data, isLoading, refetch } = useQuery<LinkTokenResponse>({
+  const { data, isLoading } = useQuery<LinkTokenResponse>({
     queryKey: ["/api/telegram/link-token"],
   });
-
-  const generateMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/telegram/link-token", {});
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || "Could not generate account number");
-      }
-      return response.json() as Promise<{ token: string; createdAt: string }>;
-    },
-    onSuccess: (result) => {
-      refetch();
-      setCopied(false);
-      toast({ title: "Account number generated", description: "Copy it and send it to the rewards bot." });
-    },
-    onError: (error: Error) => toast({ title: "Could not generate number", description: error.message, variant: "destructive" }),
+  const { data: botStatus } = useQuery<CreditBotPublicStatus>({
+    queryKey: ["/api/telegram/status"],
   });
 
   const token = data?.token ?? null;
+  const linkLive = botStatus?.enabled === true && botStatus.configured === true && Boolean(token);
+  const botName = botStatus?.botName || "Telegram rewards bot";
   const copyToken = async () => {
     if (!token) return;
     try {
@@ -61,7 +55,7 @@ export default function LinkPage() {
           Link your rewards account
         </h1>
         <p className="mt-2 text-sm text-white/55">
-          Generate a private 16-digit account number, copy it, and send it to the beastcc.xyz rewards bot.
+          Your private 16-digit account number is created automatically. Copy it and send it to the rewards bot.
         </p>
       </div>
 
@@ -78,8 +72,14 @@ export default function LinkPage() {
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="pixel-kicker">YOUR 16-DIGIT ACCOUNT NUMBER</p>
+          <span className={`inline-flex items-center gap-2 border-[2px] px-2 py-1 text-[10px] font-black shadow-[2px_2px_0_#0a1021] ${linkLive ? "border-[#0a1021] bg-[#43b94e] text-[#fff4dc]" : "border-[#0a1021] bg-[#ee292b] text-white"}`}>
+            <span className={`h-2 w-2 rounded-full ${linkLive ? "bg-[#fff4dc]" : "bg-white"}`} />
+            LINK {linkLive ? "LIVE" : "NOT LIVE"}
+          </span>
+        </div>
+        <div className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="flex min-h-12 flex-1 items-center justify-center border-[3px] border-[#0a1021] bg-[#fff4dc] px-4 text-center font-mono text-lg font-black tracking-[0.18em] text-[#16100c] shadow-[3px_3px_0_#0a1021]">
               {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : token ?? "— — — — — — — —"}
@@ -96,22 +96,25 @@ export default function LinkPage() {
           </div>
         </div>
 
-        <Button
-          onClick={() => generateMutation.mutate()}
-            disabled={generateMutation.isPending || Boolean(token)}
-          variant="outline"
-          className="w-full gap-2 border-white/20 bg-white/5 text-white hover:bg-white/10"
-          data-testid="button-generate-link-token"
-        >
-          {generateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          {token ? "Number active — use it once" : "Generate account number"}
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            asChild
+            disabled={!linkLive || !botStatus?.botUrl}
+            className="min-h-11 flex-1 gap-2 border-[3px] border-[#0a1021] bg-[#5f90ef] text-white shadow-[3px_3px_0_#0a1021] hover:bg-[#75a2ff]"
+            data-testid="button-go-to-telegram-bot"
+          >
+            <a href={botStatus?.botUrl || "#"} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" />
+              Go to {botName}
+            </a>
+          </Button>
+        </div>
       </section>
 
       <section className="border-[3px] border-[#183c9d] bg-[#5f90ef] p-4 text-[#16100c] shadow-[4px_4px_0_#0a1021]">
         <p className="pixel-kicker !text-[#fff4dc]">NEXT STEP</p>
         <p className="mt-2 text-sm font-bold">
-          Open the Telegram bot, press /start, then send the 16-digit number above.
+          Open {botName}, press /start, then send the 16-digit number above.
         </p>
         <p className="mt-2 text-xs font-medium">
           The bot checks your Telegram name and main-channel membership before each reward. Changing your Telegram name restarts the 24-hour timer.

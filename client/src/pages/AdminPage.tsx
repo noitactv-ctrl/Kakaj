@@ -187,6 +187,9 @@ type CreditBotStatus = {
   configured: boolean;
   channelConfigured: boolean;
   channelId: string;
+  channelLink: string;
+  botName: string;
+  botUrl: string;
   linkedUsers: number;
   rewardCents: number;
   rewardIntervalHours: number;
@@ -196,6 +199,8 @@ type CreditBotStatus = {
 function CreditBotSection() {
   const { toast } = useToast();
   const [channelId, setChannelId] = useState("");
+  const [channelLink, setChannelLink] = useState("");
+  const [botName, setBotName] = useState("");
   const [token, setToken] = useState("");
   const [rewardAmount, setRewardAmount] = useState("0.25");
   const [announcement, setAnnouncement] = useState("");
@@ -210,11 +215,13 @@ function CreditBotSection() {
 
   useEffect(() => {
     if (status) setChannelId(status.channelId ?? "");
+    if (status) setChannelLink(status.channelLink ?? "");
+    if (status) setBotName(status.botName ?? "");
     if (status) setRewardAmount((status.rewardCents / 100).toFixed(2));
-  }, [status?.channelId, status?.rewardCents]);
+  }, [status?.channelId, status?.channelLink, status?.botName, status?.rewardCents]);
 
   const saveMutation = useMutation({
-    mutationFn: async (updates: { enabled?: boolean; channelId?: string; token?: string; rewardCents?: number }) => {
+    mutationFn: async (updates: { enabled?: boolean; channelId?: string; channelLink?: string; botName?: string; token?: string; rewardCents?: number }) => {
       const response = await apiRequest("PATCH", "/api/admin/credit-bot", updates);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -294,7 +301,7 @@ function CreditBotSection() {
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <div className="space-y-2">
               <label htmlFor="credit-bot-channel" className="text-sm font-medium leading-none text-white">
                 Main channel ID
@@ -308,6 +315,20 @@ function CreditBotSection() {
                 data-testid="input-credit-bot-channel"
               />
               <p className="text-[11px] text-white/40">The bot checks membership in this Telegram channel before rewarding.</p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="credit-bot-channel-link" className="text-sm font-medium leading-none text-white">
+                Main channel link
+              </label>
+              <Input
+                id="credit-bot-channel-link"
+                value={channelLink}
+                onChange={event => setChannelLink(event.target.value)}
+                placeholder="https://t.me/yourchannel"
+                className="border-white/10 bg-black/20 font-mono"
+                data-testid="input-credit-bot-channel-link"
+              />
+              <p className="text-[11px] text-white/40">Shown when a user needs to rejoin.</p>
             </div>
             <div className="space-y-2">
               <label htmlFor="credit-bot-token" className="text-sm font-medium leading-none text-white">
@@ -324,6 +345,20 @@ function CreditBotSection() {
                 data-testid="input-credit-bot-token"
               />
               <p className="text-[11px] text-white/40">Encrypted server-side and never returned to the browser.</p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="credit-bot-name" className="text-sm font-medium leading-none text-white">
+                Bot name / username
+              </label>
+              <Input
+                id="credit-bot-name"
+                value={botName}
+                onChange={event => setBotName(event.target.value)}
+                placeholder="@your_rewards_bot"
+                className="border-white/10 bg-black/20 font-mono"
+                data-testid="input-credit-bot-name"
+              />
+              <p className="text-[11px] text-white/40">Used for the “Go to bot” button on the link page.</p>
             </div>
             <div className="space-y-2">
               <label htmlFor="credit-bot-reward" className="text-sm font-medium leading-none text-white">
@@ -356,7 +391,13 @@ function CreditBotSection() {
             <Button
               onClick={() => {
                 const rewardCents = Math.round(Number(rewardAmount) * 100);
-                saveMutation.mutate({ channelId, rewardCents, ...(token.trim() ? { token: token.trim() } : {}) });
+                saveMutation.mutate({
+                  channelId,
+                  channelLink,
+                  botName,
+                  rewardCents,
+                  ...(token.trim() ? { token: token.trim() } : {}),
+                });
               }}
               disabled={saveMutation.isPending}
               data-testid="button-save-credit-bot"
