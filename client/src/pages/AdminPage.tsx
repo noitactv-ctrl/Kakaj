@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
- import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, Code2, KeyRound, Landmark, Gift, RefreshCw } from "lucide-react";
+ import { Loader2, Plus, Trash2, Pencil, X, Users, DollarSign, ShoppingBag, Receipt, ShieldX, Menu, ChevronRight, ChevronDown, Link2, Package, Wallet, Pin, Tag, Copy, Check, Upload, ImageIcon, LayoutDashboard, CreditCard, MessageSquare, Settings, Code2, KeyRound, Landmark, Gift, RefreshCw, Bot, Send } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -30,12 +30,13 @@ const adminSections = [
   { id: "cards", label: "Cards",      Icon: CreditCard },
   { id: "products", label: "Products", Icon: Package },
   { id: "orders",   label: "Orders",     Icon: ShoppingBag },
-  { id: "cashapp",  label: "Payments",   Icon: DollarSign },
+  { id: "cashapp",  label: "Payments",   Icon: DollarSign, ownerOnly: true },
   { id: "deposits", label: "Deposits",   Icon: Wallet },
   { id: "codes",    label: "Codes",      Icon: Tag },
   { id: "users",    label: "Users",      Icon: Users },
   { id: "support",  label: "Support",    Icon: MessageSquare },
-  { id: "integrations", label: "Settings", Icon: Settings },
+  { id: "credit-bot", label: "Credit Bot", Icon: Bot, ownerOnly: true },
+  { id: "integrations", label: "Settings", Icon: Settings, ownerOnly: true },
 ];
 
 export default function AdminPage() {
@@ -45,6 +46,7 @@ export default function AdminPage() {
 
   const isAdmin = user?.role === "admin";
   const isOwner = Boolean((user as any)?.isOwner);
+  const visibleAdminSections = adminSections.filter(section => !section.ownerOnly || isOwner);
 
   if (authLoading) {
     return (
@@ -64,7 +66,7 @@ export default function AdminPage() {
     );
   }
 
-  const activeLabel = adminSections.find(s => s.id === activeSection)?.label ?? "";
+  const activeLabel = visibleAdminSections.find(s => s.id === activeSection)?.label ?? "";
 
   return (
     <div className="flex h-screen bg-[#0d0d0d] overflow-hidden">
@@ -79,7 +81,7 @@ export default function AdminPage() {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          {adminSections.map(({ id, label, Icon }) => {
+          {visibleAdminSections.map(({ id, label, Icon }) => {
             const active = activeSection === id;
             return (
               <button
@@ -137,7 +139,7 @@ export default function AdminPage() {
         {/* Scrollable content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
           <div className="pixel-page w-full">
-            {activeSection === "dashboard"    && <DashboardSection />}
+            {activeSection === "dashboard"    && <DashboardSection canManageDanger={isOwner} />}
             {activeSection === "cards"        && <AdminCardsSection />}
             {activeSection === "products"     && <ProductsSection />}
             {activeSection === "orders"       && <OrdersSection />}
@@ -146,6 +148,7 @@ export default function AdminPage() {
             {activeSection === "support"      && <SupportSection />}
             {activeSection === "deposits"     && <DepositsSection />}
             {activeSection === "codes"        && <CodesSection />}
+            {isOwner && activeSection === "credit-bot" && <CreditBotSection />}
 
             {activeSection === "integrations" && <IntegrationsSection />}
           </div>
@@ -156,7 +159,7 @@ export default function AdminPage() {
           className="md:hidden fixed bottom-0 inset-x-0 z-50 flex overflow-x-auto bg-[#111] border-t border-white/10"
           style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
         >
-          {adminSections.map(({ id, label, Icon }) => {
+          {visibleAdminSections.map(({ id, label, Icon }) => {
             const active = activeSection === id;
             return (
               <button
@@ -179,7 +182,276 @@ export default function AdminPage() {
   );
 }
 
-function DashboardSection() {
+type CreditBotStatus = {
+  enabled: boolean;
+  configured: boolean;
+  channelConfigured: boolean;
+  channelId: string;
+  linkedUsers: number;
+  rewardCents: number;
+  rewardIntervalHours: number;
+  brandName: string;
+};
+
+function CreditBotSection() {
+  const { toast } = useToast();
+  const [channelId, setChannelId] = useState("");
+  const [token, setToken] = useState("");
+  const [announcement, setAnnouncement] = useState("");
+  const [showNamedOnly, setShowNamedOnly] = useState(false);
+  const { data: status, isLoading } = useQuery<CreditBotStatus>({
+    queryKey: ["/api/admin/credit-bot"],
+  });
+  const { data: botUsers = [], isLoading: usersLoading } = useQuery<CreditBotUser[]>({
+    queryKey: ["/api/admin/credit-bot/users"],
+    refetchInterval: 15000,
+  });
+
+  useEffect(() => {
+    if (status) setChannelId(status.channelId ?? "");
+  }, [status?.channelId]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (updates: { enabled?: boolean; channelId?: string; token?: string }) => {
+      const response = await apiRequest("PATCH", "/api/admin/credit-bot", updates);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Could not save bot settings");
+      }
+      return response.json() as Promise<CreditBotStatus>;
+    },
+    onSuccess: () => {
+      setToken("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/credit-bot"] });
+      toast({ title: "Credit Bot updated" });
+    },
+    onError: (error: Error) => toast({ title: "Could not update bot", description: error.message, variant: "destructive" }),
+  });
+
+  const announcementMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/credit-bot/announcement", { message: announcement });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Could not send announcement");
+      }
+      return response.json() as Promise<{ sent: number; failed: number }>;
+    },
+    onSuccess: (result) => {
+      setAnnouncement("");
+      toast({
+        title: "Announcement sent",
+        description: `Delivered to ${result.sent} linked user${result.sent === 1 ? "" : "s"}${result.failed ? `; ${result.failed} failed` : ""}.`,
+      });
+    },
+    onError: (error: Error) => toast({ title: "Announcement failed", description: error.message, variant: "destructive" }),
+  });
+
+  if (isLoading || !status) {
+    return <div className="flex justify-center py-20"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold"><Bot className="h-6 w-6 text-primary" />Credit Bot</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Telegram account linking, rep rewards, and announcements.</p>
+        </div>
+        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${status.enabled ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
+          <span className={`h-2 w-2 rounded-full ${status.enabled ? "bg-green-400" : "bg-red-400"}`} />
+          {status.enabled ? "BOT ON" : "BOT OFF"}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard title="Linked users" value={status.linkedUsers} icon={Users} />
+        <StatCard title="Reward" value={`$${(status.rewardCents / 100).toFixed(2)}`} icon={DollarSign} color="green" />
+        <StatCard title="Reward timer" value={`${status.rewardIntervalHours}h`} icon={RefreshCw} color="orange" />
+        <StatCard title="Name rule" value={status.brandName} icon={Tag} />
+      </div>
+
+      <Card className="border-white/10 bg-[#111]">
+        <CardHeader>
+          <CardTitle className="text-base">Bot configuration</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div>
+              <p className="text-sm font-bold text-white">Rewards bot status</p>
+              <p className="mt-1 text-xs text-white/45">
+                Turning it off alerts linked users and makes every bot command return an offline message.
+              </p>
+            </div>
+            <Switch
+              checked={status.enabled}
+              disabled={saveMutation.isPending}
+              onCheckedChange={(enabled) => saveMutation.mutate({ enabled })}
+              data-testid="switch-credit-bot-enabled"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <FormLabel htmlFor="credit-bot-channel">Main channel ID</FormLabel>
+              <Input
+                id="credit-bot-channel"
+                value={channelId}
+                onChange={event => setChannelId(event.target.value)}
+                placeholder="@channel or -100..."
+                className="border-white/10 bg-black/20 font-mono"
+                data-testid="input-credit-bot-channel"
+              />
+              <p className="text-[11px] text-white/40">The bot checks membership in this Telegram channel before rewarding.</p>
+            </div>
+            <div className="space-y-2">
+              <FormLabel htmlFor="credit-bot-token">Telegram bot token</FormLabel>
+              <Input
+                id="credit-bot-token"
+                type="password"
+                value={token}
+                onChange={event => setToken(event.target.value)}
+                placeholder={status.configured ? "Configured — leave blank to keep" : "Paste bot token"}
+                autoComplete="new-password"
+                className="border-white/10 bg-black/20 font-mono"
+                data-testid="input-credit-bot-token"
+              />
+              <p className="text-[11px] text-white/40">Encrypted server-side and never returned to the browser.</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex gap-2 text-[11px]">
+              <Badge variant="outline" className={status.configured ? "border-green-500/30 text-green-400" : "border-amber-500/30 text-amber-300"}>
+                Token {status.configured ? "ready" : "missing"}
+              </Badge>
+              <Badge variant="outline" className={status.channelConfigured ? "border-green-500/30 text-green-400" : "border-amber-500/30 text-amber-300"}>
+                Channel {status.channelConfigured ? "ready" : "missing"}
+              </Badge>
+            </div>
+            <Button
+              onClick={() => saveMutation.mutate({ channelId, ...(token.trim() ? { token: token.trim() } : {}) })}
+              disabled={saveMutation.isPending}
+              data-testid="button-save-credit-bot"
+            >
+              {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save bot settings
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-white/10 bg-[#111]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base"><Send className="h-4 w-4 text-primary" />Announcement</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Textarea
+            value={announcement}
+            onChange={event => setAnnouncement(event.target.value)}
+            placeholder="Write a message to every linked Telegram user..."
+            maxLength={4000}
+            rows={6}
+            className="border-white/10 bg-black/20"
+            data-testid="textarea-credit-bot-announcement"
+          />
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] text-white/40">{announcement.length}/4000 characters</p>
+            <Button
+              onClick={() => announcementMutation.mutate()}
+              disabled={!announcement.trim() || announcementMutation.isPending}
+              data-testid="button-send-credit-bot-announcement"
+            >
+              {announcementMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Send to all linked users
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-white/10 bg-[#111]">
+        <CardHeader className="flex flex-row items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">Registered users and balances</CardTitle>
+            <p className="mt-1 text-xs text-white/45">All registered accounts. Telegram names are shown when a user has linked and set one.</p>
+          </div>
+          <Button
+            size="sm"
+            variant={showNamedOnly ? "default" : "outline"}
+            onClick={() => setShowNamedOnly(value => !value)}
+            className="shrink-0 text-xs"
+            data-testid="button-filter-credit-bot-named"
+          >
+            {showNamedOnly ? "Showing named" : "Show name set"}
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {usersLoading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-white/10 hover:bg-transparent">
+                    <TableHead className="text-xs text-white/45">User</TableHead>
+                    <TableHead className="text-xs text-white/45">Balance</TableHead>
+                    <TableHead className="text-xs text-white/45">Telegram name</TableHead>
+                    <TableHead className="text-xs text-white/45">Link</TableHead>
+                    <TableHead className="text-right text-xs text-white/45">Last reward</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {botUsers.filter(user => !showNamedOnly || user.telegramNameSet).map(user => (
+                    <TableRow key={user.id} className="border-white/10 hover:bg-white/[0.02]">
+                      <TableCell>
+                        <p className="text-xs font-bold text-white">{user.username}</p>
+                        <p className="text-[10px] text-white/35">{user.email}</p>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs font-bold text-green-300">${(user.balance / 100).toFixed(2)}</TableCell>
+                      <TableCell>
+                        {user.telegramNameSet ? (
+                          <div>
+                            <p className="text-xs text-white">{user.telegramName}</p>
+                            {user.telegramUsername && <p className="text-[10px] text-white/35">@{user.telegramUsername.replace(/^@/, "")}</p>}
+                          </div>
+                        ) : <span className="text-xs text-white/30">Not set</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={user.telegramLinked ? "border-green-500/30 text-green-400" : "border-white/10 text-white/35"}>
+                          {user.telegramLinked ? "Linked" : "Not linked"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right text-[10px] text-white/40">
+                        {user.lastTelegramNameReward ? new Date(user.lastTelegramNameReward).toLocaleString() : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!botUsers.filter(user => !showNamedOnly || user.telegramNameSet).length && (
+                    <TableRow><TableCell colSpan={5} className="py-8 text-center text-xs text-white/35">No users match this filter.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+type CreditBotUser = {
+  id: number;
+  username: string;
+  email: string;
+  balance: number;
+  telegramUsername: string;
+  telegramName: string;
+  telegramNameSet: boolean;
+  telegramLinked: boolean;
+  lastTelegramNameReward: string | null;
+};
+
+function DashboardSection({ canManageDanger }: { canManageDanger: boolean }) {
   const { toast } = useToast();
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -219,7 +491,7 @@ function DashboardSection() {
         <StatCard title="Stock Worth" value={`$${((stats?.stockWorth || 0) / 100).toFixed(2)}`} icon={Package} color="gold" />
       </div>
 
-      <div className="border border-red-500/20 bg-red-950/10 rounded-xl p-4 space-y-3">
+      {canManageDanger && <div className="border border-red-500/20 bg-red-950/10 rounded-xl p-4 space-y-3">
         <div>
           <p className="text-sm font-bold text-red-400">Danger Zone</p>
           <p className="text-xs text-white/45 mt-0.5">Permanently wipe all products, orders, cards, and reset all user balances to $0.</p>
@@ -251,7 +523,7 @@ function DashboardSection() {
             </button>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -1955,6 +2227,7 @@ function CodesSection() {
 
   const [redeemForm, setRedeemForm] = useState({ amount: "", count: "1" });
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+  const [allCodesCopied, setAllCodesCopied] = useState(false);
 
   const generateRedeemMutation = useMutation({
     mutationFn: async () => {
@@ -1974,6 +2247,7 @@ function CodesSection() {
     },
     onSuccess: data => {
       setGeneratedCodes(data.codes);
+      setAllCodesCopied(false);
       toast({ title: "Redeem codes generated", description: `${data.codes.length} reward code${data.codes.length === 1 ? "" : "s"} created.` });
     },
     onError: (error: Error) => toast({ title: "Unable to generate codes", description: error.message, variant: "destructive" }),
@@ -2071,7 +2345,29 @@ function CodesSection() {
           </Button>
           {generatedCodes.length > 0 && (
             <div className="space-y-2 rounded-lg border border-green-500/20 bg-green-500/5 p-3">
-              <p className="text-xs font-semibold text-green-300">Copy these codes now</p>
+               <div className="flex items-center justify-between gap-3">
+                 <p className="text-xs font-semibold text-green-300">Copy these codes now</p>
+                 <Button
+                   type="button"
+                   size="sm"
+                   variant="outline"
+                   className="h-7 gap-1.5 border-green-500/30 text-[10px] text-green-200 hover:bg-green-500/10"
+                   onClick={async () => {
+                     try {
+                       await navigator.clipboard.writeText(generatedCodes.join("\n"));
+                       setAllCodesCopied(true);
+                       toast({ title: "All codes copied", description: `${generatedCodes.length} codes copied to your clipboard.` });
+                       window.setTimeout(() => setAllCodesCopied(false), 2000);
+                     } catch {
+                       toast({ title: "Copy failed", description: "Select the codes and copy them manually.", variant: "destructive" });
+                     }
+                   }}
+                   data-testid="button-copy-all-redeem-codes"
+                 >
+                   {allCodesCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                   {allCodesCopied ? "Copied" : "Copy all"}
+                 </Button>
+               </div>
               {generatedCodes.map(code => (
                 <div key={code} className="flex items-center gap-2 rounded bg-black/20 px-2 py-1.5">
                   <span className="flex-1 font-mono text-xs text-white">{code}</span>

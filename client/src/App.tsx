@@ -24,6 +24,7 @@ import RoutingCatalogPage from "@/pages/RoutingCatalogPage";
 import LogsPage from "@/pages/LogsPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
 import RedeemPage from "@/pages/RedeemPage";
+import LinkPage from "@/pages/LinkPage";
 
 function Router() {
   const { user, isLoading } = useAuth();
@@ -48,6 +49,7 @@ function Router() {
         <Route path="/" component={DepositPage} />
         <Route path="/deposit" component={DepositPage} />
         <Route path="/redeem" component={RedeemPage} />
+        <Route path="/link" component={LinkPage} />
         <Route path="/shop"><Redirect to="/logs" /></Route>
         <Route path="/products" component={LogsPage} />
         <Route path="/logs" component={LogsPage} />

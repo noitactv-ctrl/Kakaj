@@ -23,3 +23,4 @@
 - [Site cursor states](site-wide-crosshair-cursor.md) — preserve the three original custom cursor states: arrow, hand, and text.
 - [API log privacy](api-log-privacy.md) — never serialize API response bodies into logs because authenticated responses can contain delivered inventory or account data.
 - [Refund atomicity](refund-atomicity.md) — refunds must claim order state and update wallet, ledger, and inventory in one transaction to prevent duplicate credits or partial cleanup.
+- [Telegram rep rewards](telegram-rep-rewards.md) — link codes are one-time and short-lived; profile changes reset the timer, and each reward must atomically update balance and ledger.

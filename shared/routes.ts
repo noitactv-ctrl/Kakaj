@@ -8,7 +8,7 @@ import {
   users, productCategories, products, variants, orders, transactions, announcements
 } from './schema';
 
-export type PublicUser = Omit<typeof users.$inferSelect, 'password' | 'loginCode'> & {
+export type PublicUser = Omit<typeof users.$inferSelect, 'password' | 'loginCode' | 'telegramNameSignature'> & {
   isOwner: boolean;
 };
 

@@ -8,6 +8,7 @@ import { pool, db } from "./db";
 import { sql } from "drizzle-orm";
 import { ensureApiSettingsSchema, migrateLegacySecretSettings, removeRetiredApiSettings } from "./settings";
 import { reconcilePlisioIntents } from "./plisio-reconciler";
+import { startTelegramBot, stopTelegramBot } from "./telegram-bot";
 
 const app = express();
 const httpServer = createServer(app);
@@ -177,11 +178,13 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
     log(`serving on port ${port}`);
+    startTelegramBot();
   });
 
   // Graceful shutdown — close the HTTP server on SIGTERM/SIGINT so the port
   // is released before the process exits, preventing EADDRINUSE on restart.
   const shutdown = () => {
+    stopTelegramBot();
     httpServer.close(() => process.exit(0));
     pool.end().catch((error) => console.error("[db] shutdown error:", error));
     setTimeout(() => process.exit(0), 3000); // hard exit after 3 s

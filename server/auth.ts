@@ -51,7 +51,7 @@ function generateCaptchaSvg(code: string): string {
 }
 
 export function publicUser(user: User): PublicUser {
-  const { password, loginCode, ...safeUser } = user;
+  const { password, loginCode, telegramNameSignature, ...safeUser } = user;
   return { ...safeUser, isOwner: isFounderIdentity(user.email) };
 }
 

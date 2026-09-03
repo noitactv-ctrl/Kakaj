@@ -29,6 +29,14 @@ import {
 } from "./settings";
 import { extractCardMetadata, normalizeCardNumber } from "./card-privacy";
 import { splitCardEntries } from "@shared/card-input";
+import {
+  broadcastTelegramMessage,
+  createTelegramLinkToken,
+  getTelegramBotStatus,
+  getTelegramBotUsers,
+  getTelegramLinkToken,
+  saveTelegramBotConfig,
+} from "./telegram-bot";
 
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
@@ -42,7 +50,7 @@ function isOwner(req: any): boolean {
 
 function requireOwner(req: any, res: any): boolean {
   if (isOwner(req)) return true;
-  res.status(403).json({ message: "Only the owner can manage admins and workers" });
+  res.status(403).json({ message: "Only the owner can access this control" });
   return false;
 }
 
@@ -432,6 +440,26 @@ export async function registerRoutes(
 
   // Auth setup (handles /api/login, /api/register, /api/logout, /api/user)
   setupAuth(app);
+
+  app.get("/api/telegram/link-token", async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+      const token = await getTelegramLinkToken((req.user as any).id);
+      res.json(token ? { token: token.token, createdAt: token.createdAt } : { token: null });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/telegram/link-token", async (req, res, next) => {
+    try {
+      if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+      const token = await createTelegramLinkToken((req.user as any).id);
+      res.status(201).json({ token, createdAt: new Date() });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   // Public announcements
   app.get("/api/announcements", async (req, res) => {
@@ -1236,9 +1264,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/admin/clear-all-data", async (req, res) => {
-    if (!req.isAuthenticated() || (req.user as any).role !== "admin") {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+    if (!requireOwner(req, res)) return;
     try {
       await db.delete(orderItems);
       await db.delete(cryptoPayments);
@@ -1252,6 +1278,69 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/admin/credit-bot", async (req, res, next) => {
+    try {
+      if (!requireOwner(req, res)) return;
+      res.json(await getTelegramBotStatus());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/credit-bot/users", async (req, res, next) => {
+    try {
+      if (!requireOwner(req, res)) return;
+      res.json(await getTelegramBotUsers());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/admin/credit-bot", async (req, res, next) => {
+    try {
+      if (!requireOwner(req, res)) return;
+      const updates: { enabled?: boolean; channelId?: string; token?: string } = {};
+      if (req.body.enabled !== undefined) updates.enabled = Boolean(req.body.enabled);
+      if (req.body.channelId !== undefined) {
+        if (typeof req.body.channelId !== "string" || req.body.channelId.trim().length > 120) {
+          return res.status(400).json({ message: "Channel ID is invalid" });
+        }
+        updates.channelId = req.body.channelId.trim();
+      }
+      if (req.body.token !== undefined && req.body.token !== "") {
+        if (typeof req.body.token !== "string" || req.body.token.trim().length > 256) {
+          return res.status(400).json({ message: "Telegram token is invalid" });
+        }
+        updates.token = req.body.token.trim();
+      }
+
+      const before = await getTelegramBotStatus();
+      const status = await saveTelegramBotConfig(updates);
+      if (updates.enabled !== undefined && updates.enabled !== before.enabled) {
+        await broadcastTelegramMessage(
+          updates.enabled
+            ? "✅ The beastcc.xyz rewards bot is back up."
+            : "⚠️ The beastcc.xyz rewards bot is turned off right now. We’ll let you know when it’s back up.",
+        );
+      }
+      res.json(status);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/credit-bot/announcement", async (req, res, next) => {
+    try {
+      if (!requireOwner(req, res)) return;
+      const message = typeof req.body.message === "string" ? req.body.message.trim() : "";
+      if (!message) return res.status(400).json({ message: "Announcement message is required" });
+      if (message.length > 4000) return res.status(400).json({ message: "Announcement must be 4,000 characters or fewer" });
+      res.json(await broadcastTelegramMessage(message));
+    } catch (error) {
+      next(error);
     }
   });
 
@@ -2438,6 +2527,19 @@ export async function registerRoutes(
   app.get("/api/crypto-readiness", async (_req, res) => {
     res.json(await getCryptoReadiness());
   });
+
+  for (const ownerSettingsPath of [
+    "/api/admin/payment-methods",
+    "/api/admin/crypto-currencies",
+    "/api/admin/integrations",
+    "/api/admin/api-settings",
+    "/api/admin/settings",
+  ]) {
+    app.use(ownerSettingsPath, (req, res, next) => {
+      if (!requireOwner(req, res)) return;
+      next();
+    });
+  }
 
   // ── Payment method admin toggle ───────────────────────────────────────────
   app.get("/api/admin/payment-methods", async (req, res) => {
