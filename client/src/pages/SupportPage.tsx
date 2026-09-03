@@ -13,6 +13,7 @@ type Ticket = {
   status: "open" | "refunded" | "replaced" | "resolved";
   adminMessage: string | null;
   createdAt: string;
+  purchasedStock?: { itemType: string; label: string; content: string; quantity: number }[];
 };
 
 type Order = {
@@ -295,6 +296,18 @@ export default function SupportPage() {
                       <span>Purchased {purchasedAt}</span>
                     </div>
                   )}
+
+                  {ticket.purchasedStock?.length ? (
+                    <div className="border-[3px] border-black bg-[#0b1644] p-3 space-y-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#ffe177]">Purchased stock</p>
+                      {ticket.purchasedStock.map((stock, index) => (
+                        <div key={`${stock.itemType}-${index}`} className="space-y-1">
+                          <p className="text-[10px] font-mono text-white/45">{stock.label}</p>
+                          <pre className="whitespace-pre-wrap break-all text-[11px] leading-relaxed text-white">{stock.content}</pre>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
 
                   <p className="text-xs text-white/50 leading-relaxed">{ticket.description}</p>
                   {ticket.imageUrl && (

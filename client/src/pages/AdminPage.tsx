@@ -4300,6 +4300,18 @@ function SupportSection() {
               )}
             </div>
 
+            {ticket.purchasedStock?.length ? (
+              <div className="border-[3px] border-black bg-[#0b1644] p-3 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#ffe177]">Purchased stock</p>
+                {ticket.purchasedStock.map((stock: any, index: number) => (
+                  <div key={`${stock.itemType}-${index}`} className="space-y-1">
+                    <p className="text-[10px] font-mono text-white/45">{stock.label}</p>
+                    <pre className="whitespace-pre-wrap break-all text-[11px] leading-relaxed text-white">{stock.content}</pre>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {/* Existing admin message */}
             {ticket.adminMessage && (
               <div className="bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">

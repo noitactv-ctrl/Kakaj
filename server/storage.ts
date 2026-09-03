@@ -1529,14 +1529,93 @@ export class DatabaseStorage implements IStorage {
 
   async getSupportTickets(userId?: number): Promise<any[]> {
     const q = db
-      .select({ ticket: supportTickets, purchaseAt: orders.createdAt })
+      .select({
+        ticket: supportTickets,
+        purchaseAt: orders.createdAt,
+        orderDbId: orders.id,
+        orderStatus: orders.status,
+        deliveryContent: orders.deliveryContent,
+      })
       .from(supportTickets)
-      .leftJoin(orders, eq(orders.orderId, supportTickets.orderId))
+      .leftJoin(orders, and(
+        eq(orders.orderId, supportTickets.orderId),
+        eq(orders.userId, supportTickets.userId),
+      ))
       .orderBy(desc(supportTickets.createdAt));
     const rows = userId
       ? await q.where(eq(supportTickets.userId, userId))
       : await q;
-    return rows.map(({ ticket, purchaseAt }) => ({ ...ticket, purchaseAt }));
+    return Promise.all(rows.map(async ({
+      ticket,
+      purchaseAt,
+      orderDbId,
+      orderStatus,
+      deliveryContent,
+    }) => {
+      const canViewStock = ["delivering", "fulfilled", "replaced", "refunded"].includes(orderStatus ?? "");
+      let purchasedStock: Array<{
+        itemType: string;
+        label: string;
+        content: string;
+        quantity: number;
+      }> = [];
+
+      if (orderDbId && canViewStock) {
+        const itemRows = await db.select({
+          itemType: orderItems.itemType,
+          quantity: orderItems.quantity,
+          cardNumber: cards.cardNumber,
+          expiry: cards.expiry,
+          cvv: cards.cvv,
+          country: cards.country,
+          extras: cards.extras,
+          stockContent: stockItems.content,
+          productName: products.name,
+          variantName: variants.name,
+        })
+          .from(orderItems)
+          .leftJoin(cards, eq(cards.id, orderItems.cardId))
+          .leftJoin(stockItems, eq(stockItems.id, orderItems.stockItemId))
+          .leftJoin(variants, eq(variants.id, orderItems.variantId))
+          .leftJoin(products, eq(products.id, variants.productId))
+          .where(eq(orderItems.orderId, orderDbId))
+          .orderBy(asc(orderItems.id));
+
+        purchasedStock = itemRows.flatMap(item => {
+          if (item.itemType === "card" && item.cardNumber) {
+            return [{
+              itemType: "card",
+              label: "Card",
+              content: formatCardDeliveryContent({
+                cardNumber: item.cardNumber,
+                expiry: item.expiry ?? "",
+                cvv: item.cvv ?? "",
+                country: item.country ?? "",
+                extras: item.extras,
+              }),
+              quantity: item.quantity ?? 1,
+            }];
+          }
+          if (item.itemType === "product" && item.stockContent) {
+            return [{
+              itemType: "product",
+              label: [item.productName, item.variantName].filter(Boolean).join(" · ") || "Product",
+              content: item.stockContent,
+              quantity: item.quantity ?? 1,
+            }];
+          }
+          return [];
+        });
+      }
+
+      // Refunded legacy orders may have deleted their linked inventory rows,
+      // but the order-level delivery snapshot still preserves what was sold.
+      if (purchasedStock.length === 0 && canViewStock && deliveryContent?.trim()) {
+        purchasedStock = [{ itemType: "order", label: "Purchased stock", content: deliveryContent, quantity: 1 }];
+      }
+
+      return { ...ticket, purchaseAt, purchasedStock };
+    }));
   }
 
   async getSupportTicket(id: number): Promise<any> {
