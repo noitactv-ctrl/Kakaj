@@ -23,6 +23,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { CryptoCoinIcon, type CryptoCurrencyOption } from "@/components/CryptoCoinSelector";
 import { refreshCardBins } from "@/lib/card-refresh";
+import { splitCardEntries } from "@shared/card-input";
 
 const adminSections = [
   { id: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
@@ -3664,7 +3665,9 @@ function AdminCardsSection() {
   const orderedCards = cards ?? [];
 
   // Auto-extract BIN + ZIP preview from first card entry
-  const cardEntries = fullItem.split(/\n\s*\n/).map(e => e.trim()).filter(Boolean);
+  const cardEntries = splitCardEntries(fullItem);
+  const detectedCardCount = cardEntries.filter(entry => findCardNumberPreview(entry).length >= 13).length;
+  const malformedEntryCount = Math.max(0, cardEntries.length - detectedCardCount);
   const previewBin = findCardNumberPreview(cardEntries[0] || "").substring(0, 6);
   const previewState = extractStatePreview(cardEntries[0] || "");
   const previewZip = extractZipPreview(cardEntries[0] || "");
@@ -3755,14 +3758,19 @@ function AdminCardsSection() {
             value={fullItem}
             onChange={e => setFullItem(e.target.value)}
              placeholder={"4111111111111111|12/25|123|John Doe|123 Main St|City|CA|12345\n4222222222222222|12/26|456|Jane Doe|456 Oak Ave|City|NY|54321"}
-            rows={5}
+            rows={8}
             className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
             data-testid="input-full-item"
           />
-            <p className="text-[10px] text-white/30">Separate each card with a blank line. Include a valid U.S. state (abbreviation or full name) and ZIP for every card.</p>
+            <p className="text-[10px] text-white/30">Paste one card per line or separate cards with a blank line. Large batches are supported. Include a valid U.S. state and ZIP for every card.</p>
            <div className="flex flex-wrap gap-3">
-            {cardEntries.length > 1 && (
-              <p className="text-[10px] text-white/50 font-mono">{cardEntries.length} cards detected</p>
+             <p className="text-[10px] text-white/50 font-mono">
+               {detectedCardCount} card{detectedCardCount === 1 ? "" : "s"} detected
+             </p>
+             {malformedEntryCount > 0 && (
+               <p className="text-[10px] text-red-400/80 font-mono">
+                 {malformedEntryCount} entr{malformedEntryCount === 1 ? "y" : "ies"} need review
+               </p>
             )}
             {previewBin.length === 6 && (
               <p className="text-[10px] text-primary/60 font-mono">BIN: {previewBin}</p>
@@ -3812,7 +3820,7 @@ function AdminCardsSection() {
           className="w-full h-8 text-xs"
           data-testid="btn-add-card"
         >
-          {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : cardEntries.length > 1 ? `Add ${cardEntries.length} Cards` : "Add Card"}
+          {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : detectedCardCount > 1 ? `Add ${detectedCardCount} Cards` : "Add Card"}
         </Button>
       </div>
 

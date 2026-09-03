@@ -28,6 +28,7 @@ import {
   setApiSettingEnabled,
 } from "./settings";
 import { extractCardMetadata, normalizeCardNumber } from "./card-privacy";
+import { splitCardEntries } from "@shared/card-input";
 
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
@@ -1791,8 +1792,8 @@ export async function registerRoutes(
       return "";
     }
 
-    // Multiple cards use the existing blank-line-separated format.
-    const entries = rawInput.split(/\n\s*\n/).map((e: string) => e.trim()).filter(Boolean);
+    // Accept blank-line-separated cards and one-card-per-line bulk pastes.
+    const entries = splitCardEntries(rawInput);
     if (entries.length === 0) {
       return res.status(400).json({ message: "Full item is required" });
     }

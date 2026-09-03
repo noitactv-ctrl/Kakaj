@@ -7,4 +7,4 @@ Use the original card-stocking workflow, including its card-base selection, but 
 
 **Why:** The user explicitly chose a card-only restoration to the August 21 workflow and then removed the First Hand control and the newer stock/fixture layer.
 
-**How to apply:** Keep restoration scoped to the card area and preserve completed-order history when clearing available inventory.
+**How to apply:** Keep restoration scoped to the card area and preserve completed-order history when clearing available inventory. Bulk card input accepts both blank-line-separated records and one-card-per-line pastes, with the UI showing the detected count.
