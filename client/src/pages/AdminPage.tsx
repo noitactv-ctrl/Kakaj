@@ -3664,7 +3664,7 @@ function AdminCardsSection() {
 
   const orderedCards = cards ?? [];
 
-  // Auto-extract BIN + ZIP preview from first card entry
+  // Auto-extract BIN + ZIP preview from the first detected card in the stock block
   const cardEntries = splitCardEntries(fullItem);
   const detectedCardCount = cardEntries.filter(entry => findCardNumberPreview(entry).length >= 13).length;
   const malformedEntryCount = Math.max(0, cardEntries.length - detectedCardCount);
@@ -3762,7 +3762,7 @@ function AdminCardsSection() {
             className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
             data-testid="input-full-item"
           />
-            <p className="text-[10px] text-white/30">Paste one card per line or separate cards with a blank line. Large batches are supported. Include a valid U.S. state and ZIP for every card.</p>
+            <p className="text-[10px] text-white/30">Paste the full stock block at once. Each card starts at its card number; the importer finds each card boundary and keeps count. Include a valid U.S. state and ZIP for every card.</p>
            <div className="flex flex-wrap gap-3">
              <p className="text-[10px] text-white/50 font-mono">
                {detectedCardCount} card{detectedCardCount === 1 ? "" : "s"} detected

@@ -1792,7 +1792,7 @@ export async function registerRoutes(
       return "";
     }
 
-    // Accept blank-line-separated cards and one-card-per-line bulk pastes.
+    // Find card boundaries inside the entire pasted stock block.
     const entries = splitCardEntries(rawInput);
     if (entries.length === 0) {
       return res.status(400).json({ message: "Full item is required" });
