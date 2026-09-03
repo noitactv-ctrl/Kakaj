@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/toast"
 import { CheckCircle2, AlertCircle } from "lucide-react"
 
+const TOAST_DURATION = 3000;
+
 function compactErrorMessage(description: React.ReactNode): React.ReactNode {
   if (typeof description !== "string" || description.length <= 96) return description;
   const firstSentence = description.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
@@ -19,11 +21,11 @@ export function Toaster() {
   const { toasts } = useToast()
 
   return (
-    <ToastProvider>
+    <ToastProvider duration={TOAST_DURATION}>
       {toasts.map(function ({ id, title, description, action, variant, ...props }) {
         const isError = variant === "destructive"
         return (
-          <Toast key={id} variant={variant} {...props}>
+          <Toast key={id} variant={variant} {...props} duration={TOAST_DURATION}>
             <div className="flex items-start gap-3 flex-1 min-w-0">
               <div className="flex-shrink-0 mt-0.5">
                 {isError
