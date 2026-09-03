@@ -791,48 +791,91 @@ export class DatabaseStorage implements IStorage {
     await this.updateUserBalance(userId, -total);
     await this.createTransaction(userId, -total, "purchase", `Order purchase`);
 
-    // Build delivery content from reserved stock
-    const deliveryParts: DeliveryParts = {};
-    for (const res of reservedStockItems) {
-      const key = String(res.variantId);
-      appendUniqueDeliveryContent(deliveryParts, key, res.content);
-    }
-    const deliveryContent = serializeDeliveryParts(deliveryParts);
-    const publicOrderId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const [order] = await db.insert(orders).values({
-      userId,
-      orderId: publicOrderId,
-      total,
-      paidAmount: total,
-      status: "delivering",
-      deliveryContent,
-    }).returning();
-
-    for (const res of reservedStockItems) {
-      await db.insert(orderItems).values({
-        orderId: order.id,
-        variantId: res.variantId,
-        stockItemId: res.stockItemId,
-        cardId: null,
-        itemType: "product",
-        price: res.price,
-        quantity: 1
+    const productRawTotal = reservedStockItems.reduce((sum, item) => sum + item.price, 0);
+    const orderParts = [
+      ...(reservedStockItems.length > 0 ? [{ key: "products", rawTotal: productRawTotal }] : []),
+      ...cardPurchases.map(card => ({ key: `card:${card.cardId}`, rawTotal: card.price })),
+    ];
+    const allocatedTotals = new Map<string, number>();
+    let allocated = 0;
+    const proportionalParts = orderParts.map(part => {
+      const exact = rawTotal > 0 ? total * part.rawTotal / rawTotal : 0;
+      const cents = Math.floor(exact);
+      allocated += cents;
+      return { ...part, cents, fraction: exact - cents };
+    });
+    let remainder = total - allocated;
+    proportionalParts
+      .sort((a, b) => b.fraction - a.fraction)
+      .forEach(part => {
+        const extra = remainder > 0 ? 1 : 0;
+        allocatedTotals.set(part.key, part.cents + extra);
+        remainder -= extra;
       });
-      await db.update(stockItems).set({ orderId: order.id }).where(eq(stockItems.id, res.stockItemId));
+
+    const createdOrders: Order[] = [];
+    const makeOrderId = (prefix = "") =>
+      `${prefix}${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+
+    if (reservedStockItems.length > 0) {
+      const deliveryParts: DeliveryParts = {};
+      for (const res of reservedStockItems) {
+        appendUniqueDeliveryContent(deliveryParts, String(res.variantId), res.content);
+      }
+      const productTotal = allocatedTotals.get("products") ?? productRawTotal;
+      const [productOrder] = await db.insert(orders).values({
+        userId,
+        orderId: makeOrderId(),
+        total: productTotal,
+        paidAmount: productTotal,
+        status: "delivering",
+        deliveryContent: serializeDeliveryParts(deliveryParts),
+      }).returning();
+      createdOrders.push(productOrder);
+
+      for (const res of reservedStockItems) {
+        await db.insert(orderItems).values({
+          orderId: productOrder.id,
+          variantId: res.variantId,
+          stockItemId: res.stockItemId,
+          cardId: null,
+          itemType: "product",
+          price: res.price,
+          quantity: 1
+        });
+        await db.update(stockItems).set({ orderId: productOrder.id }).where(eq(stockItems.id, res.stockItemId));
+      }
     }
 
     for (const cp of cardPurchases) {
+      const card = cardMap[cp.cardId];
+      const cardTotal = allocatedTotals.get(`card:${cp.cardId}`) ?? cp.price;
+      const cardDelivery: DeliveryParts = {};
+      appendUniqueDeliveryContent(cardDelivery, "cards", formatCardDeliveryContent(card));
+      const [cardOrder] = await db.insert(orders).values({
+        userId,
+        orderId: makeOrderId("CARD-"),
+        total: cardTotal,
+        paidAmount: cardTotal,
+        status: "delivering",
+        deliveryContent: serializeDeliveryParts(cardDelivery),
+        paymentMethod: "wallet",
+      }).returning();
+      createdOrders.push(cardOrder);
+
       await db.insert(orderItems).values({
-        orderId: order.id,
+        orderId: cardOrder.id,
         variantId: null,
         cardId: cp.cardId,
         itemType: "card",
-        price: cp.price,
+        price: cardTotal,
         quantity: 1
       });
     }
 
-    return order;
+    const primaryOrder = createdOrders[0];
+    if (!primaryOrder) throw new Error("Order could not be created");
+    return primaryOrder;
   }
 
   async createPendingOrder(userId: number, items: { variantId: number; quantity: number }[], cardIds: number[] = [], discountCodeId?: number | null, bulkCardIds: number[] = []): Promise<Order> {

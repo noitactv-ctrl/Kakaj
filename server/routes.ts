@@ -540,9 +540,10 @@ export async function registerRoutes(
       const { items, cardIds, bulkCardIds, discountCodeId, sellerId } = req.body;
       const productItems = (items || []).filter((i: any) => !i.cardId && i.variantId > 0)
         .map((i: any) => ({ ...i, sellerId: sellerId || i.sellerId || undefined }));
-      const cardIdList: number[] = cardIds || [];
+      const bulkCardIdList: number[] = bulkCardIds || [];
+      const cardIdList: number[] = bulkCardIdList.length > 0 ? bulkCardIdList : (cardIds || []);
 
-      const order = await storage.createOrder(userId, productItems, cardIdList, discountCodeId ?? null, bulkCardIds || []);
+      const order = await storage.createOrder(userId, productItems, cardIdList, discountCodeId ?? null, bulkCardIdList);
       res.status(201).json(order);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
