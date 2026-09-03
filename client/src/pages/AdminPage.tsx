@@ -3663,15 +3663,29 @@ function AdminCardsSection() {
       qc.invalidateQueries({ queryKey: ["/api/card-bases"] });
       setFullItem(""); setPrice(""); setSelectedBaseId("");
       const count = data?.count ?? 1;
-      const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
+       const skippedItems = Array.isArray(data?.skipped) ? data.skipped : [];
+       const skipped = skippedItems.length;
       const duplicateCount = Number(data?.duplicateCount ?? 0);
       const nonCardsFlagged = Number(data?.nonCardsFlagged ?? 0);
       const invalidCount = Math.max(0, skipped - duplicateCount);
-      const details = [
-        duplicateCount > 0 ? `(${duplicateCount}) cards duplicated` : "",
-        invalidCount > 0 ? `(${invalidCount}) invalid cards skipped` : "",
-        nonCardsFlagged > 0 ? `(${nonCardsFlagged}) cards flagged NON` : "",
-      ].filter(Boolean).join(" · ");
+       const reasonCounts = new Map<string, number>();
+       for (const item of skippedItems) {
+         const reason = /already sold/i.test(item.reason)
+           ? "card already sold"
+           : /already in stock/i.test(item.reason)
+             ? "card already in stock"
+             : item.reason;
+         reasonCounts.set(reason, (reasonCounts.get(reason) ?? 0) + 1);
+       }
+       const skippedDetails = Array.from(reasonCounts.entries())
+         .slice(0, 3)
+         .map(([reason, amount]) => `(${amount}) ${reason}`)
+         .join(" · ");
+       const details = [
+         skippedDetails,
+         reasonCounts.size > 3 ? `(${skipped - Array.from(reasonCounts.values()).slice(0, 3).reduce((sum, amount) => sum + amount, 0)}) other cards skipped` : "",
+         nonCardsFlagged > 0 ? `(${nonCardsFlagged}) cards flagged NON` : "",
+       ].filter(Boolean).join(" · ");
       toast({
         title: count > 1 ? `${count} cards added` : "Card added",
         description: details || undefined,

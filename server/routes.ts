@@ -1864,11 +1864,16 @@ export async function registerRoutes(
         createdCards.push({ ...card, binData: cardBinData, metadata: postedMetadata });
         if (cardBinData.lookupStatus === "non") nonCardsFlagged += 1;
       } catch (error: any) {
-        if (/duplicate card stock/i.test(error?.message ?? "")) {
+        if (/duplicate card stock|card already sold|card already in stock/i.test(error?.message ?? "")) {
+          const reason = /card already sold/i.test(error?.message ?? "")
+            ? "Card already sold"
+            : /card already in stock/i.test(error?.message ?? "")
+              ? "Card already in stock"
+              : "Duplicate card number already exists in inventory or order history";
           skippedCards.push({
             entry: entryIndex + 1,
             bin: postedMetadata.bin,
-            reason: "Duplicate card number already exists in inventory or order history",
+            reason,
           });
           continue;
         }
@@ -1881,11 +1886,11 @@ export async function registerRoutes(
         .slice(0, 3)
         .map(item => `Entry ${item.entry}: ${item.reason}`)
         .join(" · ");
-      const duplicateCount = skippedCards.filter(item => /duplicate card stock/i.test(item.reason)).length;
+      const duplicateCount = skippedCards.filter(item => /duplicate card stock|already sold|already in stock/i.test(item.reason)).length;
       return res.status(422).json({
         message: details
-          ? `No valid cards were found. ${details}`
-          : "No valid cards were found. Include a card number, state, and ZIP.",
+          ? `No cards were added. ${details}`
+          : "No cards were added. Check the card details and try again.",
         skipped: skippedCards,
         duplicateCount,
       });
@@ -1896,12 +1901,12 @@ export async function registerRoutes(
         ? {
           ...createdCards[0],
           skipped: skippedCards,
-          duplicateCount: skippedCards.filter(item => /duplicate card stock/i.test(item.reason)).length,
+          duplicateCount: skippedCards.filter(item => /duplicate card stock|already sold|already in stock/i.test(item.reason)).length,
           nonCardsFlagged,
         }
         : { ...createdCards[0], nonCardsFlagged });
     } else {
-      const duplicateCount = skippedCards.filter(item => /duplicate card stock/i.test(item.reason)).length;
+      const duplicateCount = skippedCards.filter(item => /duplicate card stock|already sold|already in stock/i.test(item.reason)).length;
       res.status(201).json({
         cards: createdCards,
         count: createdCards.length,

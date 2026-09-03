@@ -1721,13 +1721,14 @@ export class DatabaseStorage implements IStorage {
     return db.transaction(async (tx) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${fingerprint}))`);
       const duplicate = await tx.execute(sql`
-        SELECT id
+        SELECT is_sold
         FROM cards
         WHERE regexp_replace(card_number, '\\D', '', 'g') = ${fingerprint}
         LIMIT 1
       `);
       if (duplicate.rows.length > 0) {
-        throw new Error("Duplicate card stock detected; this card is already in inventory or order history");
+        const existingCard = duplicate.rows[0] as { is_sold?: boolean };
+        throw new Error(existingCard.is_sold ? "Card already sold" : "Card already in stock");
       }
 
       const [card] = await tx.insert(cards).values({
