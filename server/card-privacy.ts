@@ -5,6 +5,25 @@ const usStates = new Set([
   "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI",
   "DC",
 ]);
+const usStateNames: Record<string, string> = {
+  alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA",
+  colorado: "CO", connecticut: "CT", delaware: "DE", florida: "FL", georgia: "GA",
+  hawaii: "HI", idaho: "ID", illinois: "IL", indiana: "IN", iowa: "IA", kansas: "KS",
+  kentucky: "KY", louisiana: "LA", maine: "ME", maryland: "MD", massachusetts: "MA",
+  michigan: "MI", minnesota: "MN", mississippi: "MS", missouri: "MO", montana: "MT",
+  nebraska: "NE", nevada: "NV", "new hampshire": "NH", "new jersey": "NJ",
+  "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND",
+  ohio: "OH", oklahoma: "OK", oregon: "OR", pennsylvania: "PA", "rhode island": "RI",
+  "south carolina": "SC", "south dakota": "SD", tennessee: "TN", texas: "TX",
+  utah: "UT", vermont: "VT", virginia: "VA", washington: "WA",
+  "west virginia": "WV", wisconsin: "WI", wyoming: "WY", "district of columbia": "DC",
+};
+
+function normalizeUsState(value: string | null | undefined): string {
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (usStates.has(normalized.toUpperCase())) return normalized.toUpperCase();
+  return usStateNames[normalized] ?? "";
+}
 
 function isLikelyCardholderName(value: string): boolean {
   return /^[A-Za-z][A-Za-z .'-]{1,80}$/.test(value.trim());
@@ -48,7 +67,7 @@ export function normalizeCardNumber(value: string | null | undefined): string {
 }
 
 export function isValidCardState(value: string | null | undefined): boolean {
-  return usStates.has(String(value ?? "").trim().toUpperCase());
+  return Boolean(normalizeUsState(value));
 }
 
 export function isValidCardZip(value: string | null | undefined): boolean {
@@ -68,17 +87,17 @@ export function extractCardMetadata(
 ): CardMetadata {
   const raw = extras ?? "";
   const fields = raw.split(/[|\t]/).map(field => field.trim());
-  const stateFromLabel = (binData?.state || labeledValue(raw, "state|region")).trim().toUpperCase();
-  const stateIndex = fields.findIndex(field => usStates.has(field.toUpperCase()));
+  const stateFromLabel = normalizeUsState(binData?.state || labeledValue(raw, "state|region"));
+  const stateIndex = fields.findIndex(field => Boolean(normalizeUsState(field)));
   const looseState = raw
     .split(/[|\t,;\n]/)
-    .map(field => field.trim().toUpperCase())
-    .find(field => usStates.has(field));
-  const state = usStates.has(stateFromLabel)
+    .map(field => normalizeUsState(field))
+    .find(Boolean) ?? "";
+  const state = stateFromLabel
     ? stateFromLabel
     : stateIndex >= 0
-      ? fields[stateIndex].toUpperCase()
-      : looseState ?? "";
+      ? normalizeUsState(fields[stateIndex])
+      : looseState;
 
   let city = binData?.city?.trim() || labeledValue(raw, "city");
   if (!isCityCandidate(city)) {

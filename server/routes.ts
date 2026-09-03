@@ -1816,7 +1816,7 @@ export async function registerRoutes(
       }
       const postedMetadata = extractCardMetadata(fullItem, cardNumber);
       const missingLocation: string[] = [];
-      if (!postedMetadata.state) missingLocation.push("a valid two-letter state");
+      if (!postedMetadata.state) missingLocation.push("a valid US state");
       if (!postedMetadata.zip) missingLocation.push("a valid 5-digit ZIP");
       if (missingLocation.length > 0) {
         skippedCards.push({

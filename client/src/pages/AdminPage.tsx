@@ -3390,15 +3390,35 @@ const CARD_STATES = new Set([
   "LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
   "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
 ]);
+const CARD_STATE_NAMES: Record<string, string> = {
+  alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA",
+  colorado: "CO", connecticut: "CT", delaware: "DE", florida: "FL", georgia: "GA",
+  hawaii: "HI", idaho: "ID", illinois: "IL", indiana: "IN", iowa: "IA", kansas: "KS",
+  kentucky: "KY", louisiana: "LA", maine: "ME", maryland: "MD", massachusetts: "MA",
+  michigan: "MI", minnesota: "MN", mississippi: "MS", missouri: "MO", montana: "MT",
+  nebraska: "NE", nevada: "NV", "new hampshire": "NH", "new jersey": "NJ",
+  "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND",
+  ohio: "OH", oklahoma: "OK", oregon: "OR", pennsylvania: "PA", "rhode island": "RI",
+  "south carolina": "SC", "south dakota": "SD", tennessee: "TN", texas: "TX",
+  utah: "UT", vermont: "VT", virginia: "VA", washington: "WA",
+  "west virginia": "WV", wisconsin: "WI", wyoming: "WY", "district of columbia": "DC",
+};
+
+function normalizeCardState(value: string): string {
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, " ");
+  if (CARD_STATES.has(normalized.toUpperCase())) return normalized.toUpperCase();
+  return CARD_STATE_NAMES[normalized] || "";
+}
 
 function extractStatePreview(line: string): string {
   if (!line) return "";
-  const labeled = line.match(/\b(?:state|region)\s*[:=]\s*([A-Za-z]{2})\b/i)?.[1]?.toUpperCase();
-  if (labeled && CARD_STATES.has(labeled)) return labeled;
+  const labeled = line.match(/\b(?:state|region)\s*[:=]\s*([^|,;\n]+)/i)?.[1];
+  const labeledState = labeled ? normalizeCardState(labeled) : "";
+  if (labeledState) return labeledState;
   return line
-    .split(/[|\t,;\n\s]+/)
-    .map(value => value.trim().toUpperCase())
-    .find(value => CARD_STATES.has(value)) || "";
+    .split(/[|\t,;\n]+/)
+    .map(normalizeCardState)
+    .find(Boolean) || "";
 }
 
 function AdminBasesTab() {
@@ -3739,7 +3759,7 @@ function AdminCardsSection() {
             className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
             data-testid="input-full-item"
           />
-            <p className="text-[10px] text-white/30">Separate each card with a blank line. Include a valid two-letter state and ZIP for every card.</p>
+            <p className="text-[10px] text-white/30">Separate each card with a blank line. Include a valid U.S. state (abbreviation or full name) and ZIP for every card.</p>
            <div className="flex flex-wrap gap-3">
             {cardEntries.length > 1 && (
               <p className="text-[10px] text-white/50 font-mono">{cardEntries.length} cards detected</p>
