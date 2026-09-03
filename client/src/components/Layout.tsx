@@ -76,6 +76,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       items: group.items.filter((item) => {
         if (item.href === "/ranks") return features.ranks;
         if (item.href === "/cards") return features.cards;
+         if (item.href === "/logs") return features.logs;
         if (item.href === "/link") return creditBotStatus?.enabled !== false;
         return true;
       }),

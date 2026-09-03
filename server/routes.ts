@@ -493,6 +493,9 @@ export async function registerRoutes(
   // Products
   app.get(api.products.list.path, async (req, res) => {
     try {
+      if ((await storage.getSetting("feature_logs", "true")) === "false") {
+        return res.json([]);
+      }
       const products = await storage.getProducts();
       res.json(products);
     } catch (e: any) {
@@ -546,6 +549,9 @@ export async function registerRoutes(
   });
 
   app.get(api.products.get.path, async (req, res) => {
+    if ((await storage.getSetting("feature_logs", "true")) === "false") {
+      return res.status(404).json({ message: "Product not found" });
+    }
     const product = await storage.getProduct(Number(req.params.id));
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);

@@ -57,10 +57,10 @@ function Router() {
         <Route path="/link">
           {() => creditBotStatus?.enabled === false ? <Redirect to="/deposit" /> : <LinkPage />}
         </Route>
-        <Route path="/shop"><Redirect to="/logs" /></Route>
-        <Route path="/products" component={LogsPage} />
-        <Route path="/logs" component={LogsPage} />
-        <Route path="/product/:name" component={ProductDetailPage} />
+        <Route path="/shop">{() => features.logs ? <Redirect to="/logs" /> : <Redirect to="/deposit" />}</Route>
+        <Route path="/products">{() => features.logs ? <LogsPage /> : <Redirect to="/deposit" />}</Route>
+        <Route path="/logs">{() => features.logs ? <LogsPage /> : <Redirect to="/deposit" />}</Route>
+        <Route path="/product/:name">{() => features.logs ? <ProductDetailPage /> : <Redirect to="/deposit" />}</Route>
         <Route path="/order/:id" component={OrderDetailPageNew} />
         <Route path="/orders" component={OrdersPage} />
         <Route path="/ranks">{() => features.ranks ? <RanksPage /> : <Redirect to="/deposit" />}</Route>

@@ -3373,6 +3373,7 @@ function FeatureTogglesCard() {
 
   const FEATURES = [
     { key: "ranks" as const, label: "Ranks", desc: "Show/hide the Ranks page and nav link" },
+    { key: "logs" as const, label: "Logs", desc: "Show/hide the Logs page and nav link" },
     { key: "cards" as const, label: "Cards", desc: "Show/hide the Cards page and nav link" },
   ];
 

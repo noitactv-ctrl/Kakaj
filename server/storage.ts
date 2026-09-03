@@ -448,7 +448,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProduct(id: number): Promise<(Product & { variants: (Variant & { stockCount: number })[] }) | undefined> {
-    const [prod] = await db.select().from(products).where(eq(products.id, id));
+    const [prod] = await db.select().from(products).where(and(eq(products.id, id), eq(products.active, true)));
     if (!prod) return undefined;
 
     const prodVariants = await db.select().from(variants).where(eq(variants.productId, prod.id));
@@ -464,6 +464,19 @@ export class DatabaseStorage implements IStorage {
     }
     
     return { ...prod, variants: variantsWithStock };
+  }
+
+  private async assertProductSellable(productId: number, variantName: string): Promise<void> {
+    if ((await this.getSetting("feature_logs", "true")) === "false") {
+      throw new Error("Log products are currently unavailable");
+    }
+    const [product] = await db
+      .select({ active: products.active })
+      .from(products)
+      .where(eq(products.id, productId));
+    if (!product || !product.active) {
+      throw new Error(`${variantName} is no longer available`);
+    }
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
@@ -677,6 +690,7 @@ export class DatabaseStorage implements IStorage {
     for (const item of items) {
       const [variant] = await db.select().from(variants).where(eq(variants.id, item.variantId));
       if (!variant) throw new Error("Variant not found");
+      await this.assertProductSellable(variant.productId, variant.name);
       variantMap[item.variantId] = variant;
       rawTotal += variant.price * item.quantity;
     }
@@ -911,6 +925,7 @@ export class DatabaseStorage implements IStorage {
     for (const item of items) {
       const [variant] = await db.select().from(variants).where(eq(variants.id, item.variantId));
       if (!variant) throw new Error("Variant not found");
+      await this.assertProductSellable(variant.productId, variant.name);
       total += variant.price * item.quantity;
 
       // Check there is enough stock before creating the order
