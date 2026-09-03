@@ -1,0 +1,318 @@
+import { useRoute, useLocation } from "wouter";
+import { useOrders } from "@/hooks/use-orders";
+import { Loader2, ChevronLeft, ChevronDown, ChevronUp, Copy, Check, ShieldCheck } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { useToast } from "@/hooks/use-toast";
+
+function statusLabel(s: string) {
+  if (s === "pending") return "pending";
+  if (s === "waiting_payment") return "unpaid";
+  if (s === "delivering") return "delivered";
+  if (s === "fulfilled") return "delivered";
+  if (s === "refunded") return "refunded";
+  if (s === "replaced") return "replaced";
+  return s;
+}
+
+function statusColor(s: string) {
+  if (s === "fulfilled" || s === "delivering") return "text-green-400";
+  if (s === "replaced") return "text-blue-400";
+  if (s === "waiting_payment") return "text-orange-400";
+  if (s === "refunded") return "text-orange-400";
+  return "text-white/45";
+}
+
+function parseDeliveryMap(raw: string | null | undefined): Record<string, string[]> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return Object.fromEntries(
+        Object.entries(parsed).flatMap(([key, value]) => {
+          if (Array.isArray(value)) {
+            const records = value.filter((record): record is string => typeof record === "string");
+            return records.length > 0 ? [[key, records]] : [];
+          }
+          return typeof value === "string" ? [[key, [stripLegacyReplacementSeparator(value)]]] : [];
+        }),
+      );
+    }
+  } catch {}
+  return null;
+}
+
+function stripLegacyReplacementSeparator(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw
+    .split(/\n\n--- REPLACEMENT ---\n\n/)
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+const ORDER_LEVEL_DELIVERY_KEY = "__order_delivery";
+
+export default function OrderDetailPageNew() {
+  const [, params] = useRoute("/order/:id");
+  const [, setLocation] = useLocation();
+  const { data: orders } = useOrders();
+  const [activeTab, setActiveTab] = useState<"info" | "products">("info");
+  const [stockVisible, setStockVisible] = useState<Record<string, boolean>>({});
+  const [copied, setCopied] = useState<Record<string, boolean>>({});
+  const { toast } = useToast();
+
+  const order = orders?.find((o: any) => o.orderId === params?.id || o.id.toString() === params?.id);
+
+  if (!orders) {
+    return <div className="flex h-screen items-center justify-center bg-[#0d0d0d]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  }
+
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] flex flex-col items-center justify-center p-4 gap-4">
+        <p className="text-white font-bold">Order not found</p>
+        <button onClick={() => setLocation("/orders")} className="text-sm text-primary hover:underline">← Back to Orders</button>
+      </div>
+    );
+  }
+
+  const paid = (order.status === "fulfilled" || order.status === "delivering" || order.status === "replaced") ? order.total : 0;
+  const expected = order.total;
+
+  const allItems = order.items || [];
+  const grouped: { key: string; productName: string; variantName: string; qty: number; unitPrice: number; itemType: string; stockContents: string[] }[] = [];
+  const seen: Record<string, number> = {};
+  for (const item of allItems) {
+    const isCard = item.itemType === "card";
+    const isAchItem = item.itemType === "ach";
+    const isRoutingItem = item.itemType === "routing";
+    const key = isCard ? `card-${item.cardId ?? item.id}` : isAchItem ? `ach-${item.id}` : isRoutingItem ? `routing-${item.id}` : String(item.variantId || item.id);
+    if (seen[key] === undefined) {
+      seen[key] = grouped.length;
+      grouped.push({
+        key,
+        productName: isCard
+          ? (item.card?.maskedCard ? `Card ${item.card.maskedCard}` : "Card")
+          : isAchItem
+          ? "ACH Account"
+          : isRoutingItem
+          ? "Bank"
+          : (item.productName || "Product"),
+        variantName: isCard
+          ? (item.card?.country ?? "—")
+          : isAchItem
+          ? "Bank Account"
+          : isRoutingItem
+          ? "Public details"
+          : (item.variant?.name || item.variantName || "—"),
+        qty: item.quantity ?? 1,
+        unitPrice: item.price,
+        itemType: item.itemType ?? "product",
+        stockContents: [
+          item.itemType === "product" && item.stockItem?.content,
+          isCard && item.card
+          ? [item.card.cardNumber, item.card.expiry, item.card.cvv, item.card.country, item.card.extras].filter(Boolean).join("|")
+          : "",
+        ].filter((content): content is string => typeof content === "string" && content.length > 0),
+      });
+    } else {
+      grouped[seen[key]].qty += item.quantity ?? 1;
+      const content = item.itemType === "product"
+        ? item.stockItem?.content
+        : isCard && item.card
+          ? [item.card.cardNumber, item.card.expiry, item.card.cvv, item.card.country, item.card.extras].filter(Boolean).join("|")
+          : "";
+      if (content && !grouped[seen[key]].stockContents.includes(content)) {
+        grouped[seen[key]].stockContents.push(content);
+      }
+    }
+  }
+
+  const deliveryMap = parseDeliveryMap(order.deliveryContent);
+  const isFulfilled = order.status === "fulfilled" || order.status === "delivering" || order.status === "replaced";
+  const directDeliveryContent = grouped.length === 0 && isFulfilled
+    ? deliveryMap?.[ORDER_LEVEL_DELIVERY_KEY]?.filter(Boolean).join("\n\n")
+      ?? (!deliveryMap ? stripLegacyReplacementSeparator(order.deliveryContent) : "")
+    : "";
+
+  const getStockForKey = (item: typeof grouped[0]): string[] | null => {
+    if (!isFulfilled) return null;
+    // The linked stock item is the source of truth. deliveryContent can be a
+    // legacy snapshot, so never use it to add inventory not assigned to the order.
+    return item.stockContents.length > 0 ? item.stockContents : null;
+  };
+
+  const toggleStock = (key: string) => {
+    setStockVisible(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleCopy = (key: string, content: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopied(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => setCopied(prev => ({ ...prev, [key]: false })), 2000);
+      toast({ title: "Copied to clipboard" });
+    });
+  };
+
+  return (
+    <div className="pixel-page min-h-screen flex flex-col pb-20">
+      <div className="pixel-page w-full pt-2 flex flex-col flex-1">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => setLocation("/orders")}
+            className="pixel-button flex w-fit items-center gap-1.5 px-3 py-2 text-[8px]"
+            data-testid="btn-back"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </button>
+        </div>
+
+        <div className="border-b-[3px] border-[#e5be35] flex gap-8 mb-6">
+          {(["info", "products"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`pb-3 text-sm font-bold transition-colors border-b-2 -mb-px ${
+                activeTab === tab
+                  ? "text-[#ffe177] border-[#ffe177] pixel-text text-[8px]"
+                  : "text-white/45 border-transparent hover:text-white/60"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "info" && (
+          <div className="space-y-5">
+            <InfoRow label="ID" value={<span className="font-mono break-all text-sm text-white">{order.orderId}</span>} />
+            <InfoRow label="Creation date" value={new Date(order.createdAt).toLocaleString("en-US")} />
+            <InfoRow label="Reason" value="cart" />
+            <InfoRow label="Expected amount" value={`$${(expected / 100).toFixed(2)}`} />
+            <InfoRow label="Paid amount" value={`$${(paid / 100).toFixed(2)}`} />
+            <InfoRow label="Status" value={
+              <span className={`font-bold ${statusColor(order.status)}`}>{statusLabel(order.status)}</span>
+            } />
+
+          </div>
+        )}
+
+        {activeTab === "products" && (
+          <div className="space-y-8">
+            {/* ACH / direct-delivery orders (no orderItems, deliveryContent is a plain string) */}
+            {grouped.length === 0 && directDeliveryContent && (() => {
+              const key = "direct";
+              const isOpen = !!stockVisible[key];
+              const wasCopied = !!copied[key];
+              const isAch = (order.orderId ?? "").startsWith("ACH-");
+              const isRouting = (order.orderId ?? "").startsWith("ROUTING-");
+              const isCard = (order.orderId ?? "").startsWith("CARD-");
+              const label = isRouting ? "Bank" : isAch ? "ACH Account" : isCard ? "Card" : "Item";
+              return (
+                <div className="space-y-4">
+                  <InfoRow label="Type" value={<span className="font-bold text-sm text-white">{label}</span>} />
+                  <InfoRow label="Price" value={`$${(order.total / 100).toFixed(2)}`} />
+                  <div className="space-y-2 pt-1">
+                    <button
+                      onClick={() => toggleStock(key)}
+                      className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[8px] text-white hover:bg-[#31973a] transition-colors flex items-center justify-center gap-2"
+                    >
+                      {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      {isOpen ? `Hide ${label}` : `View ${label}`}
+                    </button>
+                    {isOpen && (
+                      <div className="border-[3px] border-black bg-[#0b1644] p-4 space-y-3">
+                        <p className="text-xs font-mono text-white whitespace-pre-wrap leading-relaxed break-all">
+                           {directDeliveryContent}
+                        </p>
+                        <button
+                           onClick={() => handleCopy(key, directDeliveryContent)}
+                          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-bold transition-colors"
+                        >
+                          {wasCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {wasCopied ? "Copied!" : "Copy"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Standard orders with orderItems */}
+            {grouped.length === 0 && !order.deliveryContent && (
+              <p className="text-sm text-white/45">No products found</p>
+            )}
+            {grouped.map((item, idx) => {
+              const stockRecords = getStockForKey(item);
+              const stockContent = stockRecords?.join("\n\n") || "";
+              const isOpen = !!stockVisible[item.key];
+              const wasCopied = !!copied[item.key];
+
+              return (
+                <div key={item.key}>
+                  <div className="space-y-4">
+                    <InfoRow label="Product" value={<span className="font-bold text-sm text-white">{item.productName}</span>} />
+                    <InfoRow label="Option" value={item.variantName} />
+                    <InfoRow label="Quantity" value={String(item.qty)} />
+                    <InfoRow label="Unit price" value={`$${(item.unitPrice / 100).toFixed(2)}`} />
+                    <InfoRow label="Total" value={<span className="font-bold text-sm text-white">${((item.unitPrice * item.qty) / 100).toFixed(2)}</span>} />
+
+                    {stockRecords?.length ? (
+                      <div className="space-y-2 pt-1">
+                        <button
+                          onClick={() => toggleStock(item.key)}
+                          className="w-full border-[3px] border-black bg-[#43b94e] py-3 pixel-text text-[8px] text-white hover:bg-[#31973a] transition-colors flex items-center justify-center gap-2"
+                        >
+                          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          {isOpen
+                            ? `Hide ${item.itemType === "card" ? "Card" : item.itemType === "ach" ? "Account" : "Stock"}`
+                            : `View ${item.itemType === "card" ? "Card" : item.itemType === "ach" ? "Account" : "Stock"}`}
+                        </button>
+
+                        {isOpen && (
+                          <div className="border-[3px] border-black bg-[#0b1644] p-4 space-y-3">
+                            {stockRecords.map((record, recordIndex) => (
+                              <div key={recordIndex}>
+                                <p className="text-xs font-mono text-white whitespace-pre-wrap leading-relaxed break-all">
+                                  {record}
+                                </p>
+                                {recordIndex < stockRecords.length - 1 && <div className="my-3 border-t border-white/10" />}
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => handleCopy(item.key, stockContent)}
+                              className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-bold transition-colors"
+                            >
+                              {wasCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              {wasCopied ? "Copied!" : "Copy"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                        <div className="w-full border-[3px] border-black bg-[#0b1644] py-3 text-white/55 font-bold text-sm flex items-center justify-center">
+                        {isFulfilled ? "No stock data" : "Pending Order"}
+                      </div>
+                    )}
+                  </div>
+
+                  {idx < grouped.length - 1 && <div className="border-b border-white/10 mt-6" />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string | ReactNode }) {
+  return (
+    <div className="border-[3px] border-black bg-[#10215e] px-4 py-3">
+      <p className="pixel-text text-[7px] text-[#c5d6ff] mb-2">{label}</p>
+      {typeof value === "string" ? <p className="text-sm text-white">{value}</p> : value}
+    </div>
+  );
+}
