@@ -302,6 +302,7 @@ function DepositsSection() {
   const statusBadge = (status: string, type: string) => {
     if (status === "fulfilled" || status === "delivering") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-mono">credited</span>;
     if (status === "pending") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-400 font-mono">{type === "crypto" ? "pending" : "awaiting admin"}</span>;
+    if (status === "unpaid" || status === "failed" || status === "expired") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-mono">unpaid</span>;
     if (status === "waiting_payment") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-mono">unpaid</span>;
     return <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#111]/5 text-white/45 font-mono">{status}</span>;
   };

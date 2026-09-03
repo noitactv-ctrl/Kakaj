@@ -53,8 +53,8 @@ function methodAccent(type: Method) {
 function StatusBadge({ status }: { status: string }) {
   if (["completed","delivering","fulfilled"].includes(status))
     return <span className="flex items-center gap-1 text-[10px] font-mono text-green-400"><CheckCircle2 className="h-3 w-3" />credited</span>;
-  if (["failed","expired"].includes(status))
-    return <span className="flex items-center gap-1 text-[10px] font-mono text-red-400/70"><XCircle className="h-3 w-3" />{status}</span>;
+  if (["unpaid","failed","expired"].includes(status))
+    return <span className="flex items-center gap-1 text-[10px] font-mono text-red-400/70"><XCircle className="h-3 w-3" />unpaid</span>;
   if (status === "underpaid")
     return <span className="flex items-center gap-1 text-[10px] font-mono text-yellow-400/70"><AlertTriangle className="h-3 w-3" />underpaid</span>;
   return <span className="flex items-center gap-1 text-[10px] font-mono text-white/30 animate-pulse"><Clock className="h-3 w-3" />pending</span>;
@@ -66,7 +66,7 @@ function DepositRow({ deposit }: { deposit: Deposit }) {
   return (
     <div className={`flex items-center justify-between px-3 py-2 rounded-xl border ${
       isCredited ? "bg-green-950/10 border-green-900/15" :
-      ["failed","expired"].includes(deposit.status) ? "bg-red-950/10 border-red-900/15" :
+      ["unpaid","failed","expired"].includes(deposit.status) ? "bg-red-950/10 border-red-900/15" :
       "bg-white/[0.02] border-white/[0.05]"
     }`}>
       <div className="flex items-center gap-2 min-w-0">

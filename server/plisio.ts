@@ -3,7 +3,7 @@ import { getRuntimeSetting } from "./settings";
 
 const DEFAULT_API_BASE = "https://api.plisio.net/api/v1";
 
-export type CryptoPaymentStatus = "pending" | "completed" | "failed" | "expired" | "underpaid";
+export type CryptoPaymentStatus = "pending" | "completed" | "unpaid" | "failed" | "expired" | "underpaid";
 
 export interface PlisioInvoice {
   id: string;
@@ -187,20 +187,24 @@ export async function verifyPlisioWebhook(body: Record<string, unknown>): Promis
 }
 
 export function mapPlisioStatus(status: unknown): CryptoPaymentStatus {
-  switch (String(status || "").trim().toLowerCase()) {
+  const normalized = String(status || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+  switch (normalized) {
     case "completed":
+    case "paid":
+    case "confirmed":
       return "completed";
     case "mismatch":
     case "underpaid":
       return "underpaid";
+    case "unpaid":
+    case "session ended":
     case "expired":
-      return "expired";
     case "cancelled":
     case "canceled":
     case "cancelled duplicate":
     case "error":
     case "failed":
-      return "failed";
+      return "unpaid";
     // new, pending, confirming and any unrecognized non-terminal state
     default:
       return "pending";

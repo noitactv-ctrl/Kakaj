@@ -105,7 +105,7 @@ async function settleCompletedPayment(transaction: any, payment: typeof cryptoPa
   }
 }
 
-async function releaseFailedOrder(transaction: any, payment: typeof cryptoPayments.$inferSelect) {
+async function releaseUnpaidOrder(transaction: any, payment: typeof cryptoPayments.$inferSelect) {
   if (payment.purpose !== "order" || !payment.orderId) return;
 
   const [order] = await transaction
@@ -203,8 +203,8 @@ export async function applyPlisioPaymentStatus(
       ))
       .returning();
     if (!payment) return { found: true, status: existing.status as CryptoPaymentStatus, settled: false };
-    if (nextStatus === "failed" || nextStatus === "expired") {
-      await releaseFailedOrder(transaction, payment);
+    if (nextStatus === "unpaid" || nextStatus === "failed" || nextStatus === "expired") {
+      await releaseUnpaidOrder(transaction, payment);
     }
     return { found: true, status: nextStatus, settled: false };
   });

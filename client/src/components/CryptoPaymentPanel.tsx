@@ -27,7 +27,7 @@ type CryptoPaymentPanelProps = {
 
 function statusCopy(status: string) {
   if (status === "completed" || status === "fulfilled") return { label: "Payment confirmed", color: "text-[#67e68c]" };
-  if (status === "failed" || status === "expired") return { label: status === "expired" ? "Invoice expired" : "Payment failed", color: "text-[#ff8585]" };
+  if (status === "unpaid" || status === "failed" || status === "expired") return { label: "Payment unpaid", color: "text-[#ff8585]" };
   if (status === "underpaid") return { label: "Waiting for the full amount", color: "text-[#ffe177]" };
   return { label: "Waiting for payment", color: "text-[#aab6e6]" };
 }
@@ -80,7 +80,7 @@ export function CryptoPaymentPanel({
     },
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status && ["completed", "fulfilled", "failed", "expired"].includes(status) ? false : 5000;
+      return status && ["completed", "fulfilled", "unpaid", "failed", "expired"].includes(status) ? false : 5000;
     },
   });
 
@@ -109,7 +109,7 @@ export function CryptoPaymentPanel({
 
   const status = paymentStatus?.status ?? "pending";
   const statusDetails = statusCopy(status);
-  const terminal = ["completed", "fulfilled", "failed", "expired"].includes(status);
+  const terminal = ["completed", "fulfilled", "unpaid", "failed", "expired"].includes(status);
   const exactCryptoAmount = invoice.cryptoAmount || "See checkout";
   const expiresAt = invoice.expiresAt
     ? invoice.expiresAt < 1_000_000_000_000 ? invoice.expiresAt * 1000 : invoice.expiresAt
@@ -127,7 +127,7 @@ export function CryptoPaymentPanel({
           </div>
         </div>
         <div className={`flex flex-shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold ${statusDetails.color}`}>
-          {status === "completed" || status === "fulfilled" ? <CheckCircle2 className="h-3.5 w-3.5" /> : status === "failed" || status === "expired" ? <XCircle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+          {status === "completed" || status === "fulfilled" ? <CheckCircle2 className="h-3.5 w-3.5" /> : status === "unpaid" || status === "failed" || status === "expired" ? <XCircle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
           {statusDetails.label}
         </div>
       </div>
@@ -149,7 +149,7 @@ export function CryptoPaymentPanel({
             <p className="mt-2 font-bold text-[#fff0c5]">Payment confirmed</p>
             <p className="mt-1 font-mono text-[10px] text-[#b7eec6]">Your payment has been matched and credited.</p>
           </div>
-        ) : status === "failed" || status === "expired" ? (
+        ) : status === "unpaid" || status === "failed" || status === "expired" ? (
           <div className="border-[2px] border-[#9a3c59] bg-[#3c1728] p-5 text-center">
             <XCircle className="mx-auto h-9 w-9 text-[#ff8585]" />
             <p className="mt-2 font-bold text-[#fff0c5]">{statusDetails.label}</p>

@@ -387,7 +387,7 @@ export const cryptoPayments = pgTable("crypto_payments", {
   nowPaymentsPaymentId: text("forebit_payment_id").notNull().unique(),
   amount: integer("amount").notNull(),
   currency: text("currency").default("USD").notNull(),
-  status: text("status", { enum: ["pending", "completed", "failed", "expired", "underpaid"] }).default("pending").notNull(),
+  status: text("status", { enum: ["pending", "completed", "unpaid", "failed", "expired", "underpaid"] }).default("pending").notNull(),
   purpose: text("purpose", { enum: ["deposit", "order"] }).default("deposit").notNull(),
   orderId: integer("order_id").references(() => orders.id),
   checkoutUrl: text("checkout_url"),

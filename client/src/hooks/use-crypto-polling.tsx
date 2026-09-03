@@ -42,12 +42,12 @@ export function useCryptoPolling() {
             } else {
               toast({ title: "Payment completed!", description: `$${(data.amount / 100).toFixed(2)} has been added to your balance.` });
             }
-          } else if (data.status === "failed" || data.status === "expired") {
+          } else if (data.status === "unpaid" || data.status === "failed" || data.status === "expired") {
             clearInterval(pollInterval);
             clearSession();
             queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
             toast({
-              title: `Payment ${data.status}`,
+              title: "Payment unpaid",
               description: lastPurpose === "order" ? "Your order has been cancelled. Stock has been released." : "Your crypto payment did not go through.",
               variant: "destructive",
             });
