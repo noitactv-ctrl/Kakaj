@@ -293,7 +293,9 @@ function CreditBotSection() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <FormLabel htmlFor="credit-bot-channel">Main channel ID</FormLabel>
+              <label htmlFor="credit-bot-channel" className="text-sm font-medium leading-none text-white">
+                Main channel ID
+              </label>
               <Input
                 id="credit-bot-channel"
                 value={channelId}
@@ -305,7 +307,9 @@ function CreditBotSection() {
               <p className="text-[11px] text-white/40">The bot checks membership in this Telegram channel before rewarding.</p>
             </div>
             <div className="space-y-2">
-              <FormLabel htmlFor="credit-bot-token">Telegram bot token</FormLabel>
+              <label htmlFor="credit-bot-token" className="text-sm font-medium leading-none text-white">
+                Telegram bot token
+              </label>
               <Input
                 id="credit-bot-token"
                 type="password"

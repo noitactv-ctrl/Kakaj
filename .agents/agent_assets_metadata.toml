@@ -84,3 +84,73 @@ mtime_ms = 1787598997958
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:11e823b3-cf02-4d09-bfcf-86167f24c05f/87113ed5-f289-4232-a133-9960605b10d7/9a9cbe4d-b4b7-4814-ba59-ae4606550851"
 storage_version_token = "1787599005002673"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "g99v6pDNQHN9ql47yxhjP"
+uri = "file://exports/beastcc-lovable-source.zip"
+type = "unspecified"
+title = "BEASTCC Lovable source"
+description = "Website source, configuration, package files, and setup instructions. No Replit Secrets are included."
+logical_id = "985e1990-8fd6-41e3-b093-e312149bf173"
+content_hash = "sha256:109a688f68618489ab50701755faf5b73bf9ccae1f2936003ea956f7f5f4387b"
+size = 1558312
+mtime_ms = 1788457835302
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/985e1990-8fd6-41e3-b093-e312149bf173/a5a95039-83f0-40ed-a015-bb19454f7b6f"
+storage_version_token = "1788457854911882"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "0TsJjpnMXw1yAL4e9BKSN"
+uri = "file://exports/beastcc-lovable-database.zip"
+type = "unspecified"
+title = "BEASTCC development database"
+description = "Complete development PostgreSQL schema and data export. Treat as confidential."
+logical_id = "a0a53735-6ba5-45bd-8aab-78a0f20dbe7e"
+content_hash = "sha256:4a6235bd7313bb66d04cacb74512eb150ac1727d1f34311fd128b722a4ed6f4e"
+size = 32564
+mtime_ms = 1788457835318
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/a0a53735-6ba5-45bd-8aab-78a0f20dbe7e/2fbb796d-5ff5-4248-930f-d5f827915655"
+storage_version_token = "1788457855646899"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "z7CsPDNA0OrgpHheA3hq7"
+uri = "file://exports/beastcc-lovable-assets-1.zip"
+type = "unspecified"
+title = "BEASTCC assets part 1 of 3"
+description = "First part of the website image and text assets."
+logical_id = "372e4035-7bb9-400e-9b20-110666a3b947"
+content_hash = "sha256:1b34d2be41d2e1468ff41d9850cf4e77de6af103678222d302fd73c283731c28"
+size = 38869528
+mtime_ms = 1788457836614
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/372e4035-7bb9-400e-9b20-110666a3b947/1a491d4d-6189-4d75-b706-776b59a10095"
+storage_version_token = "1788457856593085"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "4PbPc0QuUMBafl5MqO39L"
+uri = "file://exports/beastcc-lovable-assets-2.zip"
+type = "unspecified"
+title = "BEASTCC assets part 2 of 3"
+description = "Second part of the website image and text assets."
+logical_id = "0b7347a0-d2ff-4b0d-805f-891513f1a98f"
+content_hash = "sha256:f17acca289979f76ac56873c43b146d8b40bc9db3f5a42fae61aeda0e2b53b7b"
+size = 39789418
+mtime_ms = 1788457837818
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/0b7347a0-d2ff-4b0d-805f-891513f1a98f/c436b172-e806-4395-bb6d-16c415616aca"
+storage_version_token = "1788457857344301"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "jh_jxIQOxdTF36vM568HF"
+uri = "file://exports/beastcc-lovable-assets-3.zip"
+type = "unspecified"
+title = "BEASTCC assets part 3 of 3"
+description = "Third part of the website image and text assets."
+logical_id = "2d117e3c-8c5c-426a-b699-a60391ffd20e"
+content_hash = "sha256:9b805eca7715e6ab3dfeb4970b262f08850dd1549e816b31350274d4a6e14f59"
+size = 39519576
+mtime_ms = 1788457838958
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/2d117e3c-8c5c-426a-b699-a60391ffd20e/d6dbae4e-1840-449d-a09e-bd3240e90ade"
+storage_version_token = "1788457858182430"
+content_type = "application/octet-stream"
