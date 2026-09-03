@@ -1816,17 +1816,6 @@ export async function registerRoutes(
         continue;
       }
       const postedMetadata = extractCardMetadata(fullItem, cardNumber);
-      const missingLocation: string[] = [];
-      if (!postedMetadata.state) missingLocation.push("a valid US state");
-      if (!postedMetadata.zip) missingLocation.push("a valid 5-digit ZIP");
-      if (missingLocation.length > 0) {
-        skippedCards.push({
-          entry: entryIndex + 1,
-          bin: postedMetadata.bin,
-          reason: `Missing ${missingLocation.join(" and ")}`,
-        });
-        continue;
-      }
       const masked = cardNumber.length >= 4
         ? cardNumber.substring(0, 6) + "*".repeat(Math.max(0, cardNumber.length - 10)) + cardNumber.slice(-4)
         : cardNumber;
@@ -1845,9 +1834,9 @@ export async function registerRoutes(
       const cardBinData = {
         ...(storedBinData ?? {}),
         bin: postedMetadata.bin,
-        state: postedMetadata.state,
+        state: postedMetadata.state || null,
         city: postedMetadata.city || null,
-        zip: postedMetadata.zip,
+        zip: postedMetadata.zip || null,
       };
       try {
         const card = await storage.createCard({

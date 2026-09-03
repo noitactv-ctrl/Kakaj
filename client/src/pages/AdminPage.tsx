@@ -3364,26 +3364,23 @@ function findCardNumberPreview(line: string): string {
   return "";
 }
 
-function extractZipPreview(line: string): string {
+function extractPostalPreview(line: string): string {
   if (!line) return "";
-  const tokens = line.split(/[|\t:;,\s]+/).map(t => t.trim()).filter(Boolean);
-  for (const token of tokens) {
-    const zipMatch = token.match(/^(\d{5})(?:-\d{4})?$/);
-    if (zipMatch) {
-      const num = parseInt(zipMatch[1], 10);
-      if (num >= 501 && num <= 99950 && !(num >= 1900 && num <= 2100)) return zipMatch[1];
-    }
-  }
-  for (const token of tokens) {
-    const digits = token.replace(/\D/g, "");
-    if (digits.length >= 13) continue;
-    const m = token.match(/\b(\d{5})(?:-\d{4})?\b/);
-    if (m) {
-      const num = parseInt(m[1], 10);
-      if (num >= 501 && num <= 99950 && !(num >= 1900 && num <= 2100)) return m[1];
-    }
-  }
-  return "";
+  const labeled = line.match(/\b(?:zip|postal(?:\s+code)?|postcode|post\s+code|pin(?:\s+code)?)\s*[:=]\s*([^|,;\n]+)/i)?.[1]?.trim();
+  if (labeled) return labeled;
+  const fields = line
+    .split(/[|\t,;\n]+/)
+    .map(value => value.trim());
+  if (fields.length <= 3) return "";
+  return fields
+    .slice(3)
+    .reverse()
+    .find(value => value.length >= 3
+      && value.length <= 12
+      && /^[A-Za-z0-9][A-Za-z0-9 -]*$/.test(value)
+      && /\d/.test(value)
+      && !/^\d{13,19}$/.test(value)
+      && !/\//.test(value)) || "";
 }
 
 const CARD_STATES = new Set([
@@ -3413,9 +3410,8 @@ function normalizeCardState(value: string): string {
 
 function extractStatePreview(line: string): string {
   if (!line) return "";
-  const labeled = line.match(/\b(?:state|region)\s*[:=]\s*([^|,;\n]+)/i)?.[1];
-  const labeledState = labeled ? normalizeCardState(labeled) : "";
-  if (labeledState) return labeledState;
+  const labeled = line.match(/\b(?:state|region|province|territory|prefecture)\s*[:=]\s*([^|,;\n]+)/i)?.[1]?.trim();
+  if (labeled) return labeled;
   return line
     .split(/[|\t,;\n]+/)
     .map(normalizeCardState)
@@ -3670,7 +3666,7 @@ function AdminCardsSection() {
   const malformedEntryCount = Math.max(0, cardEntries.length - detectedCardCount);
   const previewBin = findCardNumberPreview(cardEntries[0] || "").substring(0, 6);
   const previewState = extractStatePreview(cardEntries[0] || "");
-  const previewZip = extractZipPreview(cardEntries[0] || "");
+  const previewPostal = extractPostalPreview(cardEntries[0] || "");
 
   const addMutation = useMutation({
     mutationFn: async () => {
@@ -3762,7 +3758,7 @@ function AdminCardsSection() {
             className="w-full bg-[#111]/5 border border-white/10 rounded text-xs text-white font-mono p-2 outline-none focus:border-gray-300 resize-none placeholder:text-white/30"
             data-testid="input-full-item"
           />
-            <p className="text-[10px] text-white/30">Paste the full stock block at once. Each card starts at its card number; the importer finds each card boundary and keeps count. Include a valid U.S. state and ZIP for every card.</p>
+            <p className="text-[10px] text-white/30">Paste the full stock block at once. Each card starts at its card number; the importer finds each card boundary and keeps count. International regions and postal-code formats are accepted when provided.</p>
            <div className="flex flex-wrap gap-3">
              <p className="text-[10px] text-white/50 font-mono">
                {detectedCardCount} card{detectedCardCount === 1 ? "" : "s"} detected
@@ -3775,11 +3771,11 @@ function AdminCardsSection() {
             {previewBin.length === 6 && (
               <p className="text-[10px] text-primary/60 font-mono">BIN: {previewBin}</p>
             )}
-             <p className={`text-[10px] font-mono ${previewState ? "text-green-400/60" : "text-red-400/80"}`}>
-               STATE: {previewState || "REQUIRED"}
+              <p className="text-[10px] font-mono text-white/50">
+                REGION: {previewState || "—"}
              </p>
-             <p className={`text-[10px] font-mono ${previewZip ? "text-green-400/60" : "text-red-400/80"}`}>
-               ZIP: {previewZip || "REQUIRED"}
+              <p className="text-[10px] font-mono text-white/50">
+                POSTAL: {previewPostal || "—"}
              </p>
           </div>
         </div>
@@ -3847,7 +3843,7 @@ function AdminCardsSection() {
             orderedCards.map((card: any) => {
               const cBin = (card.cardNumber || "").replace(/\D/g, "").substring(0, 6);
                        const metadata = card.metadata ?? {};
-                       const zip = metadata.zip || extractZipPreview(card.extras ?? "");
+                       const zip = metadata.zip || extractPostalPreview(card.extras ?? "");
                        const state = metadata.state || extractStatePreview(card.extras ?? "");
                       const country = String(card.country ?? "").trim();
                        const issuer = String(card.binData?.bank ?? card.binData?.Issuer ?? "").trim();

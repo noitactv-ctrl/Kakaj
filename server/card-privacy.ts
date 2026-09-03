@@ -25,6 +25,17 @@ function normalizeUsState(value: string | null | undefined): string {
   return usStateNames[normalized] ?? "";
 }
 
+function normalizeRegion(value: string | null | undefined): string {
+  const usState = normalizeUsState(value);
+  if (usState) return usState;
+
+  const region = String(value ?? "").trim().replace(/\s+/g, " ");
+  return region.length >= 2 && region.length <= 60
+    && !/[\r\n|]/.test(region)
+    ? region
+    : "";
+}
+
 function isLikelyCardholderName(value: string): boolean {
   return /^[A-Za-z][A-Za-z .'-]{1,80}$/.test(value.trim());
 }
@@ -38,6 +49,15 @@ function isValidZip(value: string): boolean {
   if (!digits) return false;
   const number = Number(digits);
   return number >= 501 && number <= 99950;
+}
+
+function isLikelyPostalCode(value: string): boolean {
+  const postal = value.trim();
+  if (postal.length < 1 || postal.length > 12) return false;
+  if (!/^[A-Za-z0-9][A-Za-z0-9 -]*$/.test(postal)) return false;
+  if (!/\d/.test(postal)) return false;
+  if (/^\d{13,19}$/.test(postal)) return false;
+  return true;
 }
 
 function isCityCandidate(value: string): boolean {
@@ -71,7 +91,7 @@ export function isValidCardState(value: string | null | undefined): boolean {
 }
 
 export function isValidCardZip(value: string | null | undefined): boolean {
-  return isValidZip(String(value ?? ""));
+  return isLikelyPostalCode(String(value ?? ""));
 }
 
 export function extractCardMetadata(
@@ -87,7 +107,9 @@ export function extractCardMetadata(
 ): CardMetadata {
   const raw = extras ?? "";
   const fields = raw.split(/[|\t]/).map(field => field.trim());
-  const stateFromLabel = normalizeUsState(binData?.state || labeledValue(raw, "state|region"));
+  const stateFromLabel = normalizeRegion(
+    binData?.state || labeledValue(raw, "state|region|province|territory|prefecture"),
+  );
   const stateIndex = fields.findIndex(field => Boolean(normalizeUsState(field)));
   const looseState = raw
     .split(/[|\t,;\n]/)
@@ -121,13 +143,16 @@ export function extractCardMetadata(
     }
   }
 
-  const labeledZip = binData?.zip?.trim() || labeledValue(raw, "zip|postal(?:\\s+code)?");
+  const labeledZip = binData?.zip?.trim()
+    || labeledValue(raw, "zip|postal(?:\\s+code)?|postcode|post\\s+code|pin(?:\\s+code)?");
   const looseZip = raw.match(/(?:^|[\s|,;])(\d{5})(?:-\d{4})?(?=$|[\s|,;])/g)
     ?.map(value => value.match(/(\d{5})/)?.[1] ?? "")
     .find(isValidZip) ?? "";
-  const zip = isValidZip(labeledZip)
-    ? labeledZip.match(/^(\d{5})/)?.[1] ?? ""
-    : fields.find(isValidZip)?.match(/^(\d{5})/)?.[1] ?? looseZip;
+  const zip = isLikelyPostalCode(labeledZip)
+    ? labeledZip
+    : fields.length > 3
+      ? [...fields.slice(3)].reverse().find(isLikelyPostalCode) ?? looseZip
+      : looseZip;
 
   const bin = (cardNumber ?? "").replace(/\D/g, "").substring(0, 6) || binData?.bin || "";
   const type = (

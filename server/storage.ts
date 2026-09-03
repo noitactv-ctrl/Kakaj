@@ -1700,20 +1700,13 @@ export class DatabaseStorage implements IStorage {
       ? insertCard.binData as Record<string, any>
       : null;
     const metadata = extractCardMetadata(insertCard.extras, insertCard.cardNumber, inputBinData);
-    if (!metadata.state || !metadata.zip) {
-      const missing = [
-        !metadata.state ? "a valid two-letter state" : "",
-        !metadata.zip ? "a valid 5-digit ZIP" : "",
-      ].filter(Boolean).join(" and ");
-      throw new Error(`Card stock requires ${missing}`);
-    }
 
     const binData = {
       ...(inputBinData ?? {}),
       bin: metadata.bin,
-      state: metadata.state,
+      state: metadata.state || null,
       city: metadata.city || null,
-      zip: metadata.zip,
+      zip: metadata.zip || null,
     };
     const fingerprint = normalizeCardNumber(insertCard.cardNumber);
     if (fingerprint.length < 6) throw new Error("Card number must contain a valid BIN");
