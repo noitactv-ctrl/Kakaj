@@ -266,12 +266,13 @@ async function sendTelegramMessage(
   chatId: string | number,
   text: string,
   tokenOverride?: string,
-  options?: { replyMarkup?: Record<string, unknown> },
+  options?: { replyMarkup?: Record<string, unknown>; parseMode?: "HTML" },
 ): Promise<void> {
   await telegramApi("sendMessage", {
     chat_id: chatId,
     text,
     ...(options?.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+    ...(options?.parseMode ? { parse_mode: options.parseMode } : {}),
   }, tokenOverride);
 }
 
@@ -486,6 +487,10 @@ function formatCredit(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function escapeTelegramHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function getStartMessage(config: TelegramConfig): {
   text: string;
   replyMarkup?: Record<string, unknown>;
@@ -494,11 +499,10 @@ function getStartMessage(config: TelegramConfig): {
   if (config.channelLink) {
     inlineKeyboard.push([{ text: "Join main channel", url: config.channelLink }]);
   }
-  inlineKeyboard.push([{ text: "Copy required name", copy_text: { text: config.requiredName } }]);
 
   return {
-    text: `👋 Welcome to the beastcc.xyz rewards bot!\n\nEarn ${formatCredit(config.rewardCents)} in store credit every 24 hours.\n\nYour Telegram first or last name must include:\n${config.requiredName}\n\nTap “Copy required name” to copy it, then paste it into your Telegram name. You must also join our main channel.\n\nTo start, send your 16-digit account number from beastcc.xyz/link. If you need to change accounts later, use /relink followed by a new number.`,
-    replyMarkup: { inline_keyboard: inlineKeyboard },
+    text: `👋 Welcome to the beastcc.xyz rewards bot!\n\nEarn ${formatCredit(config.rewardCents)} in store credit every 24 hours.\n\nRules:\n• <code>${escapeTelegramHtml(config.requiredName)}</code> must be in your first or last name.\n• You must be part of our main channel.\n\nTo start, send your 16-digit account number from beastcc.xyz/link. If you need to change accounts later, use /relink followed by a new number.`,
+    ...(inlineKeyboard.length ? { replyMarkup: { inline_keyboard: inlineKeyboard } } : {}),
   };
 }
 
@@ -519,6 +523,7 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
     const startMessage = getStartMessage(config);
     await sendTelegramMessage(chatId, startMessage.text, config.token, {
       replyMarkup: startMessage.replyMarkup,
+      parseMode: "HTML",
     });
     return;
   }
