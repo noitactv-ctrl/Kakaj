@@ -159,28 +159,28 @@ content_type = "application/octet-stream"
 id = "YizwOOpmpGGDGb34ib-Jh"
 uri = "file://exports/beastcc-vps-complete.tar.gz.part-00"
 type = "unspecified"
-title = "WEBSITE FILE — part 1 of 2"
-description = "First half of the complete website package, including source code, images, Docker files, and deployment configuration. Download this together with part 2."
+title = "DOWNLOAD WEBSITE — part 1 of 2"
+description = "Complete VPS website package, first file. Download both parts and save them in your Windows Downloads folder."
 logical_id = "4cf0fed2-fd5e-4930-9d26-1bdcec45826b"
 content_hash = "sha256:ef15b63a1b3444f2c7e95efd6b93bc047c8c4fd886f5004c45473fcb57873758"
 size = 94371840
 mtime_ms = 1788484771996
-storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/4cf0fed2-fd5e-4930-9d26-1bdcec45826b/d0c09ab3-6ded-4689-b20f-ab359d42d22e"
-storage_version_token = "1788485077629056"
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/4cf0fed2-fd5e-4930-9d26-1bdcec45826b/c6e40bd7-1795-4e5c-a741-47fcd5ff7945"
+storage_version_token = "1788486041785633"
 content_type = "application/octet-stream"
 
 [[outputs]]
 id = "dc_rgEsSiY8Ji0f4SJHru"
 uri = "file://exports/beastcc-vps-complete.tar.gz.part-01"
 type = "unspecified"
-title = "WEBSITE FILE — part 2 of 2"
-description = "Second half of the complete website package. Together with part 1, this includes the database backup and the full VPS-ready website."
+title = "DOWNLOAD WEBSITE — part 2 of 2"
+description = "Complete VPS website package, second file. Download both parts and save them in your Windows Downloads folder."
 logical_id = "63eced6c-d328-400e-81ab-c7640980cbd1"
 content_hash = "sha256:73cd179ed52f90b9273b3519dd4323d4ada5726ec6fb8ebad7d4257f828fe36d"
 size = 25250276
 mtime_ms = 1788484729927
-storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/63eced6c-d328-400e-81ab-c7640980cbd1/d3553248-2545-4ab9-8c6a-6221736df71d"
-storage_version_token = "1788485078730730"
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/63eced6c-d328-400e-81ab-c7640980cbd1/04c6736b-dbb9-4dc6-a905-0a967312108a"
+storage_version_token = "1788486042677599"
 content_type = "application/octet-stream"
 
 [[outputs]]
