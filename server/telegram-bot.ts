@@ -13,6 +13,7 @@ const ENABLED_SETTING = "credit_bot_enabled";
 const REWARD_AMOUNT_SETTING = "credit_bot_reward_cents";
 const DEFAULT_REWARD_CENTS = 25;
 const REWARD_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const PROFILE_SYNC_INTERVAL_MS = 30 * 1000;
 const BRAND_NAME = "beastcc.xyz";
 const DEFAULT_REQUIRED_NAME = BRAND_NAME;
 const LINK_TOKEN_TTL_MS = 30 * 60 * 1000;
@@ -50,6 +51,7 @@ type TelegramApiResponse<T> = {
 let pollingStarted = false;
 let polling = true;
 let updateOffset = 0;
+let profileSyncRunning = false;
 
 async function readSetting(key: string): Promise<string> {
   const [row] = await db.select({ value: siteSettings.value }).from(siteSettings).where(eq(siteSettings.key, key));
@@ -430,7 +432,7 @@ async function synchronizeUser(
         telegramUsername: telegramUser.username ?? "",
         telegramNameSignature: signature,
         telegramNameEligible: nameEligible,
-        lastTelegramNameReward: reset ? null : linkedUser.lastTelegramNameReward,
+        lastTelegramNameReward: reset ? new Date() : linkedUser.lastTelegramNameReward,
       }).where(eq(users.id, linkedUser.id));
     }
     return { rewarded: false, reset, member: false, nameEligible, error: "The main channel is not configured yet." };
@@ -449,7 +451,7 @@ async function synchronizeUser(
     telegramNameSignature: signature,
     telegramChannelMember: joined,
     telegramNameEligible: nameEligible,
-    ...(reset ? { lastTelegramNameReward: null } : {}),
+    ...(reset ? { lastTelegramNameReward: new Date() } : {}),
   }).where(eq(users.id, linkedUser.id));
   if (!joined || !nameEligible || !config.enabled || reset) {
     return { rewarded: false, reset, member: joined, nameEligible };
@@ -592,26 +594,32 @@ export async function broadcastTelegramMessage(text: string): Promise<{ sent: nu
 }
 
 async function syncAllLinkedUsers(): Promise<void> {
-  const config = await getTelegramConfig();
-  if (!config.enabled || !config.token || !config.channelId) return;
-  const linkedUsers = await db.select().from(users).where(isNotNull(users.telegramChatId));
-  for (const linked of linkedUsers) {
-    if (!linked.telegramChatId) continue;
-    try {
-      const member = await getChannelMember(config.channelId, Number(linked.telegramChatId), config.token);
-      const telegramUser = member.user;
-      if (!telegramUser) continue;
-      const result = await synchronizeUser(linked, telegramUser, config, member);
-      const leftChannel = linked.telegramChannelMember && !result.member;
-      const nameChanged = linked.telegramNameEligible && !result.nameEligible;
-      if (result.rewarded) {
-         await sendTelegramMessage(linked.telegramChatId, `✅ ${formatCredit(config.rewardCents)} store credit was added for repping ${config.requiredName}.`, config.token);
-      } else if (result.reset || leftChannel || nameChanged) {
-        await sendTelegramMessage(linked.telegramChatId, await statusMessage(linked, telegramUser, config, result), config.token);
+  if (profileSyncRunning) return;
+  profileSyncRunning = true;
+  try {
+    const config = await getTelegramConfig();
+    if (!config.enabled || !config.token || !config.channelId) return;
+    const linkedUsers = await db.select().from(users).where(isNotNull(users.telegramChatId));
+    for (const linked of linkedUsers) {
+      if (!linked.telegramChatId) continue;
+      try {
+        const member = await getChannelMember(config.channelId, Number(linked.telegramChatId), config.token);
+        const telegramUser = member.user;
+        if (!telegramUser) continue;
+        const result = await synchronizeUser(linked, telegramUser, config, member);
+        const leftChannel = linked.telegramChannelMember && !result.member;
+        const nameChanged = linked.telegramNameEligible && !result.nameEligible;
+        if (result.rewarded) {
+          await sendTelegramMessage(linked.telegramChatId, `✅ ${formatCredit(config.rewardCents)} store credit was added for repping ${config.requiredName}.`, config.token);
+        } else if (result.reset || leftChannel || nameChanged) {
+          await sendTelegramMessage(linked.telegramChatId, await statusMessage(linked, telegramUser, config, result), config.token);
+        }
+      } catch {
+        // A single user's membership check must not stop the reward sweep.
       }
-    } catch {
-      // A single user's membership check must not stop the reward sweep.
     }
+  } finally {
+    profileSyncRunning = false;
   }
 }
 
@@ -651,7 +659,7 @@ export function startTelegramBot(): void {
   pollingStarted = true;
   polling = true;
   void pollingLoop();
-  setInterval(() => { void syncAllLinkedUsers(); }, 15 * 60 * 1000);
+  setInterval(() => { void syncAllLinkedUsers(); }, PROFILE_SYNC_INTERVAL_MS);
   void syncAllLinkedUsers();
 }
 
