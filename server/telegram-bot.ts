@@ -109,7 +109,8 @@ export async function getTelegramBotStatus() {
     linkedUsers: Number(linked?.count ?? 0),
     rewardCents: config.rewardCents,
     rewardIntervalHours: 24,
-    brandName: BRAND_NAME,
+    brandName: config.requiredName,
+    requiredName: config.requiredName,
   };
 }
 
@@ -261,8 +262,17 @@ async function telegramApi<T>(method: string, body: Record<string, unknown> = {}
   return payload.result as T;
 }
 
-async function sendTelegramMessage(chatId: string | number, text: string, tokenOverride?: string): Promise<void> {
-  await telegramApi("sendMessage", { chat_id: chatId, text }, tokenOverride);
+async function sendTelegramMessage(
+  chatId: string | number,
+  text: string,
+  tokenOverride?: string,
+  options?: { replyMarkup?: Record<string, unknown> },
+): Promise<void> {
+  await telegramApi("sendMessage", {
+    chat_id: chatId,
+    text,
+    ...(options?.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+  }, tokenOverride);
 }
 
 async function getChannelMember(channelId: string, userId: number, token: string): Promise<TelegramMember> {
@@ -476,6 +486,22 @@ function formatCredit(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function getStartMessage(config: TelegramConfig): {
+  text: string;
+  replyMarkup?: Record<string, unknown>;
+} {
+  return {
+    text: `👋 Welcome to the beastcc.xyz rewards bot!\n\nEarn ${formatCredit(config.rewardCents)} in store credit every 24 hours by repping ${config.requiredName}.\n\nRules:\n• ${config.requiredName} must be in your first or last name.\n• You must be part of our main channel.\n\nTo start, send your 16-digit account number from beastcc.xyz/link. If you need to change accounts later, use /relink followed by a new number.`,
+    ...(config.channelLink
+      ? {
+          replyMarkup: {
+            inline_keyboard: [[{ text: "Join main channel", url: config.channelLink }]],
+          },
+        }
+      : {}),
+  };
+}
+
 async function handleMessage(message: any, config: TelegramConfig): Promise<void> {
   const from = message?.from as TelegramUser | undefined;
   const chatId = message?.chat?.id;
@@ -489,9 +515,11 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
 
   const linked = await findLinkedUser(String(chatId));
   const command = text.split(/\s+/)[0]?.toLowerCase();
-  if (command === "/start" && !linked) {
-    await sendTelegramMessage(chatId,
-      `👋 Welcome to the beastcc.xyz rewards bot!\n\nEarn ${formatCredit(config.rewardCents)} in store credit every 24 hours by repping beastcc.xyz.\n\nRules:\n• ${config.requiredName} must be in your first or last name.\n• You must be part of our main channel.\n\nTo start, reply with your 16-digit account number to link your account. If you need to change accounts later, use /relink followed by a new number.`, config.token);
+  if (command === "/start") {
+    const startMessage = getStartMessage(config);
+    await sendTelegramMessage(chatId, startMessage.text, config.token, {
+      replyMarkup: startMessage.replyMarkup,
+    });
     return;
   }
   if (command === "/link") {
