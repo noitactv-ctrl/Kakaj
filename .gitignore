@@ -3,4 +3,8 @@ dist
 .DS_Store
 server/public
 vite.config.ts.*
+.env
+.env.*
+!.env.example
 *.tar.gz
+*.dump

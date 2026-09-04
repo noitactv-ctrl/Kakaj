@@ -22,11 +22,15 @@ ENV NODE_ENV=production
 ENV PORT=5000
 WORKDIR /app
 
+RUN groupadd --system app && useradd --system --gid app --home-dir /app app
+
 COPY package*.json ./
-COPY --from=production-deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/shared ./shared
-COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
+COPY --from=production-deps --chown=app:app /app/node_modules ./node_modules
+COPY --from=build --chown=app:app /app/dist ./dist
+COPY --from=build --chown=app:app /app/shared ./shared
+COPY --from=build --chown=app:app /app/drizzle.config.ts ./drizzle.config.ts
+
+USER app
 
 EXPOSE 5000
 HEALTHCHECK --interval=15s --timeout=5s --retries=5 --start-period=20s \

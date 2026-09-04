@@ -81,7 +81,7 @@ delete the PostgreSQL volume and all data in it.
 2. Install the source dependencies:
 
    ```bash
-   npm ci
+   npm install
    ```
 
 3. Create a private `.env` file from `.env.example` and set at least:

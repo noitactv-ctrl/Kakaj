@@ -1,8 +1,18 @@
-# Self-hosting BEASTCC
+# Self-hosting BEASTCC securely
 
-This guide runs the website on your own Linux server, VPS, or container host.
+This single guide runs the website on your own Linux server or VPS.
 It does not copy the current Replit database or provider accounts. The
 application code is portable, but the services around it belong to the host.
+
+The recommended setup is Docker Compose behind Caddy or Nginx:
+
+```text
+Internet → HTTPS reverse proxy → 127.0.0.1:5000 → BEASTCC → private PostgreSQL
+```
+
+The Compose file binds the app to localhost and does not publish PostgreSQL.
+Do not change those bindings unless you understand the firewall and database
+security consequences.
 
 ## What you need
 
@@ -11,6 +21,36 @@ application code is portable, but the services around it belong to the host.
 - A domain name and HTTPS for production
 - A process manager or Docker restart policy
 - A secure place for environment variables and backups
+
+## 1. Prepare an Ubuntu VPS
+
+Use a current Ubuntu LTS or another supported Linux distribution. Log in as a
+non-root administrator and update the server:
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo apt install -y ca-certificates curl git ufw unattended-upgrades
+```
+
+Allow SSH and web traffic, then enable the firewall:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw --force enable
+sudo ufw status verbose
+```
+
+Use SSH keys, disable password SSH login after confirming the key works, and
+never expose PostgreSQL (`5432`) or the app port (`5000`) to the public
+internet. Enable automatic security updates:
+
+```bash
+sudo dpkg-reconfigure --priority=low unattended-upgrades
+```
+
+Point your DNS `A`/`AAAA` record at the VPS before requesting HTTPS.
 
 The app uses PostgreSQL for marketplace data **and login sessions**. Use a
 persistent database, not an ephemeral container or local temporary filesystem.
@@ -34,17 +74,33 @@ database.
    cp .env.example .env
    ```
 
-2. For the included PostgreSQL container, set matching values in `.env`:
+2. Generate unique secrets and set matching values in `.env`. Do not use the
+   example values literally:
 
    ```dotenv
    POSTGRES_DB=nychq
-   POSTGRES_USER=nychq
-   POSTGRES_PASSWORD=use-a-long-password
-   DATABASE_URL=postgresql://nychq:use-a-long-password@db:5432/nychq
-   SESSION_SECRET=use-a-long-random-secret
-   SETTINGS_ENCRYPTION_KEY=use-a-different-long-random-secret
+   POSTGRES_USER=nychq_app
+   POSTGRES_PASSWORD=use-a-unique-database-password
+   DATABASE_URL=postgresql://nychq_app:use-a-unique-database-password@db:5432/nychq
+   SESSION_SECRET=use-a-unique-random-secret-at-least-32-characters
+   SETTINGS_ENCRYPTION_KEY=use-a-different-unique-random-secret-at-least-32-characters
    ADMIN_EMAILS=your-real-admin-email@example.com
    OWNER_EMAILS=your-real-owner-email@example.com
+   PORT=5000
+   ```
+
+   Generate values without putting them in shell history:
+
+   ```bash
+   umask 077
+   openssl rand -hex 32
+   openssl rand -hex 32
+   ```
+
+   Keep `.env` readable only by its owner:
+
+   ```bash
+   chmod 600 .env
    ```
 
    If a password contains URL-reserved characters, URL-encode it in
@@ -62,8 +118,7 @@ database.
    production server. The app health check is available at
    `GET /api/health`.
 
-4. Put Nginx, Caddy, or another HTTPS reverse proxy in front of port `5000`.
-   A sample Nginx configuration is in [`deploy/nginx.conf`](./deploy/nginx.conf).
+4. Put Caddy, Nginx, or another HTTPS reverse proxy in front of port `5000`.
    Do not expose the database port publicly.
 
 To stop the app without deleting data:
@@ -74,6 +129,29 @@ docker compose down
 
 Do **not** use `docker compose down -v` unless you intentionally want to
 delete the PostgreSQL volume and all data in it.
+
+### HTTPS with Caddy
+
+Install Caddy using its official repository instructions, then create a
+`/etc/caddy/Caddyfile` entry like this:
+
+```text
+your-domain.example {
+    reverse_proxy 127.0.0.1:5000
+}
+```
+
+Reload Caddy:
+
+```bash
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+Caddy obtains and renews the certificate automatically. Confirm HTTPS before
+enabling crypto callbacks. If you use Nginx instead, the complete proxy
+headers are in `deploy/nginx.conf`; obtain a certificate with Certbot and
+redirect HTTP to HTTPS.
 
 ## Option B: Node.js and system PostgreSQL
 
@@ -113,6 +191,9 @@ delete the PostgreSQL volume and all data in it.
    automatically after a reboot. Keep the reverse proxy and database separate
    from the Node process.
 
+For a new VPS, Docker Compose is safer and simpler because it pins the
+PostgreSQL service and keeps the app/database network boundary explicit.
+
 ## Environment variables
 
 | Variable | Required | Purpose |
@@ -131,6 +212,10 @@ Keep `SESSION_SECRET` and `SETTINGS_ENCRYPTION_KEY` stable after deployment.
 Changing either can invalidate sessions or make previously encrypted provider
 settings unreadable. Store them in the host's secret manager, not in Git or
 the archive.
+
+Never paste secrets into chat, commit them, put them in a browser field meant
+for a public setting, or include them in a database dump. The admin UI stores
+provider secrets encrypted, but the encryption key itself must remain private.
 
 ## Admin and first-run setup
 
@@ -183,6 +268,50 @@ pg_restore --clean --if-exists --no-owner --no-acl \
 Treat the dump as highly sensitive. Delete temporary dumps after confirming
 the restore and take regular encrypted backups of the new database. Never put a
 dump, `.env`, API key, or stock export into the website archive.
+
+For the Docker database, create a compressed backup from the app directory:
+
+```bash
+docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  --format=custom --no-owner --no-acl > "backup-$(date +%F).dump"
+chmod 600 backup-*.dump
+```
+
+Copy backups to separate storage, encrypt them at rest, retain multiple
+recovery points, and test restoring one to a separate database. A backup on
+the same VPS is not enough protection against disk loss or compromise.
+
+## Updating safely
+
+From the app directory:
+
+```bash
+git pull --ff-only
+npm ci
+npm run check
+npm run build
+docker compose up -d --build
+docker compose ps
+curl -fsS https://your-domain.example/api/health
+```
+
+Take a database backup before schema changes. Never run `docker compose down -v`
+for a normal update; `-v` deletes the database volume.
+
+## Security checklist before going live
+
+- [ ] Only ports 22, 80, and 443 are allowed by the VPS firewall.
+- [ ] SSH keys work and password SSH login is disabled.
+- [ ] `.env` is mode `600` and is not tracked by Git.
+- [ ] `SESSION_SECRET` and `SETTINGS_ENCRYPTION_KEY` are unique, long, and stable.
+- [ ] `POSTGRES_PASSWORD` is unique and the database is not publicly exposed.
+- [ ] The app is reachable only through HTTPS in production.
+- [ ] `ADMIN_EMAILS` and `OWNER_EMAILS` contain only intended accounts.
+- [ ] The first administrator can log in and a normal account cannot access Admin.
+- [ ] Crypto callbacks use the exact HTTPS URL and provider secret.
+- [ ] A backup was created, copied off-host, and successfully test-restored.
+- [ ] Test payment, order, refund, and stock-delivery flows were verified.
+- [ ] Logs and monitoring do not contain passwords, tokens, payment secrets, or stock.
 
 ## Verification checklist
 

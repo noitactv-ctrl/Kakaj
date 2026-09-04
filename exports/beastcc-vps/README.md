@@ -6,7 +6,7 @@ self-hosting instructions, see [`HOSTING.md`](./HOSTING.md).
 ## Quick start
 
 ```bash
-npm ci
+npm install
 cp .env.example .env
 # Edit .env with your own PostgreSQL URL and secrets.
 npm run db:push

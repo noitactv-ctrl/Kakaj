@@ -41,7 +41,7 @@ For a fresh database, `docker compose up -d --build` runs the migration service 
 Use Node.js 20+, PostgreSQL 16+, and the commands in `HOSTING.md`:
 
 ```bash
-npm ci
+npm install
 npm run db:push
 npm run check
 npm run build
