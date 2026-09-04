@@ -1,0 +1,18 @@
+BEASTCC CURRENT VPS UPDATE
+
+Download all package files:
+  beastcc-vps-update-latest.tar.gz.part-00
+  beastcc-vps-update-latest.tar.gz.part-01
+
+This is a CODE-ONLY update from the latest project state. It intentionally does not include a database dump or .env file. Keep the VPS .env and PostgreSQL volume.
+
+On Windows PowerShell, upload both files:
+  scp "$HOME\Downloads\beastcc-vps-update-latest.tar.gz.part-00" root@YOUR_VPS_IP:/root/beastcc-vps-update-latest.tar.gz.part-00
+  scp "$HOME\Downloads\beastcc-vps-update-latest.tar.gz.part-01" root@YOUR_VPS_IP:/root/beastcc-vps-update-latest.tar.gz.part-01
+
+On the VPS, reassemble and verify:
+  cd /opt/beastcc
+  cat /root/beastcc-vps-update-latest.tar.gz.part-00 /root/beastcc-vps-update-latest.tar.gz.part-01 > beastcc-vps-update-latest.tar.gz
+  sha256sum beastcc-vps-update-latest.tar.gz
+
+Then follow website/VPS-UPDATE.md inside the archive. Use `docker compose down`, never `docker compose down -v`.

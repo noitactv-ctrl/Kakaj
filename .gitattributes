@@ -3,3 +3,4 @@ exports/nychq-self-hosting-assets-1.zip filter=lfs diff=lfs merge=lfs -text
 exports/nychq-self-hosting-assets-2.zip filter=lfs diff=lfs merge=lfs -text
 exports/beastcc-lovable-transfer.zip filter=lfs diff=lfs merge=lfs -text
 exports/beastcc-vps-complete.tar.gz.part-00 filter=lfs diff=lfs merge=lfs -text
+exports/beastcc-vps-update-latest.tar.gz.part-00 filter=lfs diff=lfs merge=lfs -text
