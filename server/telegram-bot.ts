@@ -490,15 +490,15 @@ function getStartMessage(config: TelegramConfig): {
   text: string;
   replyMarkup?: Record<string, unknown>;
 } {
+  const inlineKeyboard: Array<Array<Record<string, unknown>>> = [];
+  if (config.channelLink) {
+    inlineKeyboard.push([{ text: "Join main channel", url: config.channelLink }]);
+  }
+  inlineKeyboard.push([{ text: "Copy required name", copy_text: { text: config.requiredName } }]);
+
   return {
-    text: `👋 Welcome to the beastcc.xyz rewards bot!\n\nEarn ${formatCredit(config.rewardCents)} in store credit every 24 hours by repping ${config.requiredName}.\n\nRules:\n• ${config.requiredName} must be in your first or last name.\n• You must be part of our main channel.\n\nTo start, send your 16-digit account number from beastcc.xyz/link. If you need to change accounts later, use /relink followed by a new number.`,
-    ...(config.channelLink
-      ? {
-          replyMarkup: {
-            inline_keyboard: [[{ text: "Join main channel", url: config.channelLink }]],
-          },
-        }
-      : {}),
+    text: `👋 Welcome to the beastcc.xyz rewards bot!\n\nEarn ${formatCredit(config.rewardCents)} in store credit every 24 hours.\n\nYour Telegram first or last name must include:\n${config.requiredName}\n\nTap “Copy required name” to copy it, then paste it into your Telegram name. You must also join our main channel.\n\nTo start, send your 16-digit account number from beastcc.xyz/link. If you need to change accounts later, use /relink followed by a new number.`,
+    replyMarkup: { inline_keyboard: inlineKeyboard },
   };
 }
 
