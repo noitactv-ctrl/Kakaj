@@ -154,3 +154,59 @@ mtime_ms = 1788457838958
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/2d117e3c-8c5c-426a-b699-a60391ffd20e/d6dbae4e-1840-449d-a09e-bd3240e90ade"
 storage_version_token = "1788457858182430"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "YizwOOpmpGGDGb34ib-Jh"
+uri = "file://exports/beastcc-vps-complete.tar.gz.part-00"
+type = "unspecified"
+title = "BEASTCC VPS package — part 1 of 2"
+description = "Part 1 of the complete website, assets, deployment files, VPS guide, and current PostgreSQL backup. Download both parts and follow the reassembly instructions."
+logical_id = "4cf0fed2-fd5e-4930-9d26-1bdcec45826b"
+content_hash = "sha256:ef15b63a1b3444f2c7e95efd6b93bc047c8c4fd886f5004c45473fcb57873758"
+size = 94371840
+mtime_ms = 1788484729799
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/4cf0fed2-fd5e-4930-9d26-1bdcec45826b/1c99f7e1-c980-4ac4-835d-c6b7e52b57e1"
+storage_version_token = "1788484737253451"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "dc_rgEsSiY8Ji0f4SJHru"
+uri = "file://exports/beastcc-vps-complete.tar.gz.part-01"
+type = "unspecified"
+title = "BEASTCC VPS package — part 2 of 2"
+description = "Part 2 of the complete website, assets, deployment files, VPS guide, and current PostgreSQL backup. Download both parts and follow the reassembly instructions."
+logical_id = "63eced6c-d328-400e-81ab-c7640980cbd1"
+content_hash = "sha256:73cd179ed52f90b9273b3519dd4323d4ada5726ec6fb8ebad7d4257f828fe36d"
+size = 25250276
+mtime_ms = 1788484729927
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/63eced6c-d328-400e-81ab-c7640980cbd1/d548f76a-b175-4128-9003-fd011a1bbbce"
+storage_version_token = "1788484738016720"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "yjDsuNK3b270L3bmMm8Ur"
+uri = "file://exports/beastcc-vps-download-instructions.txt"
+type = "text"
+title = "BEASTCC VPS download and restore instructions"
+description = "Commands to reassemble the two package parts, verify the checksum, extract the website, start Docker, and restore the PostgreSQL database."
+logical_id = "10028694-8d0a-4ce7-88f8-461287b1af94"
+content_hash = "sha256:07f76ff8bc97d81787290df23d2fc14c61d93326308591e4f807375fabad299e"
+size = 1153
+mtime_ms = 1788484730667
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/10028694-8d0a-4ce7-88f8-461287b1af94/8ba25adc-6e19-445e-956c-0f697d9f9fc9"
+storage_version_token = "1788484738583242"
+content_type = "text/plain"
+
+[[outputs]]
+id = "nXAPn7tn7tOYVCklHnzit"
+uri = "file://exports/beastcc-vps-complete-SHA256SUMS.txt"
+type = "text"
+title = "BEASTCC VPS package checksums"
+description = "SHA-256 checksums for the complete archive and both download parts."
+logical_id = "f015286d-c5e1-47b4-89eb-6cfea94e5cd1"
+content_hash = "sha256:98274ee15fca2afe4477b732ae1bc0e03ad416e67a47e2a846c4893d9561b8fe"
+size = 322
+mtime_ms = 1788484730659
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/f015286d-c5e1-47b4-89eb-6cfea94e5cd1/528759bc-be13-4d1d-91ac-c781a2dc9ebe"
+storage_version_token = "1788484739041308"
+content_type = "text/plain"

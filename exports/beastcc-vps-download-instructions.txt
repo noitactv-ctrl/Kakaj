@@ -1,0 +1,36 @@
+BEASTCC VPS PACKAGE
+===================
+
+This download is split into two parts because the complete archive is larger
+than the individual download limit.
+
+1. Download both files with names ending in .part-00 and .part-01.
+2. Put them in the same folder.
+3. Reassemble the archive:
+
+   cat beastcc-vps-complete.tar.gz.part-00 \
+       beastcc-vps-complete.tar.gz.part-01 > beastcc-vps-complete.tar.gz
+
+4. Verify the full archive against the SHA-256 value in
+   beastcc-vps-complete-SHA256SUMS.txt.
+5. Extract it:
+
+   tar -xzf beastcc-vps-complete.tar.gz
+   cd website
+
+The current PostgreSQL backup is:
+
+   website/database/current-database.sql
+
+For Docker VPS hosting, edit .env, then run:
+
+   docker compose up -d --build
+
+For database restoration, create the target database first and run:
+
+   psql "$DATABASE_URL" < database/current-database.sql
+
+Read website/HOSTING.md before going live. The package contains no real .env
+file, API keys, passwords, or session secrets. The database backup itself is
+sensitive because it may contain accounts, balances, orders, inventory, and
+sessions; keep it private and delete temporary copies after restoration.
