@@ -266,3 +266,17 @@ mtime_ms = 1788490404853
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/b96c867d-7e19-4f71-9ff0-191a0be8b389/c234376b-9bef-463a-8eac-2ad0f5266ca0"
 storage_version_token = "1788490439499847"
 content_type = "text/plain"
+
+[[outputs]]
+id = "owwMB3N0BnVqe3IcFS3mH"
+uri = "file://exports/beastcc-deposit-history-update.zip"
+type = "unspecified"
+title = "BeastCC deposit history update"
+description = "Exactly the two updated customer-facing files: DepositPage.tsx and OrdersPage.tsx. Upload them into the matching client/src/pages folder on the VPS."
+logical_id = "522f43e9-7a64-4c54-9313-2be7e9e727b2"
+content_hash = "sha256:58445ccd21dd55308d9f95b77ccbc69f71ae76587593df8563e093ddce2305c9"
+size = 10203
+mtime_ms = 1788502188673
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/522f43e9-7a64-4c54-9313-2be7e9e727b2/79f81f41-5416-4566-9ea0-9a98488c549f"
+storage_version_token = "1788502194107361"
+content_type = "application/octet-stream"
