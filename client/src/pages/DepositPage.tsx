@@ -102,12 +102,6 @@ export default function DepositPage() {
     queryKey: ["/api/site-settings/min-deposits"],
   });
 
-  const { data: deposits, refetch: refetchDeposits } = useQuery<Deposit[]>({
-    queryKey: ["/api/deposits"],
-    enabled: !!user,
-    refetchInterval: 20000,
-  });
-
   const cashappEnabled = manualMethods?.cashapp.enabled === true;
   const cryptoEnabled = paymentMethods?.crypto === true && cryptoCurrencies.length > 0;
 
@@ -140,8 +134,6 @@ export default function DepositPage() {
     amountCents >= tier.minCents && (tier.maxCents === null || amountCents <= tier.maxCents)
   );
 
-  const recentDeposits = deposits?.slice(0, 15) ?? [];
-
   /* ── Crypto mutation ── */
   const cryptoMutation = useMutation({
     mutationFn: async () => {
@@ -160,7 +152,6 @@ export default function DepositPage() {
       return res.json();
     },
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["/api/deposits"] });
       setCryptoInvoice(data);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -194,7 +185,6 @@ export default function DepositPage() {
         amount: Math.round(variables.amount * 100),
         method,
       });
-      qc.invalidateQueries({ queryKey: ["/api/deposits"] });
       qc.invalidateQueries({ queryKey: ["/api/orders"] });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -257,7 +247,7 @@ export default function DepositPage() {
             coinColor={selectedCrypto?.color}
             onPaymentComplete={() => {
               qc.invalidateQueries({ queryKey: ["/api/user"] });
-              qc.invalidateQueries({ queryKey: ["/api/deposits"] });
+              qc.invalidateQueries({ queryKey: ["/api/orders"] });
               qc.invalidateQueries({ queryKey: ["/api/wallet/transactions"] });
             }}
             onReset={() => {
@@ -375,19 +365,6 @@ export default function DepositPage() {
           </div>
         )}
 
-        {recentDeposits.length > 0 && (
-          <div className="pixel-panel space-y-2 bg-[#10215e] p-3">
-            <div className="flex items-center justify-between">
-              <p className="pixel-label">DEPOSIT HISTORY</p>
-              <button onClick={() => refetchDeposits()} className="text-[#ffe177] hover:text-white transition-colors" data-testid="btn-refresh-deposits">
-                <RefreshCw className="h-3 w-3" />
-              </button>
-            </div>
-            <div className="space-y-1.5">
-              {recentDeposits.map(dep => <DepositRow key={dep.id} deposit={dep} />)}
-            </div>
-          </div>
-        )}
       </div>
 
     </div>
