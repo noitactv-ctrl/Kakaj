@@ -3,10 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import {
-  Loader2, Clock, CheckCircle2, XCircle, AlertTriangle,
-  RefreshCw, ExternalLink
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { SiBitcoin, SiCashapp } from "react-icons/si";
 import { calculateDepositCredit, DEPOSIT_BONUS_TIERS } from "@shared/deposit";
 import { ManualPaymentQrCode } from "@/components/ManualPaymentQrCode";
@@ -15,27 +12,8 @@ import { CryptoPaymentPanel, type CryptoInvoiceData } from "@/components/CryptoP
 
 type Method = "crypto" | "cashapp" | "chime" | "zelle" | "venmo";
 
-type Deposit = {
-  id: string;
-  type: string;
-  amount: number;
-  status: string;
-  paymentId?: string;
-  checkoutUrl?: string;
-  currency?: string;
-  paymentNote?: string;
-  createdAt: string;
-};
-
 type ManualResult = { note: string; handle: string; url: string; amount: number; method: Exclude<Method, "crypto"> };
 
-function methodColor(type: string) {
-  if (type === "cashapp") return "#00D632";
-  if (type === "chime") return "#7BC67E";
-  if (type === "zelle") return "#6D1ED4";
-  if (type === "venmo") return "#3D95CE";
-  return "#F7931A";
-}
 function methodLabel(type: string) {
   if (type === "cashapp") return "CashApp";
   if (type === "chime") return "Chime";
@@ -49,51 +27,6 @@ function methodAccent(type: Method) {
   if (type === "venmo") return "#3D95CE";
   return "#6D1ED4";
 }
-
-function StatusBadge({ status }: { status: string }) {
-  if (["completed","delivering","fulfilled"].includes(status))
-    return <span className="flex items-center gap-1 text-[10px] font-mono text-green-400"><CheckCircle2 className="h-3 w-3" />credited</span>;
-  if (["unpaid","failed","expired"].includes(status))
-    return <span className="flex items-center gap-1 text-[10px] font-mono text-red-400/70"><XCircle className="h-3 w-3" />unpaid</span>;
-  if (status === "underpaid")
-    return <span className="flex items-center gap-1 text-[10px] font-mono text-yellow-400/70"><AlertTriangle className="h-3 w-3" />underpaid</span>;
-  return <span className="flex items-center gap-1 text-[10px] font-mono text-white/30 animate-pulse"><Clock className="h-3 w-3" />pending</span>;
-}
-
-function DepositRow({ deposit }: { deposit: Deposit }) {
-  const isCredited = ["completed","delivering","fulfilled"].includes(deposit.status);
-  const color = methodColor(deposit.type);
-  return (
-    <div className={`flex items-center justify-between px-3 py-2 rounded-xl border ${
-      isCredited ? "bg-green-950/10 border-green-900/15" :
-      ["unpaid","failed","expired"].includes(deposit.status) ? "bg-red-950/10 border-red-900/15" :
-      "bg-white/[0.02] border-white/[0.05]"
-    }`}>
-      <div className="flex items-center gap-2 min-w-0">
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{ background: `${color}18`, color }}>
-          {deposit.type === "crypto" ? "₿" : deposit.type.charAt(0).toUpperCase()}
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-mono font-bold text-white">
-              {deposit.amount > 0 ? `$${(deposit.amount / 100).toFixed(2)}` : "pending"}
-            </span>
-            <StatusBadge status={deposit.status} />
-          </div>
-          <p className="text-[9px] text-white/20 font-mono">
-            {methodLabel(deposit.type)}{deposit.type === "crypto" && deposit.currency ? ` · ${deposit.currency}` : ""} · {new Date(deposit.createdAt).toLocaleDateString()}
-          </p>
-        </div>
-      </div>
-      {deposit.checkoutUrl && !isCredited && (
-        <a href={deposit.checkoutUrl} target="_blank" rel="noopener noreferrer" className="ml-2 flex-shrink-0 text-white/20 hover:text-white/60 transition-colors">
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      )}
-    </div>
-  );
-}
-
 
 /* ── MANUAL DEPOSIT PANEL ── */
 function ManualDepositPanel({ result, onReset }: { result: ManualResult; onReset: () => void }) {
