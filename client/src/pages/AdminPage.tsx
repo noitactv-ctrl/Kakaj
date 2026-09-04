@@ -189,6 +189,7 @@ type CreditBotStatus = {
   channelId: string;
   channelLink: string;
   botName: string;
+  requiredName: string;
   botUrl: string;
   linkedUsers: number;
   rewardCents: number;
@@ -201,6 +202,7 @@ function CreditBotSection() {
   const [channelId, setChannelId] = useState("");
   const [channelLink, setChannelLink] = useState("");
   const [botName, setBotName] = useState("");
+  const [requiredName, setRequiredName] = useState("");
   const [token, setToken] = useState("");
   const [rewardAmount, setRewardAmount] = useState("0.25");
   const [announcement, setAnnouncement] = useState("");
@@ -217,11 +219,12 @@ function CreditBotSection() {
     if (status) setChannelId(status.channelId ?? "");
     if (status) setChannelLink(status.channelLink ?? "");
     if (status) setBotName(status.botName ?? "");
+    if (status) setRequiredName(status.requiredName ?? "");
     if (status) setRewardAmount((status.rewardCents / 100).toFixed(2));
-  }, [status?.channelId, status?.channelLink, status?.botName, status?.rewardCents]);
+  }, [status?.channelId, status?.channelLink, status?.botName, status?.requiredName, status?.rewardCents]);
 
   const saveMutation = useMutation({
-    mutationFn: async (updates: { enabled?: boolean; channelId?: string; channelLink?: string; botName?: string; token?: string; rewardCents?: number }) => {
+    mutationFn: async (updates: { enabled?: boolean; channelId?: string; channelLink?: string; botName?: string; requiredName?: string; token?: string; rewardCents?: number }) => {
       const response = await apiRequest("PATCH", "/api/admin/credit-bot", updates);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -361,6 +364,20 @@ function CreditBotSection() {
               <p className="text-[11px] text-white/40">Used for the “Go to bot” button on the link page.</p>
             </div>
             <div className="space-y-2">
+              <label htmlFor="credit-bot-required-name" className="text-sm font-medium leading-none text-white">
+                Required name text
+              </label>
+              <Input
+                id="credit-bot-required-name"
+                value={requiredName}
+                onChange={event => setRequiredName(event.target.value)}
+                placeholder="beastcc.xyz"
+                className="border-white/10 bg-black/20 font-mono"
+                data-testid="input-credit-bot-required-name"
+              />
+              <p className="text-[11px] text-white/40">Users must include this text in their Telegram first or last name to earn.</p>
+            </div>
+            <div className="space-y-2">
               <label htmlFor="credit-bot-reward" className="text-sm font-medium leading-none text-white">
                 Daily reward amount
               </label>
@@ -395,6 +412,7 @@ function CreditBotSection() {
                   channelId,
                   channelLink,
                   botName,
+                  requiredName,
                   rewardCents,
                   ...(token.trim() ? { token: token.trim() } : {}),
                 });
