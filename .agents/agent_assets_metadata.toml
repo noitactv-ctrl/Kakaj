@@ -210,3 +210,59 @@ mtime_ms = 1788484730659
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/f015286d-c5e1-47b4-89eb-6cfea94e5cd1/528759bc-be13-4d1d-91ac-c781a2dc9ebe"
 storage_version_token = "1788484739041308"
 content_type = "text/plain"
+
+[[outputs]]
+id = "Oa5tLIFqY8FdpC-RVfzvK"
+uri = "file://exports/beastcc-vps-update-latest.tar.gz.part-00"
+type = "unspecified"
+title = "LATEST VPS UPDATE — part 1 of 2"
+description = "Fresh code and assets from the current project. Download both package parts. This update does not replace your VPS database or .env file."
+logical_id = "4af5cafb-347e-4317-b4c8-795eecf22ae8"
+content_hash = "sha256:6f1e90843556df5f4bef4ce7daa70e570dde730579c86c7bd5656b387161500f"
+size = 94371840
+mtime_ms = 1788490416559
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/4af5cafb-347e-4317-b4c8-795eecf22ae8/1ef8f725-f0a8-406f-90bf-0060ab0781b7"
+storage_version_token = "1788490437499283"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "djCW5wUIVmacnFs4PiOKU"
+uri = "file://exports/beastcc-vps-update-latest.tar.gz.part-01"
+type = "unspecified"
+title = "LATEST VPS UPDATE — part 2 of 2"
+description = "Second part of the fresh current-code VPS update. Download this together with part 1."
+logical_id = "5c83ec3d-d9ae-472b-8343-4b1e8cac2a3c"
+content_hash = "sha256:c38de12a36d42821015e7c96fb4fa847de6b00b66a42a25b00ccaed2d2a415bf"
+size = 26207685
+mtime_ms = 1788490404101
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/5c83ec3d-d9ae-472b-8343-4b1e8cac2a3c/b6d918aa-442b-468f-9772-210dfde85693"
+storage_version_token = "1788490438463660"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "IrvxNfp0uKZGzub32N8WU"
+uri = "file://exports/beastcc-vps-update-download-instructions.txt"
+type = "text"
+title = "VPS update instructions"
+description = "Windows PowerShell upload, archive reassembly, verification, and safe update steps."
+logical_id = "97e11fec-5b21-4be5-a64b-c1c29342a1d9"
+content_hash = "sha256:f7b391bcc10dffa6b378d02891e70ded9f2d9c7ba8e4f1aadd702f4325ffdbbc"
+size = 955
+mtime_ms = 1788490404857
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/97e11fec-5b21-4be5-a64b-c1c29342a1d9/e39b9db7-99f3-428c-bd2d-21ef9058299f"
+storage_version_token = "1788490439031591"
+content_type = "text/plain"
+
+[[outputs]]
+id = "7GP8l-LYkUv9ag3oYWrIj"
+uri = "file://exports/beastcc-vps-update-SHA256SUMS.txt"
+type = "text"
+title = "VPS update checksums"
+description = "SHA-256 checksums for the two downloadable update parts and the complete archive."
+logical_id = "b96c867d-7e19-4f71-9ff0-191a0be8b389"
+content_hash = "sha256:9005c123cf4bb766452e71c68f71b617e2c0d8c290d5b3ea3078688f0d97b852"
+size = 334
+mtime_ms = 1788490404853
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/b96c867d-7e19-4f71-9ff0-191a0be8b389/c234376b-9bef-463a-8eac-2ad0f5266ca0"
+storage_version_token = "1788490439499847"
+content_type = "text/plain"
