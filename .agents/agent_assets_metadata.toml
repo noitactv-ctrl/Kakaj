@@ -280,3 +280,17 @@ mtime_ms = 1788502188673
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/522f43e9-7a64-4c54-9313-2be7e9e727b2/79f81f41-5416-4566-9ea0-9a98488c549f"
 storage_version_token = "1788502194107361"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "5DYbVe7RRSlZVzIdBeCr2"
+uri = "file://exports/beastcc-telegram-profile-sync-update.tar.gz"
+type = "unspecified"
+title = "Telegram profile sync VPS update"
+description = "Code-only update for the 30-second Telegram profile checks and 24-hour timer reset behavior. Includes safe VPS application instructions; preserve the existing .env and PostgreSQL volume."
+logical_id = "93f89eb7-0d09-4e3b-8187-f243744a0da4"
+content_hash = "sha256:3eb8e14f97130019b2273a9fabd107a628e2f65e88ec52b35591433733f5f57d"
+size = 6737
+mtime_ms = 1788530419505
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/93f89eb7-0d09-4e3b-8187-f243744a0da4/1b606668-9290-4f8e-9d98-582b700f56b0"
+storage_version_token = "1788530428236400"
+content_type = "application/octet-stream"
