@@ -435,7 +435,7 @@ function CreditBotSection() {
           <Textarea
             value={announcement}
             onChange={event => setAnnouncement(event.target.value)}
-            placeholder="Write a message to every linked Telegram user..."
+            placeholder="Write a message to every eligible linked Telegram user..."
             maxLength={4000}
             rows={6}
             className="border-white/10 bg-black/20"
@@ -449,7 +449,7 @@ function CreditBotSection() {
               data-testid="button-send-credit-bot-announcement"
             >
               {announcementMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-              Send to all linked users
+              Send to eligible linked users
             </Button>
           </div>
         </CardContent>

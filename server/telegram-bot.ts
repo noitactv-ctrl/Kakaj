@@ -578,7 +578,15 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
 export async function broadcastTelegramMessage(text: string): Promise<{ sent: number; failed: number }> {
   const config = await getTelegramConfig();
   if (!config.token) throw new Error("Telegram bot token is not configured");
-  const linkedUsers = await db.select({ id: users.id, chatId: users.telegramChatId }).from(users).where(isNotNull(users.telegramChatId));
+  const linkedUsers = await db
+    .select({ id: users.id, chatId: users.telegramChatId })
+    .from(users)
+    .where(and(
+      isNotNull(users.telegramChatId),
+      sql`btrim(${users.telegramChatId}) <> ''`,
+      eq(users.telegramNameEligible, true),
+      eq(users.telegramChannelMember, true),
+    ));
   let sent = 0;
   let failed = 0;
   for (const user of linkedUsers) {
