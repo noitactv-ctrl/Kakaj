@@ -294,3 +294,17 @@ mtime_ms = 1788530419505
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/93f89eb7-0d09-4e3b-8187-f243744a0da4/1b606668-9290-4f8e-9d98-582b700f56b0"
 storage_version_token = "1788530428236400"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "1megCwnnC2E5Ba0BYoCh3"
+uri = "file://exports/beastcc-telegram-announcement-filter-update.tar.gz"
+type = "unspecified"
+title = "Telegram announcement filter VPS update"
+description = "Code-only update that limits announcements to linked users who pass the required-name rule and are current main-channel members. Apply from /opt/beastcc/website; preserves .env and PostgreSQL data."
+logical_id = "016185ab-c4f3-4da5-abfe-3545a70d2292"
+content_hash = "sha256:3fb4049edcadb7ff72a13f0d8a19006cc5413161b690ed40376bc82a08b7647f"
+size = 49936
+mtime_ms = 1788631786890
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/016185ab-c4f3-4da5-abfe-3545a70d2292/f444c0d3-5b0e-484b-a97d-bf9892b58c1b"
+storage_version_token = "1788631791366890"
+content_type = "application/octet-stream"
