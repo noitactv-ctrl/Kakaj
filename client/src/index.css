@@ -195,16 +195,6 @@
   border-color: #333 !important;
 }
 
-/* Sweep any remaining page-level arbitrary blue utilities into the neutral
-   palette. The explicit red rules below preserve the primary action color. */
-.pixel-shell [class*="bg-[#"] {
-  background-color: #171717 !important;
-}
-
-.pixel-shell [class*="hover:bg-[#"]:hover {
-  background-color: #202020 !important;
-}
-
 .pixel-shell [class*="bg-blue-"],
 .pixel-shell [class*="bg-indigo-"],
 .pixel-shell [class*="bg-cyan-"],
@@ -255,12 +245,6 @@
 .pixel-shell [class~="bg-[#ef2b2b]"],
 .pixel-shell [class~="bg-[#43b94e]"] {
   background-color: #ff2939 !important;
-}
-
-.pixel-shell [class*="hover:bg-[#ff"]:hover],
-.pixel-shell [class*="hover:bg-[#ee"]:hover],
-.pixel-shell [class*="hover:bg-[#d9"]:hover] {
-  background-color: #e51f30 !important;
 }
 
 @media (hover: hover) and (pointer: fine) {
