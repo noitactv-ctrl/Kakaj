@@ -10,7 +10,15 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // A failed external database must not leave a serverless request hanging
+  // indefinitely. This is especially important on Vercel, where the client
+  // would otherwise remain on the app's loading screen forever.
+  connectionTimeoutMillis: 10_000,
+  idleTimeoutMillis: 30_000,
+  max: process.env.VERCEL === "1" ? 5 : 10,
+});
 pool.on("error", (error) => {
   // PostgreSQL can terminate an idle client during maintenance or a database
   // restart. The pool removes that client; keep the web process alive so the

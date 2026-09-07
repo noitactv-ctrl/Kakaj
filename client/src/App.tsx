@@ -44,7 +44,14 @@ function Router() {
   }, [user, isLoading, location, setLocation]);
 
   if (isLoading) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-6 text-center text-white">
+        <div>
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#ff2939]" />
+          <p className="text-sm font-semibold">Loading TurtleCC…</p>
+        </div>
+      </div>
+    );
   }
 
   return (
