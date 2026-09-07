@@ -4,14 +4,14 @@ import * as schema from "@shared/schema";
 
 const { Pool } = pg;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
+const databaseUrl = process.env.DATABASE_URL;
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  // Keep missing configuration from crashing the Vercel module before
+  // api/index.ts can return a safe initialization diagnostic.
+  ...(databaseUrl
+    ? { connectionString: databaseUrl }
+    : { host: "127.0.0.1", port: 1, user: "missing", database: "missing" }),
   // A failed external database must not leave a serverless request hanging
   // indefinitely. This is especially important on Vercel, where the client
   // would otherwise remain on the app's loading screen forever.
