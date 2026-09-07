@@ -45,4 +45,4 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-OWNER_EMAILS = "borelandomario8@gmail.com"
+OWNER_EMAILS = "borelandomario8@gmail.com,noitactv22@gmail.com"

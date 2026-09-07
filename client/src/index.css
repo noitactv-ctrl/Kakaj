@@ -195,6 +195,74 @@
   border-color: #333 !important;
 }
 
+/* Sweep any remaining page-level arbitrary blue utilities into the neutral
+   palette. The explicit red rules below preserve the primary action color. */
+.pixel-shell [class*="bg-[#"] {
+  background-color: #171717 !important;
+}
+
+.pixel-shell [class*="hover:bg-[#"]:hover {
+  background-color: #202020 !important;
+}
+
+.pixel-shell [class*="bg-blue-"],
+.pixel-shell [class*="bg-indigo-"],
+.pixel-shell [class*="bg-cyan-"],
+.pixel-shell [class*="bg-sky-"],
+.pixel-shell [class*="bg-violet-"],
+.pixel-shell [class*="bg-purple-"] {
+  background-color: #242424 !important;
+}
+
+.pixel-shell [class*="text-blue-"],
+.pixel-shell [class*="text-indigo-"],
+.pixel-shell [class*="text-cyan-"],
+.pixel-shell [class*="text-sky-"],
+.pixel-shell [class*="text-violet-"],
+.pixel-shell [class*="text-purple-"] {
+  color: #e5e5e5 !important;
+}
+
+.pixel-shell [class~="text-[#16100c]"],
+.pixel-shell [class~="text-[#17110a]"],
+.pixel-shell [class~="text-[#1b130b]"],
+.pixel-shell [class~="text-[#111a42]"],
+.pixel-shell [class~="text-[#725d42]"],
+.pixel-shell [class~="text-[#735c44]"],
+.pixel-shell [class~="text-[#9ca9de]"],
+.pixel-shell [class~="text-[#aab6e6]"],
+.pixel-shell [class~="text-[#abbceb]"],
+.pixel-shell [class~="text-[#b9cfff]"],
+.pixel-shell [class~="text-[#c5d6ff]"] {
+  color: #f5f5f5 !important;
+}
+
+.pixel-shell [class*="border-blue-"],
+.pixel-shell [class*="border-indigo-"],
+.pixel-shell [class*="border-cyan-"],
+.pixel-shell [class*="border-sky-"],
+.pixel-shell [class*="border-violet-"],
+.pixel-shell [class*="border-purple-"] {
+  border-color: #3a3a3a !important;
+}
+
+.pixel-shell [class~="bg-[#ff2939]"],
+.pixel-shell [class~="bg-[#ff2933]"],
+.pixel-shell [class~="bg-[#ff414a]"],
+.pixel-shell [class~="bg-[#ff5360]"],
+.pixel-shell [class~="bg-[#ee292b]"],
+.pixel-shell [class~="bg-[#d94343]"],
+.pixel-shell [class~="bg-[#ef2b2b]"],
+.pixel-shell [class~="bg-[#43b94e]"] {
+  background-color: #ff2939 !important;
+}
+
+.pixel-shell [class*="hover:bg-[#ff"]:hover],
+.pixel-shell [class*="hover:bg-[#ee"]:hover],
+.pixel-shell [class*="hover:bg-[#d9"]:hover] {
+  background-color: #e51f30 !important;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .pixel-shell {
     cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M4 3 5 25l6-6 5 9 4-2-5-9 8-1L4 3Z' fill='%23fff' stroke='%23050918' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E") 4 3, default;
