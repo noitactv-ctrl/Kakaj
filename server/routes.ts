@@ -38,6 +38,7 @@ import {
   getTelegramLinkToken,
   saveTelegramBotConfig,
 } from "./telegram-bot";
+import { reconcilePlisioIntents } from "./plisio-reconciler";
 
 function isAdminOrWorker(req: any): boolean {
   const u = req.user as any;
@@ -436,6 +437,24 @@ export async function registerRoutes(
       res.json({ ok: true });
     } catch {
       res.status(503).json({ ok: false, message: "Database unavailable" });
+    }
+  });
+
+  // Vercel invokes this route on a schedule because serverless functions
+  // cannot keep the VPS-style interval workers alive between requests.
+  app.get("/api/cron/maintenance", async (req, res, next) => {
+    try {
+      const cronSecret = process.env.CRON_SECRET?.trim();
+      const authorization = req.headers.authorization;
+      if (!cronSecret || authorization !== `Bearer ${cronSecret}`) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const cancelled = await storage.cancelStalePendingOrders(60 * 60 * 1000);
+      await reconcilePlisioIntents();
+      res.json({ ok: true, cancelled });
+    } catch (error) {
+      next(error);
     }
   });
 

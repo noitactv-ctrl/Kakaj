@@ -282,6 +282,7 @@ PostgreSQL service and keeps the app/database network boundary explicit.
 | `ADMIN_EMAILS` | Yes for bootstrap | Comma-separated admin email addresses |
 | `OWNER_EMAILS` | Yes for owner controls | Comma-separated owner email addresses allowed to manage admins and workers |
 | `PORT` | Optional | HTTP port; defaults to `5000` |
+| `CRON_SECRET` | Vercel only | Secret used to authorize the scheduled maintenance endpoint |
 | `PLISIO_PUBLIC_APP_URL` | Crypto only | The exact public HTTPS origin used for crypto return links and callbacks |
 | `PLISIO_API_KEY` | Crypto only | Plisio secret key; can also be entered through the admin integrations page |
 | `PLISIO_API_BASE_URL` | Crypto only | Plisio API base URL; normally the official default |
