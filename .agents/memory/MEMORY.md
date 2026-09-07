@@ -26,3 +26,4 @@
 - [Telegram rep rewards](telegram-rep-rewards.md) — link codes are one-time and short-lived; profile changes reset the timer, and each reward must atomically update balance and ledger.
 - [VPS bundle security parity](vps-bundle-security-parity.md) — audit the standalone self-host bundle whenever root dependencies or security guidance change; stale bundle metadata can ship old risks.
 - [VPS SSH access](vps-ssh-access.md) — remote updates need an authorized SSH identity in the active workspace; otherwise present a safe code-only handoff package.
+- [Vercel auth loading](vercel-auth-loading.md) — serverless database startup failures must time out and show a visible auth state instead of leaving the SPA on a blank screen.
