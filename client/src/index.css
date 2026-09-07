@@ -247,6 +247,75 @@
   background-color: #ff2939 !important;
 }
 
+/* Remaining legacy blue surfaces. Keep these exact so arbitrary Tailwind
+   class names remain valid CSS while rendering in the neutral palette. */
+.pixel-shell [class~="bg-[#050b25]"],
+.pixel-shell [class~="bg-[#070d25]"],
+.pixel-shell [class~="bg-[#07102a]"],
+.pixel-shell [class~="bg-[#080c20]"],
+.pixel-shell [class~="bg-[#0a1235]"],
+.pixel-shell [class~="bg-[#0b153d]"],
+.pixel-shell [class~="bg-[#0b1744]"],
+.pixel-shell [class~="bg-[#0c174b]"],
+.pixel-shell [class~="bg-[#0e205f]"],
+.pixel-shell [class~="bg-[#101827]"],
+.pixel-shell [class~="bg-[#101b4c]"],
+.pixel-shell [class~="bg-[#10276a]"],
+.pixel-shell [class~="bg-[#102b6a]"],
+.pixel-shell [class~="bg-[#122766]"],
+.pixel-shell [class~="bg-[#122d88]"],
+.pixel-shell [class~="bg-[#14276b]"],
+.pixel-shell [class~="bg-[#162d78]"],
+.pixel-shell [class~="bg-[#163078]"],
+.pixel-shell [class~="bg-[#19357e]"],
+.pixel-shell [class~="bg-[#19367f]"],
+.pixel-shell [class~="bg-[#1d3d93]"],
+.pixel-shell [class~="bg-[#1f439b]"],
+.pixel-shell [class~="bg-[#20345f]"],
+.pixel-shell [class~="bg-[#203b8f]"],
+.pixel-shell [class~="bg-[#21469f]"],
+.pixel-shell [class~="bg-[#2555c5]"],
+.pixel-shell [class~="bg-[#2d4da9]"],
+.pixel-shell [class~="bg-[#5f90ef]"],
+.pixel-shell [class~="bg-[#75a2ff]"],
+.pixel-shell [class~="bg-[#77a3ff]"],
+.pixel-shell [class~="bg-[#78a3ff]"] {
+  background-color: #171717 !important;
+}
+
+.pixel-shell [class~="hover:bg-[#0d0d0d]"]:hover,
+.pixel-shell [class~="hover:bg-[#163078]"]:hover,
+.pixel-shell [class~="hover:bg-[#17337d]"]:hover,
+.pixel-shell [class~="hover:bg-[#19357e]"]:hover,
+.pixel-shell [class~="hover:bg-[#19377e]"]:hover,
+.pixel-shell [class~="hover:bg-[#2555c5]"]:hover,
+.pixel-shell [class~="hover:bg-[#2d4da9]"]:hover,
+.pixel-shell [class~="hover:bg-[#75a2ff]"]:hover {
+  background-color: #242424 !important;
+}
+
+.pixel-shell [class~="text-[#75a2ff]"],
+.pixel-shell [class~="text-[#78a3ff]"],
+.pixel-shell [class~="text-[#77a3ff]"],
+.pixel-shell [class~="text-[#c5d6ff]"],
+.pixel-shell [class~="text-[#c9dcff]"],
+.pixel-shell [class~="text-[#b9cfff]"],
+.pixel-shell [class~="text-[#9ca9de]"],
+.pixel-shell [class~="text-[#aab6e6]"],
+.pixel-shell [class~="text-[#abbceb]"] {
+  color: #d0d0d0 !important;
+}
+
+.pixel-shell [class~="border-[#0a1021]"],
+.pixel-shell [class~="border-[#07102a]"],
+.pixel-shell [class~="border-[#0b1b50]"],
+.pixel-shell [class~="border-[#233f9b]"],
+.pixel-shell [class~="border-[#21469f]"],
+.pixel-shell [class~="border-[#1d3d93]"],
+.pixel-shell [class~="border-[#183c9d]"] {
+  border-color: #3a3a3a !important;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .pixel-shell {
     cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M4 3 5 25l6-6 5 9 4-2-5-9 8-1L4 3Z' fill='%23fff' stroke='%23050918' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E") 4 3, default;
