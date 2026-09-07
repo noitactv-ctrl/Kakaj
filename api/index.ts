@@ -1,9 +1,7 @@
 import type { Request, Response } from "express";
 import type { Express } from "express";
 import type { Server } from "http";
-import { createRequire } from "node:module";
-
-const runtimeRequire = createRequire(import.meta.url);
+import { createApp } from "../server/app";
 
 type AppResult = {
   app: Express;
@@ -13,17 +11,12 @@ type AppResult = {
 let appPromise: Promise<AppResult> | undefined;
 
 async function getApp(): Promise<AppResult> {
-  appPromise ??= Promise.resolve()
-    .then(() => {
-      const { createApp } = runtimeRequire("../server/app") as typeof import("../server/app");
-      return createApp({ serveClient: false });
-    })
-    .catch((error) => {
+  appPromise ??= createApp({ serveClient: false }).catch((error) => {
     // Allow a later serverless invocation to retry after a transient database
     // or environment configuration failure instead of caching a rejected app.
     appPromise = undefined;
     throw error;
-    });
+  });
   return appPromise;
 }
 
