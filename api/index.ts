@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { Express } from "express";
 import type { Server } from "http";
+import { createApp } from "../server/app";
 
 type AppResult = {
   app: Express;
@@ -10,7 +11,7 @@ type AppResult = {
 let appPromise: Promise<AppResult> | undefined;
 
 async function getApp(): Promise<AppResult> {
-  appPromise ??= import("../server/app").then(({ createApp }) => createApp({ serveClient: false })).catch((error) => {
+  appPromise ??= createApp({ serveClient: false }).catch((error) => {
     // Allow a later serverless invocation to retry after a transient database
     // or environment configuration failure instead of caching a rejected app.
     appPromise = undefined;
