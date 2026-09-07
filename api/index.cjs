@@ -1,26 +1,21 @@
-import type { Request, Response } from "express";
-import type { Express } from "express";
-import type { Server } from "http";
-import { createApp } from "../server/app";
+let appPromise;
 
-type AppResult = {
-  app: Express;
-  httpServer: Server;
-};
-
-let appPromise: Promise<AppResult> | undefined;
-
-async function getApp(): Promise<AppResult> {
-  appPromise ??= createApp({ serveClient: false }).catch((error) => {
-    // Allow a later serverless invocation to retry after a transient database
-    // or environment configuration failure instead of caching a rejected app.
-    appPromise = undefined;
-    throw error;
-  });
+function getApp() {
+  appPromise ??= Promise.resolve()
+    .then(() => {
+      // Keep module evaluation inside the promise so Vercel can return a
+      // controlled initialization error instead of crashing the invocation.
+      const { createApp } = require("../server/app");
+      return createApp({ serveClient: false });
+    })
+    .catch((error) => {
+      appPromise = undefined;
+      throw error;
+    });
   return appPromise;
 }
 
-function initializationMessage(error: unknown): string {
+function initializationMessage(error) {
   if (!process.env.DATABASE_URL) {
     return "DATABASE_URL is not configured in the Vercel environment.";
   }
@@ -33,8 +28,8 @@ function initializationMessage(error: unknown): string {
     .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "postgresql://[redacted]")
     .replace(/(password\s*[=:]\s*)[^\s]+/gi, "$1[redacted]")
     .slice(0, 240);
-  const errorCode = typeof error === "object" && error !== null && "code" in error
-    ? String((error as { code?: unknown }).code ?? "")
+  const errorCode = error && typeof error === "object" && "code" in error
+    ? String(error.code ?? "")
     : "";
 
   if (/database|postgres|relation|connection|timeout|authentication|invalid.*url|url.*invalid/i.test(rawMessage)) {
@@ -44,15 +39,13 @@ function initializationMessage(error: unknown): string {
   return `The Vercel function failed during server initialization${errorCode ? ` (${errorCode})` : ""}: ${safeMessage}`;
 }
 
-export default async function handler(req: Request, res: Response) {
+module.exports = async function handler(req, res) {
   try {
     const { app } = await getApp();
     return app(req, res);
   } catch (error) {
-    // Never leave the browser waiting when the serverless app cannot initialize.
-    // Keep the response generic so database connection details are not exposed.
     return res.status(503).json({
       message: initializationMessage(error),
     });
   }
-}
+};
