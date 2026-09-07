@@ -308,3 +308,17 @@ mtime_ms = 1788631786890
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:de412c82-1f7b-4596-a5e9-5be1edbed74d/016185ab-c4f3-4da5-abfe-3545a70d2292/f444c0d3-5b0e-484b-a97d-bf9892b58c1b"
 storage_version_token = "1788631791366890"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "ZlBKufuzsCVhe99ANNMIq"
+uri = "file://release/turtlecc-vps-20260907-193839.tar.gz"
+type = "unspecified"
+title = "TurtleCC VPS deployment bundle"
+description = "96 MB Docker Compose bundle for VPS hosting. Includes application source, deployment files, the VPS tutorial, and the safe environment template; excludes secrets, databases, dependencies, build output, optional reference assets, and Replit metadata."
+logical_id = "b3c36d7e-4452-4911-a744-dd8f6916c3e3"
+content_hash = "sha256:e21c70199d9a66d7226ebc5fdded7543fc1392bdcd49abe9eed294867dce05e5"
+size = 100495816
+mtime_ms = 1788809923386
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:ae2e582f-adb6-4a4c-8c48-d2af0ed2cb98/b3c36d7e-4452-4911-a744-dd8f6916c3e3/815b2b7f-a66a-48f7-a6a5-718937c43cd4"
+storage_version_token = "1788809933487812"
+content_type = "application/octet-stream"

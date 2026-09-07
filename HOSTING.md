@@ -25,10 +25,12 @@ npm run package:vps
 ```
 
 The command creates a file such as
-`release/turtlecc-vps-20260907-185901.tar.gz`. The archive includes the source,
-Docker deployment files, `HOSTING.md`, and the tracked `attached_assets/`
-directory. It deliberately excludes `.env` files, databases, `node_modules`,
-`dist/`, Git history, Replit-only folders, and previously created archives.
+`release/turtlecc-vps-20260907-185901.tar.gz`. The archive includes the source
+and Docker deployment files. It deliberately excludes `.env` files, databases,
+`node_modules`, `dist/`, the large optional `attached_assets/` reference
+folder, Git history, Replit-only folders, and previously created archives.
+Product images uploaded through the admin panel are stored in PostgreSQL and
+move with the database backup, not with this source archive.
 
 Copy it to the VPS with your own SSH account:
 
@@ -86,16 +88,14 @@ Point your DNS `A`/`AAAA` record at the VPS before requesting HTTPS.
 The app uses PostgreSQL for marketplace data **and login sessions**. Use a
 persistent database, not an ephemeral container or local temporary filesystem.
 
-## Restoring uploaded assets
+## Restoring optional reference assets
 
-The self-hosting source archive contains the application code and deployment
-files. If separate `assets` archives were provided with it, extract the source
-archive first, then extract every asset archive into that same destination
-directory. They merge into `attached_assets/`, which preserves uploaded images
-that may be referenced by records restored from an existing database backup.
+The self-hosting source archive intentionally does not include the large
+`attached_assets/` reference folder. If you separately need those files for
+development or design reference, extract an asset archive into the same
+destination directory after extracting the source archive.
 
-The application can start without those optional archives on a brand-new
-database.
+The application can build and start without those optional reference files.
 
 ## Option A: Docker Compose
 
@@ -350,8 +350,9 @@ dump, `.env`, API key, or stock export into the website archive.
 For the Docker database, create a compressed backup from the app directory:
 
 ```bash
-docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  --format=custom --no-owner --no-acl > "backup-$(date +%F).dump"
+docker compose exec -T db sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl' \
+  > "backup-$(date +%F).dump"
 chmod 600 backup-*.dump
 ```
 
@@ -365,8 +366,9 @@ From the app directory:
 
 ```bash
  # Upload and extract a newer turtlecc-vps-*.tar.gz first, then:
-docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  --format=custom --no-owner --no-acl > "backup-before-update-$(date +%F).dump"
+docker compose exec -T db sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --no-owner --no-acl' \
+  > "backup-before-update-$(date +%F).dump"
 docker compose up -d --build
 docker compose ps
 curl -fsS https://your-domain.example/api/health
