@@ -26,10 +26,21 @@ function initializationMessage(error: unknown): string {
   if (!process.env.SESSION_SECRET) {
     return "SESSION_SECRET is not configured in the Vercel environment.";
   }
-  if (error instanceof Error && /database|postgres|relation|connection|timeout/i.test(error.message)) {
-    return "The Vercel function could not initialize its PostgreSQL connection or schema.";
+
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const safeMessage = rawMessage
+    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "postgresql://[redacted]")
+    .replace(/(password\s*[=:]\s*)[^\s]+/gi, "$1[redacted]")
+    .slice(0, 240);
+  const errorCode = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code ?? "")
+    : "";
+
+  if (/database|postgres|relation|connection|timeout|authentication|invalid.*url|url.*invalid/i.test(rawMessage)) {
+    return `The Vercel function could not initialize its PostgreSQL connection or schema${errorCode ? ` (${errorCode})` : ""}: ${safeMessage}`;
   }
-  return "The Vercel function failed during server initialization.";
+
+  return `The Vercel function failed during server initialization${errorCode ? ` (${errorCode})` : ""}: ${safeMessage}`;
 }
 
 export default async function handler(req: Request, res: Response) {
