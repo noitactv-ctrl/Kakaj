@@ -28,7 +28,7 @@ import RedeemPage from "@/pages/RedeemPage";
 import LinkPage from "@/pages/LinkPage";
 
 function Router() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isError, error, refetch } = useAuth();
   const { features } = useFeatureVisibility();
   const { data: creditBotStatus } = useQuery<{ enabled: boolean }>({
     queryKey: ["/api/telegram/status"],
@@ -38,10 +38,10 @@ function Router() {
   useCryptoPolling();
 
   useEffect(() => {
-    if (!isLoading && !user && location !== "/auth") {
+    if (!isLoading && !isError && !user && location !== "/auth") {
       setLocation("/auth");
     }
-  }, [user, isLoading, location, setLocation]);
+  }, [user, isLoading, isError, location, setLocation]);
 
   if (isLoading) {
     return (
@@ -49,6 +49,32 @@ function Router() {
         <div>
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#ff2939]" />
           <p className="text-sm font-semibold">Loading TurtleCC…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-6 text-center text-white">
+        <div className="max-w-md">
+          <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-[#ff5a66] bg-[#2a1114] font-extrabold text-[#ff6973]">
+            !
+          </div>
+          <h1 className="text-lg font-semibold">TurtleCC could not reach the server</h1>
+          <p className="mt-2 text-sm leading-6 text-white/60">
+            The app is online, but its API is unavailable. Check the deployment database and environment settings, then retry.
+          </p>
+          <p className="mt-3 break-words text-xs text-white/40">
+            {error instanceof Error ? error.message : "The authentication request failed."}
+          </p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="mt-6 rounded-xl border border-[#ff5a66] bg-[#ff2939] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#e51f30]"
+          >
+            Try again
+          </button>
         </div>
       </div>
     );

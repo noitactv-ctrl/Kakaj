@@ -7,12 +7,30 @@ export function useAuth() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, isError, error, refetch } = useQuery({
     queryKey: [api.auth.me.path],
     queryFn: async () => {
-      const res = await fetch(api.auth.me.path);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15_000);
+      let res: Response;
+      try {
+        res = await fetch(api.auth.me.path, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === "AbortError") {
+          throw new Error("The server did not respond within 15 seconds.");
+        }
+        throw cause;
+      } finally {
+        window.clearTimeout(timeout);
+      }
       if (res.status === 401) return null;
-      if (!res.ok) throw new Error("Failed to fetch user");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { message?: unknown } | null;
+        throw new Error(typeof body?.message === "string" ? body.message : `The server returned HTTP ${res.status}.`);
+      }
       return api.auth.me.responses[200].parse(await res.json());
     },
     retry: false,
@@ -79,6 +97,9 @@ export function useAuth() {
   return {
     user,
     isLoading,
+    isError,
+    error,
+    refetch,
     login: loginMutation.mutateAsync,
     register: registerMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,

@@ -16,6 +16,8 @@ export const pool = new Pool({
   // indefinitely. This is especially important on Vercel, where the client
   // would otherwise remain on the app's loading screen forever.
   connectionTimeoutMillis: 10_000,
+  query_timeout: 10_000,
+  statement_timeout: 10_000,
   idleTimeoutMillis: 30_000,
   max: process.env.VERCEL === "1" ? 5 : 10,
 });
