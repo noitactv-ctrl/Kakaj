@@ -52,7 +52,7 @@ export function SecurityCheck({ onVerified }: SecurityCheckProps) {
     >
       <div className="max-w-lg">
         <p className="text-white/60 text-sm font-mono mb-8 tracking-wide">
-           BEASTCC
+           TurtleCC
         </p>
 
         <h1 className="text-white text-3xl md:text-4xl font-extrabold mb-4 leading-tight">
@@ -128,7 +128,7 @@ export function SecurityCheck({ onVerified }: SecurityCheckProps) {
 
           <div className="text-right flex-shrink-0">
             <p className="text-white/80 text-xs font-bold tracking-widest uppercase">
-               BEAST<span style={{ color: "#888" }}> CC</span>
+               Turtle<span style={{ color: "#888" }}>CC</span>
             </p>
             <p className="text-white/30 text-[10px] mt-0.5">Security · Protected</p>
           </div>
@@ -147,7 +147,7 @@ export function SecurityCheck({ onVerified }: SecurityCheckProps) {
 
       <div className="absolute bottom-6 left-0 right-0 text-center">
         <p className="text-white/20 text-[11px]">
-           Ray ID: {rayId.current} · Protected by BEASTCC Security
+           Ray ID: {rayId.current} · Protected by TurtleCC Security
         </p>
       </div>
     </div>

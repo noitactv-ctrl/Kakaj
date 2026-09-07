@@ -1372,8 +1372,8 @@ export async function registerRoutes(
       if (updates.enabled !== undefined && updates.enabled !== before.enabled) {
         await broadcastTelegramMessage(
           updates.enabled
-            ? "✅ The beastcc.xyz rewards bot is back up."
-            : "⚠️ The beastcc.xyz rewards bot is turned off right now. We’ll let you know when it’s back up.",
+            ? "✅ The turtlecc.xyz rewards bot is back up."
+            : "⚠️ The turtlecc.xyz rewards bot is turned off right now. We’ll let you know when it’s back up.",
         );
       }
       res.json(status);

@@ -1,4 +1,4 @@
-# Self-hosting BEASTCC securely
+# Self-hosting TurtleCC securely
 
 This single guide runs the website on your own Linux server or VPS.
 It does not copy the current Replit database or provider accounts. The
@@ -7,7 +7,7 @@ application code is portable, but the services around it belong to the host.
 The recommended setup is Docker Compose behind Caddy or Nginx:
 
 ```text
-Internet → HTTPS reverse proxy → 127.0.0.1:5000 → BEASTCC → private PostgreSQL
+Internet → HTTPS reverse proxy → 127.0.0.1:5000 → TurtleCC → private PostgreSQL
 ```
 
 The Compose file binds the app to localhost and does not publish PostgreSQL.

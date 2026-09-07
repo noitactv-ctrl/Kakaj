@@ -100,7 +100,7 @@ async function settleCompletedPayment(transaction: any, payment: typeof cryptoPa
       amount: credit.bonusCents,
       type: "deposit_bonus",
       description: `Deposit bonus (+${credit.bonusPercent}%)`,
-      paymentMethod: "BEASTCC",
+      paymentMethod: "TurtleCC",
     });
   }
 }

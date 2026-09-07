@@ -34,7 +34,7 @@ export default function LinkPage() {
     try {
       await navigator.clipboard.writeText(token);
       setCopied(true);
-      toast({ title: "Copied", description: "Now send the number to the beastcc.xyz rewards bot." });
+      toast({ title: "Copied", description: "Now send the number to the turtlecc.xyz rewards bot." });
       window.setTimeout(() => setCopied(false), 3000);
     } catch {
       toast({ title: "Copy failed", description: "Select the number and copy it manually.", variant: "destructive" });

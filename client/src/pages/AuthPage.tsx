@@ -28,7 +28,7 @@ function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement> & { "data
   return (
     <input
       {...props}
-      className={`w-full bg-[#08143c] border-[3px] border-black rounded-none text-sm text-white px-3 py-2.5 outline-none focus:border-[#ffe177] transition-colors placeholder:text-white/35 ${props.className ?? ""}`}
+      className={`w-full bg-[#171717] border border-[#3a3a3a] rounded-xl text-sm text-white px-3 py-3 outline-none focus:border-[#ff2939] transition-colors placeholder:text-white/35 ${props.className ?? ""}`}
     />
   );
 }
@@ -51,7 +51,7 @@ function PasswordInput({ value, onChange, placeholder, disabled, testId }: {
       <button
         type="button"
         onClick={() => setShow(s => !s)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/50 transition-colors"
+         className="absolute right-3 top-1/2 -translate-y-1/2 text-white/35 hover:text-white/70 transition-colors"
         tabIndex={-1}
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -68,7 +68,7 @@ function BlueButton({ children, disabled, type = "submit", onClick, className = 
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`w-full border-[3px] border-black bg-[#ee292b] hover:bg-[#c91d20] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm py-3 rounded-none transition-colors flex items-center justify-center gap-2 ${className}`}
+       className={`w-full border border-[#ff5a66] bg-[#ff2939] hover:bg-[#e51f30] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm py-3 rounded-xl transition-colors flex items-center justify-center gap-2 ${className}`}
     >
       {children}
     </button>
@@ -97,7 +97,11 @@ function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
 
   return (
     <>
-       <h1 className="pixel-text text-lg font-bold text-white text-center mb-7">LOGIN</h1>
+       <div className="mb-7 text-center">
+         <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-[#ff5a66] bg-[#2a1114] text-sm font-extrabold text-[#ff6973]">T</div>
+         <p className="text-sm font-bold tracking-tight text-white">TurtleCC</p>
+         <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">Login to your account</h1>
+       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <FieldLabel>Email</FieldLabel>
@@ -110,10 +114,10 @@ function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
         </div>
 
         {/* Captcha */}
-        <div className="bg-[#ffe1aa] border-[3px] border-black rounded-none overflow-hidden flex items-center px-3 py-2 gap-3">
+         <div className="bg-[#171717] border border-[#3a3a3a] rounded-xl overflow-hidden flex items-center px-3 py-2 gap-3">
           <div className="flex-1">
             <div className="flex items-center gap-3">
-              <div className="rounded overflow-hidden border border-gray-200">
+                 <div className="rounded-lg overflow-hidden border border-[#3a3a3a]">
                 {captchaImage ? (
                   <img src={captchaImage} alt="CAPTCHA challenge" width={120} height={44} className="block" />
                 ) : (
@@ -127,13 +131,13 @@ function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
                 placeholder="Enter code"
                 disabled={isLoggingIn}
                 autoComplete="off"
-                className="flex-1 text-sm text-black bg-transparent outline-none placeholder:text-gray-400 tracking-widest"
+                 className="flex-1 text-sm text-white bg-transparent outline-none placeholder:text-white/35 tracking-widest"
                 data-testid="input-captcha"
               />
             </div>
           </div>
           <button type="button" onClick={() => { void refreshCaptcha(); setCaptchaInput(""); }}
-            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0" data-testid="btn-refresh-captcha">
+             className="text-white/40 hover:text-white transition-colors flex-shrink-0" data-testid="btn-refresh-captcha">
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
@@ -188,7 +192,11 @@ function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
   if (done) {
     return (
       <>
-        <h1 className="pixel-text text-lg font-bold text-white text-center mb-7">SIGNUP</h1>
+         <div className="mb-7 text-center">
+           <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-[#ff5a66] bg-[#2a1114] text-sm font-extrabold text-[#ff6973]">T</div>
+           <p className="text-sm font-bold tracking-tight text-white">TurtleCC</p>
+           <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">Create your account</h1>
+         </div>
         <div className="text-center space-y-4 py-4">
           <div className="text-4xl">✓</div>
           <p className="text-sm font-bold text-white">Account created!</p>
@@ -201,7 +209,11 @@ function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
 
   return (
     <>
-      <h1 className="pixel-text text-lg font-bold text-white text-center mb-7">SIGNUP</h1>
+       <div className="mb-7 text-center">
+         <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-[#ff5a66] bg-[#2a1114] text-sm font-extrabold text-[#ff6973]">T</div>
+         <p className="text-sm font-bold tracking-tight text-white">TurtleCC</p>
+         <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">Create your account</h1>
+       </div>
       <form onSubmit={handleCreate} className="space-y-4">
         <div>
           <FieldLabel>Email</FieldLabel>
@@ -242,7 +254,7 @@ export default function AuthPage() {
   return (
     <div className="pixel-shell min-h-screen flex flex-col bg-[#050505]">
       <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10">
-        <div className="w-full max-w-[380px] border-[3px] border-black bg-[#10215e] p-6 shadow-[5px_5px_0_#000]">
+       <div className="w-full max-w-[420px] rounded-2xl border border-[#353535] bg-[#151515] p-6 shadow-none sm:p-8">
           {tab === "login"
             ? <LoginForm onSwitchToRegister={() => setTab("register")} />
             : <RegisterForm onSwitchToLogin={() => setTab("login")} />

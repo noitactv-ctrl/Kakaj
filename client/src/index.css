@@ -7,84 +7,79 @@
 :root {
   --site-content-max: 70rem;
   --site-page-gutter: 1rem;
-  --pixel-control-height: 2.5rem;
-  --background: 0 0% 3%;
-  --foreground: 38 100% 94%;
-  --card: 228 62% 18%;
-  --card-foreground: 38 100% 94%;
-  --popover: 228 62% 18%;
-  --popover-foreground: 38 100% 94%;
-  --primary: 222 88% 58%;
+  --pixel-control-height: 2.75rem;
+  --background: 0 0% 4%;
+  --foreground: 0 0% 96%;
+  --card: 0 0% 9%;
+  --card-foreground: 0 0% 96%;
+  --popover: 0 0% 10%;
+  --popover-foreground: 0 0% 96%;
+  --primary: 356 100% 58%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 228 62% 18%;
-  --secondary-foreground: 38 100% 90%;
-  --muted: 228 20% 18%;
-  --muted-foreground: 225 16% 64%;
-  --accent: 42 100% 72%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 92%;
+  --muted: 0 0% 14%;
+  --muted-foreground: 0 0% 62%;
+  --accent: 356 100% 68%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 72% 51%;
+  --destructive: 356 85% 56%;
   --destructive-foreground: 0 0% 98%;
-  --border: 225 38% 28%;
-  --input: 228 30% 11%;
-  --ring: 42 100% 72%;
-  --radius: 0.125rem;
+  --border: 0 0% 22%;
+  --input: 0 0% 11%;
+  --ring: 356 100% 65%;
+  --radius: 0.75rem;
   --font-display: 'Inter', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --font-pixel: 'Press Start 2P', monospace;
+  --font-pixel: 'Inter', sans-serif;
 }
 
 @layer base {
   * { @apply border-border; }
   body { @apply bg-background text-foreground antialiased; font-family: var(--font-body); }
-  h1, h2, h3, h4, h5, h6 { font-family: var(--font-pixel); }
+  h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); letter-spacing: -0.025em; }
 }
 
 @layer components {
   .btn-pro { @apply h-9 px-4 text-xs font-semibold transition-all hover:scale-[0.98] active:scale-[0.95]; }
-  .btn-buy { @apply bg-[#e62628] hover:bg-[#c91d20] text-white font-bold text-xs transition-all hover:scale-[0.98] active:scale-[0.95]; }
+  .btn-buy { @apply bg-[#ff2939] hover:bg-[#e51f30] text-white font-bold text-xs transition-all hover:scale-[0.98] active:scale-[0.95]; }
   .mono { font-family: var(--font-mono); }
-  .pixel-text { font-family: var(--font-pixel); }
+  .pixel-text { font-family: var(--font-body); letter-spacing: normal; }
   .pixel-logo-text {
     color: #fff;
-    font-family: var(--font-pixel);
-    font-size: 17px;
-    font-weight: 900;
-    letter-spacing: 0.05em;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
     line-height: 1;
-    -webkit-text-stroke: 3px #050505;
-    paint-order: stroke fill;
-    text-shadow: 4px 4px 0 #050505, 0 0 0 #fff;
   }
   .sidebar-brand-button {
     position: relative;
     z-index: 0;
-    border-color: #050505;
-    background: #ef2428 !important;
-    box-shadow:
-      12px 12px 0 #050505,
-      inset 7px 7px 0 #ff6668,
-      inset -7px -7px 0 #b9131d;
+    border-color: #3a3a3a;
+    border-radius: 12px;
+    background: #ff2939 !important;
+    box-shadow: none;
   }
   .sidebar-brand-button .pixel-logo-text {
     position: relative;
     z-index: 1;
   }
-  .pixel-panel { border: 3px solid #070707; box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.82), inset 0 1px 0 rgba(255,255,255,0.16); }
-  .pixel-button { border: 3px solid #090909; box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255,255,255,0.25); background: #ffe1aa; color: #17110a; font-family: var(--font-pixel); font-weight: 700; }
-  .pixel-button:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255,255,255,0.25); filter: brightness(1.08); }
+  .pixel-panel { border: 1px solid #353535; border-radius: 14px; box-shadow: none; }
+  .pixel-button { border: 1px solid #3a3a3a; border-radius: 10px; box-shadow: none; background: #1a1a1a; color: #f5f5f5; font-family: var(--font-body); font-weight: 600; }
+  .pixel-button:hover { transform: none; box-shadow: none; filter: brightness(1.12); }
   .pixel-page { width: 100%; max-width: var(--site-content-max); margin: 0 auto; }
-  .pixel-input { width: 100%; border: 3px solid #050505; border-radius: 0; background: #ffe1aa; color: #1b130b; padding: 0.75rem 0.9rem; font-family: var(--font-mono); font-size: 0.78rem; outline: none; box-shadow: 2px 2px 0 #050505; }
-  .pixel-input::placeholder { color: #735c44; }
-  .pixel-input:focus { background: #fff0c9; }
-  .pixel-label { font-family: var(--font-pixel); font-size: 0.56rem; color: #ffe177; }
-  .pixel-status-yes, .pixel-status-no { display: inline-flex; align-items: center; justify-content: center; border: 2px solid #050505; padding: 0.24rem 0.42rem; font-family: var(--font-pixel); font-size: 0.5rem; }
+  .pixel-input { width: 100%; border: 1px solid #3a3a3a; border-radius: 12px; background: #171717; color: #f5f5f5; padding: 0.75rem 0.9rem; font-family: var(--font-body); font-size: 0.875rem; outline: none; box-shadow: none; }
+  .pixel-input::placeholder { color: #777; }
+  .pixel-input:focus { border-color: #ff2939; background: #1b1b1b; }
+  .pixel-label { font-family: var(--font-body); font-size: 0.7rem; font-weight: 700; color: #ff6973; letter-spacing: 0.08em; text-transform: uppercase; }
+  .pixel-status-yes, .pixel-status-no { display: inline-flex; align-items: center; justify-content: center; border: 1px solid #3a3a3a; border-radius: 999px; padding: 0.24rem 0.55rem; font-family: var(--font-body); font-size: 0.7rem; }
   .pixel-status-yes { background: #43b94e; color: #fff; }
-  .pixel-status-no { background: #697184; color: #f7f2e9; }
-  .store-action { display: flex; min-height: 44px; width: 100%; align-items: center; justify-content: space-between; gap: 1rem; border: 3px solid #070707; padding: 0.7rem 1rem; box-shadow: 4px 4px 0 #070707, inset 0 2px 0 rgba(255,255,255,0.24); font-family: var(--font-pixel); font-size: 0.65rem; line-height: 1.2; transition: filter 150ms ease, transform 150ms ease; }
-  .store-action:hover { transform: translate(1px, 1px); filter: brightness(1.1); }
-  .store-deposit { background: linear-gradient(180deg, #ff4547 0%, #e11d25 55%, #bd1018 100%); color: #fff; text-shadow: 2px 2px 0 #821018; }
-  .store-telegram { background: linear-gradient(180deg, #3f7ff7 0%, #2360df 55%, #1845b8 100%); color: #fff; text-shadow: 2px 2px 0 #12327d; }
+  .pixel-status-no { background: #2a2a2a; color: #ddd; }
+  .store-action { display: flex; min-height: 44px; width: 100%; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid #3a3a3a; border-radius: 12px; padding: 0.7rem 1rem; box-shadow: none; font-family: var(--font-body); font-size: 0.85rem; line-height: 1.2; transition: filter 150ms ease, transform 150ms ease; }
+  .store-action:hover { transform: translateY(-1px); filter: brightness(1.1); }
+  .store-deposit { background: #ff2939; color: #fff; }
+  .store-telegram { background: #202020; color: #fff; }
 }
 
 .pixel-content-gutter {
@@ -128,26 +123,76 @@
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
 .glass { @apply bg-white/5 backdrop-blur-xl border border-white/[0.06] shadow-md; }
-.pro-card { @apply bg-[#101a4a] border border-[#314caa] rounded-none shadow-sm; }
-.item-row { @apply border border-[#273d88] bg-[#111b4d] rounded-none p-3 hover:bg-[#17245f] transition-colors; }
+.pro-card { @apply bg-[#171717] border border-[#353535] rounded-xl shadow-sm; }
+.item-row { @apply border border-[#303030] bg-[#171717] rounded-xl p-3 hover:bg-[#202020] transition-colors; }
 
 .pixel-shell .bg-\[\#111\],
 .pixel-shell .bg-\[\#0d0d0d\],
 .pixel-shell .bg-\[\#1a1a1a\] {
-  background-color: #10215e !important;
+  background-color: #171717 !important;
 }
 
 .pixel-shell .bg-card,
 .pixel-shell .bg-card\/40 {
-  background-color: #10215e !important;
-  border: 3px solid #050505 !important;
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.7);
+  background-color: #171717 !important;
+  border: 1px solid #353535 !important;
+  border-radius: 14px;
+  box-shadow: none;
 }
 
 .pixel-shell input,
 .pixel-shell select,
 .pixel-shell textarea {
-  border-radius: 0;
+  border-radius: 12px;
+}
+
+/* Legacy utility colors are kept in page markup for readability and semantics,
+   but the storefront now uses the charcoal + red TurtleCC system. */
+.pixel-shell [class~="bg-[#10215e]"],
+.pixel-shell [class~="bg-[#101a4a]"],
+.pixel-shell [class~="bg-[#111b4d]"],
+.pixel-shell [class~="bg-[#18296d]"],
+.pixel-shell [class~="bg-[#152d75]"],
+.pixel-shell [class~="bg-[#17337d]"],
+.pixel-shell [class~="bg-[#19377e]"],
+.pixel-shell [class~="bg-[#0a1645]"],
+.pixel-shell [class~="bg-[#0b1644]"],
+.pixel-shell [class~="bg-[#0b1849]"],
+.pixel-shell [class~="bg-[#08143c]"] {
+  background-color: #171717 !important;
+}
+
+.pixel-shell [class~="bg-[#5f90ef]"] {
+  background-color: #151515 !important;
+  color: #f5f5f5 !important;
+}
+
+.pixel-shell [class~="bg-[#ffe1aa]"] {
+  background-color: #171717 !important;
+  color: #f5f5f5 !important;
+}
+
+.pixel-shell [class~="bg-[#43b94e]"],
+.pixel-shell [class~="bg-[#d94343]"],
+.pixel-shell [class~="bg-[#ee292b]"],
+.pixel-shell [class~="bg-[#e62628]"] {
+  background-color: #ff2939 !important;
+}
+
+.pixel-shell [class~="hover:bg-[#31973a]"]:hover,
+.pixel-shell [class~="hover:bg-[#c91d20]"]:hover,
+.pixel-shell [class~="hover:bg-[#e51f30]"]:hover {
+  background-color: #e51f30 !important;
+}
+
+.pixel-shell [class~="text-[#ffe177]"],
+.pixel-shell [class~="text-[#ffcf3f]"] {
+  color: #ff6973 !important;
+}
+
+.pixel-shell [class~="border-[#e5be35]"],
+.pixel-shell [class~="border-[#183c9d]"] {
+  border-color: #333 !important;
 }
 
 @media (hover: hover) and (pointer: fine) {

@@ -75,7 +75,7 @@ export default function AdminPage() {
       <aside className="hidden md:flex w-52 shrink-0 flex-col border-r border-white/10 bg-[#111]">
         <div className="px-5 py-5 border-b border-white/8">
           <p className="text-base font-black text-white">
-             BEASTCC
+             TurtleCC
           </p>
           <p className="text-[10px] text-white/40 uppercase tracking-widest font-mono mt-0.5">Admin</p>
         </div>
@@ -123,7 +123,7 @@ export default function AdminPage() {
         <header className="md:hidden shrink-0 flex items-center justify-between px-4 py-3 bg-[#111] border-b border-white/10">
           <div>
             <p className="text-sm font-black text-white">
-                BEASTCC
+                TurtleCC
               <span className="ml-1.5 text-xs font-normal text-white/40">Admin</span>
             </p>
             <p className="text-[10px] text-white/40 font-mono">{activeLabel}</p>
@@ -371,7 +371,7 @@ function CreditBotSection() {
                 id="credit-bot-required-name"
                 value={requiredName}
                 onChange={event => setRequiredName(event.target.value)}
-                placeholder="beastcc.xyz"
+                placeholder="turtlecc.xyz"
                 className="border-white/10 bg-black/20 font-mono"
                 data-testid="input-credit-bot-required-name"
               />

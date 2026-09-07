@@ -1,10 +1,10 @@
-# BEASTCC — Digital Marketplace
+# TurtleCC — Digital Marketplace
 
 ## What This Is
 
 A pixel-styled digital marketplace for selling digital items (logs and cards) with stock-based delivery. Built with React + Express + PostgreSQL.
 
-**Customer brand:** BEASTCC
+**Customer brand:** TurtleCC
 
 ---
 
@@ -19,7 +19,7 @@ A pixel-styled digital marketplace for selling digital items (logs and cards) wi
 - **Payment Method Toggles** — admin can show/hide Wallet, CashApp, and Crypto per customer
 - **Games** — Plinko
 - **Orders** — order history with exact delivery content and support links
-- **Pixel theme** — dark blue storefront with BEASTCC branding and custom arrow/hand/text cursors
+- **Charcoal/red theme** — near-black storefront with TurtleCC branding and custom arrow/hand/text cursors
 
 ---
 

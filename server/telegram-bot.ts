@@ -14,7 +14,7 @@ const REWARD_AMOUNT_SETTING = "credit_bot_reward_cents";
 const DEFAULT_REWARD_CENTS = 25;
 const REWARD_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const PROFILE_SYNC_INTERVAL_MS = 30 * 1000;
-const BRAND_NAME = "beastcc.xyz";
+const BRAND_NAME = "turtlecc.xyz";
 const DEFAULT_REQUIRED_NAME = BRAND_NAME;
 const LINK_TOKEN_TTL_MS = 30 * 60 * 1000;
 
@@ -503,7 +503,7 @@ function getStartMessage(config: TelegramConfig): {
   }
 
   return {
-    text: `👋 Welcome to the beastcc.xyz rewards bot!\n\nEarn ${formatCredit(config.rewardCents)} in store credit every 24 hours.\n\nRules:\n• <code>${escapeTelegramHtml(config.requiredName)}</code> must be in your first or last name.\n• You must be part of our main channel.\n\nTo start, send your 16-digit account number from beastcc.xyz/link. If you need to change accounts later, use /relink followed by a new number.`,
+    text: `👋 Welcome to the turtlecc.xyz rewards bot!\n\nEarn ${formatCredit(config.rewardCents)} in store credit every 24 hours.\n\nRules:\n• <code>${escapeTelegramHtml(config.requiredName)}</code> must be in your first or last name.\n• You must be part of our main channel.\n\nTo start, send your 16-digit account number from turtlecc.xyz/link. If you need to change accounts later, use /relink followed by a new number.`,
     ...(inlineKeyboard.length ? { replyMarkup: { inline_keyboard: inlineKeyboard } } : {}),
   };
 }
@@ -532,22 +532,22 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
   if (command === "/link") {
     await sendTelegramMessage(chatId, linked
       ? "Your Telegram is already linked. Use /relink 1234567890123456 to link a different account."
-      : "Open beastcc.xyz/link. Your 16-digit account number is created automatically; copy it and send that number here.", config.token);
+      : "Open turtlecc.xyz/link. Your 16-digit account number is created automatically; copy it and send that number here.", config.token);
     return;
   }
   if (command === "/relink") {
     const relinkToken = text.split(/\s+/)[1] ?? "";
     if (!/^\d{16}$/.test(relinkToken)) {
-      await sendTelegramMessage(chatId, "Use /relink followed by the 16-digit account number from beastcc.xyz/link.", config.token);
+      await sendTelegramMessage(chatId, "Use /relink followed by the 16-digit account number from turtlecc.xyz/link.", config.token);
       return;
     }
     const claimed = await claimLinkToken(relinkToken, String(chatId), from);
     if (!claimed) {
-      await sendTelegramMessage(chatId, "That 16-digit account number is invalid, expired, or already used. Generate a new one at beastcc.xyz/link.", config.token);
+      await sendTelegramMessage(chatId, "That 16-digit account number is invalid, expired, or already used. Generate a new one at turtlecc.xyz/link.", config.token);
       return;
     }
     const result = await synchronizeUser(claimed, from, config);
-    await sendTelegramMessage(chatId, `✅ Your beastcc.xyz account was relinked.\n\n${await statusMessage(claimed, from, config, result)}`, config.token);
+    await sendTelegramMessage(chatId, `✅ Your turtlecc.xyz account was relinked.\n\n${await statusMessage(claimed, from, config, result)}`, config.token);
     return;
   }
   if (command === "/status" && linked) {
@@ -559,11 +559,11 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
   if (/^\d{16}$/.test(text)) {
     const claimed = await claimLinkToken(text, String(chatId), from);
     if (!claimed) {
-       await sendTelegramMessage(chatId, "That 16-digit account number is invalid, expired, or already used. Generate a new one at beastcc.xyz/link.", config.token);
+       await sendTelegramMessage(chatId, "That 16-digit account number is invalid, expired, or already used. Generate a new one at turtlecc.xyz/link.", config.token);
       return;
     }
       const result = await synchronizeUser(claimed, from, config);
-      await sendTelegramMessage(chatId, `✅ Your beastcc.xyz account is linked.\n\n${await statusMessage(claimed, from, config, result)}`, config.token);
+      await sendTelegramMessage(chatId, `✅ Your turtlecc.xyz account is linked.\n\n${await statusMessage(claimed, from, config, result)}`, config.token);
     return;
   }
 
@@ -571,7 +571,7 @@ async function handleMessage(message: any, config: TelegramConfig): Promise<void
     const result = await synchronizeUser(linked, from, config);
     await sendTelegramMessage(chatId, await statusMessage(linked, from, config, result), config.token);
   } else {
-    await sendTelegramMessage(chatId, "Send /start to begin, then use your 16-digit account number from beastcc.xyz/link.", config.token);
+    await sendTelegramMessage(chatId, "Send /start to begin, then use your 16-digit account number from turtlecc.xyz/link.", config.token);
   }
 }
 
