@@ -5,8 +5,9 @@ function getApp() {
     .then(() => {
       // Keep module evaluation inside the promise so Vercel can return a
       // controlled initialization error instead of crashing the invocation.
-      const { createApp } = require("../server/app");
-      return createApp({ serveClient: false });
+      return import("../server/app").then(({ createApp }) =>
+        createApp({ serveClient: false }),
+      );
     })
     .catch((error) => {
       appPromise = undefined;
