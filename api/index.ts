@@ -1,6 +1,9 @@
 import type { Request, Response } from "express";
 import type { Express } from "express";
 import type { Server } from "http";
+import { createRequire } from "node:module";
+
+const runtimeRequire = createRequire(import.meta.url);
 
 type AppResult = {
   app: Express;
@@ -12,7 +15,7 @@ let appPromise: Promise<AppResult> | undefined;
 async function getApp(): Promise<AppResult> {
   appPromise ??= Promise.resolve()
     .then(() => {
-      const { createApp } = require("../server/app") as typeof import("../server/app");
+      const { createApp } = runtimeRequire("../server/app") as typeof import("../server/app");
       return createApp({ serveClient: false });
     })
     .catch((error) => {
