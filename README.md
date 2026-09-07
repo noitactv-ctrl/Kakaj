@@ -21,6 +21,16 @@ npm run build
 npm run start
 ```
 
+To create a clean archive for a VPS:
+
+```bash
+npm run package:vps
+```
+
+The archive is written to `release/` and excludes secrets, databases, build
+output, dependencies, and workspace-only files. Upload it to the VPS and follow
+[`HOSTING.md`](./HOSTING.md).
+
 The application listens on port `5000` by default. The source package does not
 include `node_modules`, build output, database contents, Git history, or secret
 files.

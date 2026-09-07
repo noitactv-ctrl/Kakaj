@@ -14,6 +14,37 @@ The Compose file binds the app to localhost and does not publish PostgreSQL.
 Do not change those bindings unless you understand the firewall and database
 security consequences.
 
+## Upload the application bundle
+
+From the project workspace, create a clean archive:
+
+```bash
+npm ci
+npm run check
+npm run package:vps
+```
+
+The command creates a file such as
+`release/turtlecc-vps-20260907-185901.tar.gz`. The archive includes the source,
+Docker deployment files, `HOSTING.md`, and the tracked `attached_assets/`
+directory. It deliberately excludes `.env` files, databases, `node_modules`,
+`dist/`, Git history, Replit-only folders, and previously created archives.
+
+Copy it to the VPS with your own SSH account:
+
+```bash
+scp release/turtlecc-vps-*.tar.gz deploy@YOUR_VPS_IP:/tmp/
+ssh deploy@YOUR_VPS_IP
+sudo mkdir -p /opt/turtlecc
+sudo tar -xzf /tmp/turtlecc-vps-*.tar.gz -C /opt/turtlecc
+sudo chown -R "$USER":"$USER" /opt/turtlecc
+cd /opt/turtlecc
+```
+
+If your VPS user does not have permission to write under `/opt`, extract into
+`$HOME/turtlecc` instead. Never upload `.env`, database dumps, API keys, or
+payment stock exports as part of the source archive.
+
 ## What you need
 
 - Node.js 20 or newer, or Docker Engine with Compose
@@ -120,6 +151,53 @@ database.
 
 4. Put Caddy, Nginx, or another HTTPS reverse proxy in front of port `5000`.
    Do not expose the database port publicly.
+
+### First deployment with Docker Compose
+
+After extracting the bundle:
+
+```bash
+cd /opt/turtlecc
+cp .env.example .env
+chmod 600 .env
+```
+
+Edit `.env` and replace every placeholder. At minimum, set
+`POSTGRES_PASSWORD`, `DATABASE_URL`, `SESSION_SECRET`, `SETTINGS_ENCRYPTION_KEY`,
+`ADMIN_EMAILS`, `OWNER_EMAILS`, and `PORT`. For Compose, `DATABASE_URL` must use
+the service hostname `db`, not `localhost`:
+
+```dotenv
+POSTGRES_DB=turtlecc
+POSTGRES_USER=turtlecc_app
+POSTGRES_PASSWORD=use-a-unique-password
+DATABASE_URL=postgresql://turtlecc_app:use-a-unique-password@db:5432/turtlecc
+SESSION_SECRET=use-a-long-random-secret
+SETTINGS_ENCRYPTION_KEY=use-a-different-long-random-secret
+ADMIN_EMAILS=you@example.com
+OWNER_EMAILS=you@example.com
+PORT=5000
+```
+
+Generate secrets on the VPS without putting them in shell history:
+
+```bash
+umask 077
+openssl rand -hex 32
+openssl rand -hex 32
+```
+
+Build, migrate, and start the application:
+
+```bash
+docker compose up -d --build
+docker compose ps
+curl -fsS http://127.0.0.1:5000/api/health
+```
+
+The health check should return JSON containing `"ok":true`. View startup logs
+with `docker compose logs -f app`. Then configure Caddy or Nginx and verify the
+public HTTPS URL before enabling crypto callbacks.
 
 To stop the app without deleting data:
 
@@ -286,17 +364,18 @@ the same VPS is not enough protection against disk loss or compromise.
 From the app directory:
 
 ```bash
-git pull --ff-only
-npm ci
-npm run check
-npm run build
+ # Upload and extract a newer turtlecc-vps-*.tar.gz first, then:
+docker compose exec -T db pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  --format=custom --no-owner --no-acl > "backup-before-update-$(date +%F).dump"
 docker compose up -d --build
 docker compose ps
 curl -fsS https://your-domain.example/api/health
 ```
 
 Take a database backup before schema changes. Never run `docker compose down -v`
-for a normal update; `-v` deletes the database volume.
+for a normal update; `-v` deletes the database volume. Preserve the VPS `.env`
+when replacing the application directory; the uploaded bundle intentionally does
+not contain it.
 
 ## Security checklist before going live
 
