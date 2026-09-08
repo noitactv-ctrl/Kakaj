@@ -18,8 +18,10 @@ export const pool = new Pool({
   connectionTimeoutMillis: 10_000,
   query_timeout: 10_000,
   statement_timeout: 10_000,
-  idleTimeoutMillis: 30_000,
-  max: process.env.VERCEL === "1" ? 5 : 10,
+  idleTimeoutMillis: process.env.VERCEL === "1" ? 5_000 : 30_000,
+  // Vercel can create many short-lived instances. Keep each instance to one
+  // session so Supabase's session-mode pooler cannot be exhausted by fan-out.
+  max: process.env.VERCEL === "1" ? 1 : 10,
 });
 pool.on("error", (error) => {
   // PostgreSQL can terminate an idle client during maintenance or a database

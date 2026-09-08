@@ -45661,8 +45661,10 @@ var init_db2 = __esm({
       connectionTimeoutMillis: 1e4,
       query_timeout: 1e4,
       statement_timeout: 1e4,
-      idleTimeoutMillis: 3e4,
-      max: process.env.VERCEL === "1" ? 5 : 10
+      idleTimeoutMillis: process.env.VERCEL === "1" ? 5e3 : 3e4,
+      // Vercel can create many short-lived instances. Keep each instance to one
+      // session so Supabase's session-mode pooler cannot be exhausted by fan-out.
+      max: process.env.VERCEL === "1" ? 1 : 10
     });
     pool.on("error", (error) => {
       console.error("[db] idle client error:", error);
