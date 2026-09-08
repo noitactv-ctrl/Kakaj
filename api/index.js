@@ -45642,7 +45642,19 @@ var init_schema2 = __esm({
 });
 
 // server/db.ts
-var Pool3, databaseUrl, pool, db;
+function getServerlessDatabaseUrl() {
+  if (!databaseUrl || process.env.VERCEL !== "1") return databaseUrl;
+  try {
+    const url = new URL(databaseUrl);
+    if (url.hostname.endsWith(".pooler.supabase.com")) {
+      url.port = "6543";
+      return url.toString();
+    }
+  } catch {
+  }
+  return databaseUrl;
+}
+var Pool3, databaseUrl, serverlessDatabaseUrl, pool, db;
 var init_db2 = __esm({
   "server/db.ts"() {
     "use strict";
@@ -45651,10 +45663,11 @@ var init_db2 = __esm({
     init_schema2();
     ({ Pool: Pool3 } = esm_default);
     databaseUrl = process.env.DATABASE_URL;
+    serverlessDatabaseUrl = getServerlessDatabaseUrl();
     pool = new Pool3({
       // Keep missing configuration from crashing the Vercel module before
       // api/index.ts can return a safe initialization diagnostic.
-      ...databaseUrl ? { connectionString: databaseUrl } : { host: "127.0.0.1", port: 1, user: "missing", database: "missing" },
+      ...serverlessDatabaseUrl ? { connectionString: serverlessDatabaseUrl } : { host: "127.0.0.1", port: 1, user: "missing", database: "missing" },
       // A failed external database must not leave a serverless request hanging
       // indefinitely. This is especially important on Vercel, where the client
       // would otherwise remain on the app's loading screen forever.

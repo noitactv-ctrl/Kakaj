@@ -5,12 +5,32 @@ import * as schema from "@shared/schema";
 const { Pool } = pg;
 
 const databaseUrl = process.env.DATABASE_URL;
+function getServerlessDatabaseUrl() {
+  if (!databaseUrl || process.env.VERCEL !== "1") return databaseUrl;
+
+  try {
+    const url = new URL(databaseUrl);
+    // Supabase's session pooler (5432) is easy to select accidentally and
+    // has a small per-project client cap. Serverless instances must use the
+    // transaction pooler (6543) instead.
+    if (url.hostname.endsWith(".pooler.supabase.com")) {
+      url.port = "6543";
+      return url.toString();
+    }
+  } catch {
+    // Let pg return its normal connection-string diagnostic below.
+  }
+
+  return databaseUrl;
+}
+
+const serverlessDatabaseUrl = getServerlessDatabaseUrl();
 
 export const pool = new Pool({
   // Keep missing configuration from crashing the Vercel module before
   // api/index.ts can return a safe initialization diagnostic.
-  ...(databaseUrl
-    ? { connectionString: databaseUrl }
+  ...(serverlessDatabaseUrl
+    ? { connectionString: serverlessDatabaseUrl }
     : { host: "127.0.0.1", port: 1, user: "missing", database: "missing" }),
   // A failed external database must not leave a serverless request hanging
   // indefinitely. This is especially important on Vercel, where the client
