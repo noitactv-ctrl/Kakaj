@@ -45643,7 +45643,7 @@ var init_schema2 = __esm({
 
 // server/db.ts
 function getServerlessDatabaseUrl() {
-  if (!databaseUrl || process.env.VERCEL !== "1") return databaseUrl;
+  if (!databaseUrl) return databaseUrl;
   try {
     const url = new URL(databaseUrl);
     if (url.hostname.endsWith(".pooler.supabase.com")) {
@@ -45654,7 +45654,7 @@ function getServerlessDatabaseUrl() {
   }
   return databaseUrl;
 }
-var Pool3, databaseUrl, serverlessDatabaseUrl, pool, db;
+var Pool3, databaseUrl, serverlessDatabaseUrl, usesSupabasePooler, pool, db;
 var init_db2 = __esm({
   "server/db.ts"() {
     "use strict";
@@ -45664,6 +45664,15 @@ var init_db2 = __esm({
     ({ Pool: Pool3 } = esm_default);
     databaseUrl = process.env.DATABASE_URL;
     serverlessDatabaseUrl = getServerlessDatabaseUrl();
+    usesSupabasePooler = Boolean(
+      serverlessDatabaseUrl && (() => {
+        try {
+          return new URL(serverlessDatabaseUrl).hostname.endsWith(".pooler.supabase.com");
+        } catch {
+          return false;
+        }
+      })()
+    );
     pool = new Pool3({
       // Keep missing configuration from crashing the Vercel module before
       // api/index.ts can return a safe initialization diagnostic.
@@ -45677,7 +45686,7 @@ var init_db2 = __esm({
       idleTimeoutMillis: process.env.VERCEL === "1" ? 5e3 : 3e4,
       // Vercel can create many short-lived instances. Keep each instance to one
       // session so Supabase's session-mode pooler cannot be exhausted by fan-out.
-      max: process.env.VERCEL === "1" ? 1 : 10
+      max: process.env.VERCEL === "1" || usesSupabasePooler ? 1 : 10
     });
     pool.on("error", (error) => {
       console.error("[db] idle client error:", error);

@@ -6,7 +6,7 @@ const { Pool } = pg;
 
 const databaseUrl = process.env.DATABASE_URL;
 function getServerlessDatabaseUrl() {
-  if (!databaseUrl || process.env.VERCEL !== "1") return databaseUrl;
+  if (!databaseUrl) return databaseUrl;
 
   try {
     const url = new URL(databaseUrl);
@@ -25,6 +25,16 @@ function getServerlessDatabaseUrl() {
 }
 
 const serverlessDatabaseUrl = getServerlessDatabaseUrl();
+const usesSupabasePooler = Boolean(
+  serverlessDatabaseUrl &&
+  (() => {
+    try {
+      return new URL(serverlessDatabaseUrl).hostname.endsWith(".pooler.supabase.com");
+    } catch {
+      return false;
+    }
+  })(),
+);
 
 export const pool = new Pool({
   // Keep missing configuration from crashing the Vercel module before
@@ -41,7 +51,7 @@ export const pool = new Pool({
   idleTimeoutMillis: process.env.VERCEL === "1" ? 5_000 : 30_000,
   // Vercel can create many short-lived instances. Keep each instance to one
   // session so Supabase's session-mode pooler cannot be exhausted by fan-out.
-  max: process.env.VERCEL === "1" ? 1 : 10,
+  max: process.env.VERCEL === "1" || usesSupabasePooler ? 1 : 10,
 });
 pool.on("error", (error) => {
   // PostgreSQL can terminate an idle client during maintenance or a database
